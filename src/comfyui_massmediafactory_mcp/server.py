@@ -2,6 +2,13 @@
 ComfyUI MassMediaFactory MCP Server
 
 Main entry point that exposes all tools via MCP protocol.
+
+MCP Compliance:
+- JSON-RPC 2.0 via FastMCP
+- isError flag for error responses
+- Rate limiting on tool invocations
+- Structured logging with correlation IDs
+- Cursor-based pagination support
 """
 
 import json
@@ -21,6 +28,22 @@ from . import qa
 from . import models
 from . import analysis
 from . import style_learning
+from . import schemas
+from . import annotations
+from .mcp_utils import (
+    mcp_error,
+    mcp_success,
+    not_found_error,
+    validation_error,
+    timeout_error,
+    connection_error,
+    rate_limit_error,
+    mcp_tool_wrapper,
+    paginate,
+    validate_required,
+    validate_range,
+    logger,
+)
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -29,17 +52,33 @@ mcp = FastMCP(
 )
 
 
+def _to_mcp_response(result: dict) -> dict:
+    """
+    Convert a result dict to MCP-compliant format.
+
+    If result contains "error" key without "isError", adds MCP compliance.
+    """
+    if isinstance(result, dict) and "error" in result and "isError" not in result:
+        return {
+            **result,
+            "isError": True,
+            "code": result.get("code", "TOOL_ERROR"),
+        }
+    return result
+
+
 # =============================================================================
 # Discovery Tools
 # =============================================================================
 
 @mcp.tool()
+@mcp_tool_wrapper
 def list_checkpoints() -> dict:
     """
     List all available checkpoint models in ComfyUI.
     Returns model filenames for CheckpointLoaderSimple or UNETLoader.
     """
-    return discovery.list_checkpoints()
+    return _to_mcp_response(discovery.list_checkpoints())
 
 
 @mcp.tool()
@@ -75,6 +114,7 @@ def list_controlnets() -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_node_info(node_type: str) -> dict:
     """
     Get detailed information about a specific ComfyUI node type.
@@ -85,7 +125,7 @@ def get_node_info(node_type: str) -> dict:
     Returns:
         Node schema including inputs, outputs, and their types.
     """
-    return discovery.get_node_info(node_type)
+    return _to_mcp_response(discovery.get_node_info(node_type))
 
 
 @mcp.tool()
@@ -116,6 +156,7 @@ def get_all_models() -> dict:
 # =============================================================================
 
 @mcp.tool()
+@mcp_tool_wrapper
 def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
     """
     Execute a ComfyUI workflow and return the prompt_id for tracking.
@@ -134,7 +175,7 @@ def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dic
             "2": {"class_type": "CLIPTextEncode", "inputs": {"text": "a dragon", "clip": ["1", 1]}}
         }
     """
-    return execution.execute_workflow(workflow, client_id)
+    return _to_mcp_response(execution.execute_workflow(workflow, client_id))
 
 
 @mcp.tool()
@@ -152,6 +193,7 @@ def get_workflow_status(prompt_id: str) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
     """
     Wait for a workflow to complete and return outputs.
@@ -163,7 +205,7 @@ def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
     Returns:
         Final status with output file paths.
     """
-    return execution.wait_for_completion(prompt_id, timeout_seconds)
+    return _to_mcp_response(execution.wait_for_completion(prompt_id, timeout_seconds))
 
 
 @mcp.tool()
@@ -252,30 +294,52 @@ def regenerate(
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def list_assets(
     session_id: str = None,
     asset_type: str = None,
     limit: int = 20,
+    cursor: str = None,
 ) -> dict:
     """
-    List recent generated assets.
+    List recent generated assets with cursor-based pagination.
 
     Args:
         session_id: Filter by session (optional).
         asset_type: Filter by type: "images", "video", "audio" (optional).
-        limit: Maximum results (default 20).
+        limit: Maximum results per page (default 20).
+        cursor: Pagination cursor from previous response (optional).
 
     Returns:
-        List of asset summaries with asset_ids.
+        {
+            "assets": [...],
+            "nextCursor": "..." or null,
+            "total": N
+        }
     """
-    return execution.list_assets(
+    # Get all matching assets (internal function returns full list)
+    result = execution.list_assets(
         session_id=session_id,
         asset_type=asset_type,
-        limit=limit,
+        limit=1000,  # Get all for pagination
     )
+
+    if "error" in result:
+        return _to_mcp_response(result)
+
+    # Apply pagination
+    assets = result.get("assets", [])
+    paginated = paginate(assets, cursor=cursor, limit=limit)
+
+    return {
+        "assets": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_asset_metadata(asset_id: str) -> dict:
     """
     Get full metadata for an asset including workflow and parameters.
@@ -288,7 +352,7 @@ def get_asset_metadata(asset_id: str) -> dict:
     Returns:
         Full asset metadata including original workflow.
     """
-    return execution.get_asset_metadata(asset_id)
+    return _to_mcp_response(execution.get_asset_metadata(asset_id))
 
 
 @mcp.tool()
@@ -476,17 +540,40 @@ def load_workflow(name: str) -> dict:
 
 
 @mcp.tool()
-def list_saved_workflows(tag: str = None) -> dict:
+@mcp_tool_wrapper
+def list_saved_workflows(
+    tag: str = None,
+    limit: int = 20,
+    cursor: str = None,
+) -> dict:
     """
-    List all saved workflows in the library.
+    List all saved workflows in the library with cursor-based pagination.
 
     Args:
         tag: Optional tag to filter by.
+        limit: Maximum results per page (default 20).
+        cursor: Pagination cursor from previous response (optional).
 
     Returns:
-        List of workflow summaries.
+        {
+            "workflows": [...],
+            "nextCursor": "..." or null,
+            "total": N
+        }
     """
-    return persistence.list_workflows(tag)
+    result = persistence.list_workflows(tag)
+
+    if "error" in result:
+        return _to_mcp_response(result)
+
+    workflows = result.get("workflows", [])
+    paginated = paginate(workflows, cursor=cursor, limit=limit)
+
+    return {
+        "workflows": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
@@ -584,6 +671,7 @@ def check_model_fits(model_name: str, precision: str = "default") -> dict:
 # =============================================================================
 
 @mcp.tool()
+@mcp_tool_wrapper
 def validate_workflow(workflow: dict) -> dict:
     """
     Validate a workflow before execution to catch errors early.
@@ -601,7 +689,7 @@ def validate_workflow(workflow: dict) -> dict:
     Returns:
         Validation result with errors, warnings, and suggestions.
     """
-    return validation.validate_workflow(workflow)
+    return _to_mcp_response(validation.validate_workflow(workflow))
 
 
 @mcp.tool()
@@ -730,16 +818,44 @@ def check_installed_sota() -> dict:
 # =============================================================================
 
 @mcp.tool()
-def list_workflow_templates() -> dict:
+@mcp_tool_wrapper
+def list_workflow_templates(
+    limit: int = 50,
+    cursor: str = None,
+) -> dict:
     """
-    List all available workflow templates.
+    List all available workflow templates with cursor-based pagination.
 
     Returns templates for SOTA models with {{PLACEHOLDER}} syntax for customization.
+
+    Args:
+        limit: Maximum results per page (default 50).
+        cursor: Pagination cursor from previous response (optional).
+
+    Returns:
+        {
+            "templates": [...],
+            "nextCursor": "..." or null,
+            "total": N
+        }
     """
-    return templates.list_templates()
+    result = templates.list_templates()
+
+    if "error" in result:
+        return _to_mcp_response(result)
+
+    template_list = result.get("templates", [])
+    paginated = paginate(template_list, cursor=cursor, limit=limit)
+
+    return {
+        "templates": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_template(name: str) -> dict:
     """
     Get a workflow template by name.
@@ -750,7 +866,7 @@ def get_template(name: str) -> dict:
     Returns:
         Template with metadata and {{PLACEHOLDER}} fields.
     """
-    return templates.load_template(name)
+    return _to_mcp_response(templates.load_template(name))
 
 
 @mcp.tool()
@@ -983,77 +1099,113 @@ def run_upscale_pipeline(
 
 
 # =============================================================================
-# Templates as Resources (Legacy)
+# Templates as MCP Resources
 # =============================================================================
 
-@mcp.resource("template://flux-txt2img")
-def flux_txt2img_template() -> str:
-    """Flux text-to-image workflow template with {{PROMPT}}, {{SEED}} placeholders."""
-    template = {
-        "1": {
-            "class_type": "UNETLoader",
-            "inputs": {"unet_name": "{{MODEL}}", "weight_dtype": "default"}
-        },
-        "2": {
-            "class_type": "DualCLIPLoader",
-            "inputs": {
-                "clip_name1": "clip_l.safetensors",
-                "clip_name2": "t5xxl_fp16.safetensors",
-                "type": "flux"
-            }
-        },
-        "3": {
-            "class_type": "VAELoader",
-            "inputs": {"vae_name": "ae.safetensors"}
-        },
-        "4": {
-            "class_type": "CLIPTextEncode",
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
-        },
-        "5": {
-            "class_type": "FluxGuidance",
-            "inputs": {"conditioning": ["4", 0], "guidance": 3.5}
-        },
-        "6": {
-            "class_type": "EmptyLatentImage",
-            "inputs": {"width": 1024, "height": 1024, "batch_size": 1}
-        },
-        "7": {
-            "class_type": "KSamplerSelect",
-            "inputs": {"sampler_name": "euler"}
-        },
-        "8": {
-            "class_type": "BasicScheduler",
-            "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": 20, "denoise": 1.0}
-        },
-        "9": {
-            "class_type": "RandomNoise",
-            "inputs": {"noise_seed": "{{SEED}}"}
-        },
-        "10": {
-            "class_type": "BasicGuider",
-            "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}
-        },
-        "11": {
-            "class_type": "SamplerCustomAdvanced",
-            "inputs": {
-                "noise": ["9", 0],
-                "guider": ["10", 0],
-                "sampler": ["7", 0],
-                "sigmas": ["8", 0],
-                "latent_image": ["6", 0]
-            }
-        },
-        "12": {
-            "class_type": "VAEDecode",
-            "inputs": {"samples": ["11", 0], "vae": ["3", 0]}
-        },
-        "13": {
-            "class_type": "SaveImage",
-            "inputs": {"images": ["12", 0], "filename_prefix": "flux_output"}
-        }
-    }
+# Define template resources with proper MCP-compliant URIs
+# Format: comfyui://templates/{template_name}
+
+@mcp.resource(
+    "comfyui://templates/flux2_txt2img",
+    name="FLUX.2 Text-to-Image",
+    description="FLUX.2 text-to-image workflow with {{PROMPT}}, {{SEED}}, {{WIDTH}}, {{HEIGHT}} placeholders",
+    mime_type="application/json"
+)
+def resource_flux2_txt2img() -> str:
+    """FLUX.2 text-to-image workflow template."""
+    template = templates.load_template("flux2_txt2img")
     return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/qwen_txt2img",
+    name="Qwen Text-to-Image",
+    description="Qwen image generation workflow optimized for text rendering",
+    mime_type="application/json"
+)
+def resource_qwen_txt2img() -> str:
+    """Qwen text-to-image workflow template."""
+    template = templates.load_template("qwen_txt2img")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/ltx2_txt2vid",
+    name="LTX-2 Text-to-Video",
+    description="LTX-2 text-to-video workflow with audio sync support",
+    mime_type="application/json"
+)
+def resource_ltx2_txt2vid() -> str:
+    """LTX-2 text-to-video workflow template."""
+    template = templates.load_template("ltx2_txt2vid")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/wan26_img2vid",
+    name="Wan 2.6 Image-to-Video",
+    description="Wan 2.6 image-to-video workflow for animating still images",
+    mime_type="application/json"
+)
+def resource_wan26_img2vid() -> str:
+    """Wan 2.6 image-to-video workflow template."""
+    template = templates.load_template("wan26_img2vid")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/flux2_ultimate_upscale",
+    name="FLUX.2 Ultimate Upscale",
+    description="4K/8K upscaling with neural network enhancement",
+    mime_type="application/json"
+)
+def resource_flux2_ultimate_upscale() -> str:
+    """FLUX.2 upscaling workflow template."""
+    template = templates.load_template("flux2_ultimate_upscale")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/flux2_face_id",
+    name="FLUX.2 Face ID",
+    description="Generate images with consistent face identity (--cref replacement)",
+    mime_type="application/json"
+)
+def resource_flux2_face_id() -> str:
+    """FLUX.2 Face ID workflow template."""
+    template = templates.load_template("flux2_face_id")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/qwen3_tts_custom_voice",
+    name="Qwen3-TTS Custom Voice",
+    description="Text-to-speech with 9 premium preset voices",
+    mime_type="application/json"
+)
+def resource_qwen3_tts_custom_voice() -> str:
+    """Qwen3-TTS custom voice workflow template."""
+    template = templates.load_template("qwen3_tts_custom_voice")
+    return json.dumps(template, indent=2)
+
+
+@mcp.resource(
+    "comfyui://templates/chatterbox_tts",
+    name="Chatterbox TTS",
+    description="Expressive TTS with emotion tags ([laugh], [sigh], etc.)",
+    mime_type="application/json"
+)
+def resource_chatterbox_tts() -> str:
+    """Chatterbox TTS workflow template."""
+    template = templates.load_template("chatterbox_tts")
+    return json.dumps(template, indent=2)
+
+
+# Legacy resource for backwards compatibility
+@mcp.resource("template://flux-txt2img")
+def flux_txt2img_template_legacy() -> str:
+    """[DEPRECATED] Use comfyui://templates/flux2_txt2img instead."""
+    return resource_flux2_txt2img()
 
 
 # =============================================================================
@@ -1108,6 +1260,7 @@ def search_civitai(
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def download_model(
     url: str,
     model_type: str,
@@ -1149,7 +1302,7 @@ def download_model(
     Environment:
         Set CIVITAI_API_TOKEN for authenticated downloads (higher rate limits)
     """
-    return models.download_model(url, model_type, filename, overwrite)
+    return _to_mcp_response(models.download_model(url, model_type, filename, overwrite))
 
 
 @mcp.tool()
@@ -1233,6 +1386,7 @@ def get_image_dimensions(asset_id: str) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def detect_objects(
     asset_id: str,
     objects: list,
@@ -1269,7 +1423,7 @@ def detect_objects(
             # Regenerate with different seed
             regenerate(image_id, seed=None)
     """
-    return analysis.detect_objects(asset_id, objects, vlm_model)
+    return _to_mcp_response(analysis.detect_objects(asset_id, objects, vlm_model))
 
 
 @mcp.tool()
@@ -1298,6 +1452,7 @@ def get_video_info(asset_id: str) -> dict:
 # =============================================================================
 
 @mcp.tool()
+@mcp_tool_wrapper
 def qa_output(
     asset_id: str,
     prompt: str,
@@ -1341,12 +1496,12 @@ def qa_output(
             # Auto-regenerate with new seed
             regenerate(asset_id, seed=None)
     """
-    return qa.qa_output(
+    return _to_mcp_response(qa.qa_output(
         asset_id=asset_id,
         prompt=prompt,
         checks=checks,
         vlm_model=vlm_model,
-    )
+    ))
 
 
 @mcp.tool()
@@ -1614,15 +1769,33 @@ def get_style_preset(name: str) -> dict:
 
 
 @mcp.tool()
-def list_style_presets() -> dict:
+@mcp_tool_wrapper
+def list_style_presets(
+    limit: int = 20,
+    cursor: str = None,
+) -> dict:
     """
-    List all saved style presets.
+    List all saved style presets with cursor-based pagination.
+
+    Args:
+        limit: Maximum results per page (default 20).
+        cursor: Pagination cursor from previous response (optional).
 
     Returns:
-        {"presets": [...], "count": N}
+        {
+            "presets": [...],
+            "nextCursor": "..." or null,
+            "total": N
+        }
     """
     presets = style_learning.list_style_presets()
-    return {"presets": presets, "count": len(presets)}
+    paginated = paginate(presets, cursor=cursor, limit=limit)
+
+    return {
+        "presets": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
@@ -1639,6 +1812,143 @@ def get_style_learning_stats() -> dict:
         }
     """
     return style_learning.get_statistics()
+
+
+# =============================================================================
+# Schema Documentation Tools
+# =============================================================================
+
+@mcp.tool()
+def get_tool_schema(tool_name: str) -> dict:
+    """
+    Get the JSON Schema for a tool's input parameters.
+
+    Useful for understanding the expected structure of complex inputs
+    like workflows and parameter sets.
+
+    Args:
+        tool_name: Name of the tool (e.g., "execute_workflow", "qa_output")
+
+    Returns:
+        JSON Schema definition for the tool's inputs.
+    """
+    schema = schemas.get_schema(tool_name)
+    if schema:
+        return {"schema": schema, "tool": tool_name}
+    return mcp_error(
+        f"No schema found for tool: {tool_name}",
+        "NOT_FOUND",
+        {"available": schemas.list_schemas()}
+    )
+
+
+@mcp.tool()
+def list_tool_schemas() -> dict:
+    """
+    List all tools with explicit JSON Schema definitions.
+
+    Returns:
+        {"input_schemas": [...], "output_schemas": [...]}
+    """
+    return {
+        "input_schemas": schemas.list_schemas(),
+        "output_schemas": schemas.list_output_schemas(),
+    }
+
+
+@mcp.tool()
+def get_tool_output_schema(tool_name: str) -> dict:
+    """
+    Get the JSON Schema for a tool's output (response structure).
+
+    Per June 2025 MCP spec, output schemas define expected response structure.
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        JSON Schema definition for the tool's outputs.
+    """
+    schema = schemas.get_output_schema(tool_name)
+    if schema:
+        return {"schema": schema, "tool": tool_name, "type": "output"}
+    return mcp_error(
+        f"No output schema found for tool: {tool_name}",
+        "NOT_FOUND",
+        {"available": schemas.list_output_schemas()}
+    )
+
+
+# =============================================================================
+# Tool Annotation Tools
+# =============================================================================
+
+@mcp.tool()
+def get_tool_annotation(tool_name: str) -> dict:
+    """
+    Get MCP annotations for a tool.
+
+    Annotations describe:
+    - audience: Who should see results (["user"], ["assistant"], or both)
+    - priority: Importance 0.0-1.0
+    - category: Tool category for grouping
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Annotation metadata for the tool.
+    """
+    annotation = annotations.get_annotation(tool_name)
+    if annotation:
+        return {"tool": tool_name, "annotation": annotation}
+    return mcp_error(
+        f"No annotation found for tool: {tool_name}",
+        "NOT_FOUND"
+    )
+
+
+@mcp.tool()
+def list_user_facing_tools() -> dict:
+    """
+    List tools whose results should be shown to users.
+
+    These are tools with audience: ["user"] or ["user", "assistant"].
+
+    Returns:
+        {"tools": [...], "count": N}
+    """
+    tools = annotations.get_user_facing_tools()
+    return {"tools": tools, "count": len(tools)}
+
+
+@mcp.tool()
+def list_tools_by_category(category: str) -> dict:
+    """
+    List tools in a specific category.
+
+    Categories: discovery, execution, assets, publishing, library,
+    vram, validation, sota, templates, batch, pipeline, models,
+    analysis, qa, style_learning
+
+    Args:
+        category: Tool category name
+
+    Returns:
+        {"tools": [...], "category": "...", "count": N}
+    """
+    tools = annotations.get_tools_by_category(category)
+    if tools:
+        return {"tools": tools, "category": category, "count": len(tools)}
+    return mcp_error(
+        f"Unknown category: {category}",
+        "NOT_FOUND",
+        {"available_categories": [
+            "discovery", "execution", "assets", "publishing",
+            "library", "vram", "validation", "sota", "templates",
+            "batch", "pipeline", "models", "analysis", "qa", "style_learning"
+        ]}
+    )
 
 
 def main():
