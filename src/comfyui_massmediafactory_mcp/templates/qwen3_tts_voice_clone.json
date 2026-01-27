@@ -1,0 +1,71 @@
+{
+  "_meta": {
+    "description": "Qwen3-TTS Voice Clone - Clone any voice from 3 seconds of reference audio",
+    "type": "audio_tts_clone",
+    "use_case": "Clone a voice from reference audio with 0.95 similarity (replaces ElevenLabs Instant Voice Cloning)",
+    "replaces": "ElevenLabs Voice Cloning",
+    "parameters": ["TEXT", "REFERENCE_AUDIO", "REFERENCE_TEXT", "LANGUAGE", "SEED"],
+    "defaults": {
+      "LANGUAGE": "Auto",
+      "SEED": 42
+    },
+    "agent_notes": {
+      "TEXT": "New text to be spoken in cloned voice",
+      "REFERENCE_AUDIO": "Path to reference voice audio (3-10 seconds ideal, clear speech)",
+      "REFERENCE_TEXT": "Exact transcript of reference audio (must match precisely for best quality)",
+      "LANGUAGE": "Auto-detect or specify target language",
+      "quality_tips": [
+        "Reference audio: 3-10 seconds is ideal",
+        "Clear speech without background noise",
+        "Reference text must EXACTLY match spoken words",
+        "0.95 voice similarity achieved with good reference",
+        "Supports cross-lingual cloning (clone English voice, speak Japanese)"
+      ]
+    },
+    "custom_nodes_required": ["ComfyUI-Qwen3-TTS"],
+    "models_required": ["Qwen/Qwen3-TTS-12Hz-1.7B-Base"],
+    "vram_required_gb": 4
+  },
+  "1": {
+    "class_type": "Qwen3TTSLoader",
+    "_comment": "Load Qwen3-TTS 1.7B Base model for voice cloning",
+    "inputs": {
+      "repo_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+      "source": "huggingface",
+      "attention": "auto"
+    }
+  },
+  "2": {
+    "class_type": "LoadAudio",
+    "_comment": "Load reference voice sample",
+    "inputs": {
+      "audio": "{{REFERENCE_AUDIO}}"
+    }
+  },
+  "3": {
+    "class_type": "Qwen3TTSVoiceClone",
+    "_comment": "Clone voice and generate new speech",
+    "inputs": {
+      "model": ["1", 0],
+      "ref_audio": ["2", 0],
+      "ref_text": "{{REFERENCE_TEXT}}",
+      "text": "{{TEXT}}",
+      "language": "{{LANGUAGE}}",
+      "seed": "{{SEED}}"
+    }
+  },
+  "4": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": ["3", 0],
+      "filename_prefix": "qwen3_voice_clone"
+    }
+  },
+  "5": {
+    "class_type": "GetAudioDuration",
+    "_comment": "For video sync: frames = duration_seconds * fps",
+    "inputs": {
+      "audio": ["3", 0]
+    }
+  }
+}

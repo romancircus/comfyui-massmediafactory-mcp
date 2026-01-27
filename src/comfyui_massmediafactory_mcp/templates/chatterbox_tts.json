@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "description": "Chatterbox TTS - High-quality expressive TTS with emotion tags and voice cloning",
+    "type": "audio_tts",
+    "use_case": "Generate expressive speech with paralinguistic sounds (laughs, sighs, etc.)",
+    "replaces": "ElevenLabs TTS",
+    "parameters": ["TEXT", "REFERENCE_AUDIO", "EXAGGERATION", "CFG_WEIGHT", "SEED"],
+    "defaults": {
+      "EXAGGERATION": 0.5,
+      "CFG_WEIGHT": 0.5,
+      "SEED": 42
+    },
+    "agent_notes": {
+      "TEXT": "Text to synthesize. Supports emotion tags: [laugh], [sigh], [gasp], [chuckle], [cough], [sniff], [groan], [shush], [clear throat]",
+      "REFERENCE_AUDIO": "Optional: Voice reference for cloning (3-10 seconds)",
+      "EXAGGERATION": "Emotion intensity (0.0-1.0). Higher = more expressive. 0.5 is natural.",
+      "CFG_WEIGHT": "Classifier-free guidance weight (0.0-1.0). Higher = closer to reference.",
+      "emotion_examples": [
+        "I can't believe it worked! [laugh] This is amazing!",
+        "[sigh] I suppose you're right about that.",
+        "[gasp] Did you see that?!",
+        "[clear throat] Let me begin the presentation."
+      ],
+      "best_for": "English language, expressive content, podcasts, character voices"
+    },
+    "custom_nodes_required": ["ComfyUI_Fill-ChatterBox"],
+    "vram_required_gb": 3
+  },
+  "1": {
+    "class_type": "FL_ChatterBox_Loader",
+    "_comment": "Load Chatterbox model (downloads automatically)",
+    "inputs": {
+      "model_type": "chatterbox"
+    }
+  },
+  "2": {
+    "class_type": "FL_ChatterBox_TTS",
+    "_comment": "Generate expressive speech with optional voice cloning",
+    "inputs": {
+      "model": ["1", 0],
+      "text": "{{TEXT}}",
+      "audio_prompt": "{{REFERENCE_AUDIO}}",
+      "exaggeration": "{{EXAGGERATION}}",
+      "cfg_weight": "{{CFG_WEIGHT}}",
+      "seed": "{{SEED}}"
+    }
+  },
+  "3": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": ["2", 0],
+      "filename_prefix": "chatterbox_output"
+    }
+  },
+  "4": {
+    "class_type": "GetAudioDuration",
+    "inputs": {
+      "audio": ["2", 0]
+    }
+  }
+}
