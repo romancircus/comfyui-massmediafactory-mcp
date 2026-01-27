@@ -1,0 +1,143 @@
+{
+  "_meta": {
+    "description": "FLUX.2-dev with Union ControlNet for multi-mode conditioning",
+    "model": "FLUX.2-dev",
+    "type": "img2img_controlnet",
+    "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "IMAGE_PATH", "CONTROL_MODE", "CONTROL_STRENGTH"],
+    "defaults": {
+      "WIDTH": 1024,
+      "HEIGHT": 1024,
+      "SEED": 42,
+      "CONTROL_MODE": 0,
+      "CONTROL_STRENGTH": 0.85
+    },
+    "control_modes": {
+      "canny": 0,
+      "depth": 1,
+      "pose": 2,
+      "normal": 3
+    },
+    "rtx5090_precision": "fp16",
+    "estimated_vram_gb": 27
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev.safetensors",
+      "weight_dtype": "fp16"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "5": {
+    "class_type": "ControlNetLoader",
+    "inputs": {
+      "control_net_name": "Flux2UnionControlNet.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "7": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["6", 0],
+      "guidance": 3.5
+    }
+  },
+  "8": {
+    "class_type": "ControlNetApplyAdvanced",
+    "inputs": {
+      "positive": ["7", 0],
+      "negative": ["7", 0],
+      "control_net": ["5", 0],
+      "image": ["4", 0],
+      "strength": "{{CONTROL_STRENGTH}}",
+      "start_percent": 0.0,
+      "end_percent": 1.0,
+      "control_mode": "{{CONTROL_MODE}}"
+    }
+  },
+  "9": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "11": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["1", 0],
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": 1.0
+    }
+  },
+  "12": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "13": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["1", 0],
+      "conditioning": ["8", 0]
+    }
+  },
+  "14": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["12", 0],
+      "guider": ["13", 0],
+      "sampler": ["10", 0],
+      "sigmas": ["11", 0],
+      "latent_image": ["9", 0]
+    }
+  },
+  "15": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["14", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "16": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["15", 0],
+      "filename_prefix": "flux2_controlnet"
+    }
+  }
+}

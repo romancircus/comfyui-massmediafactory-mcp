@@ -14,24 +14,46 @@ from .vram import MODEL_VRAM_ESTIMATES, detect_model_type
 
 # Current SOTA models by category (January 2026)
 # Keep in sync with sota-tracker MCP
+# Updated with RTX 5090 32GB optimization recommendations
 SOTA_MODELS = {
     "image_gen": {
         "sota": [
-            {
-                "name": "Qwen-Image-2512",
-                "comfyui_files": ["qwen_image_2512_fp8_e4m3fn.safetensors", "qwen_image_2512.safetensors"],
-                "vram_fp16": 14,
-                "vram_fp8": 7,
-                "strengths": ["photorealistic", "text rendering", "faces", "high detail"],
-                "best_for": ["portraits", "product photos", "text in images"],
-            },
             {
                 "name": "FLUX.2-dev",
                 "comfyui_files": ["flux2-dev.safetensors", "flux2-dev-fp8.safetensors"],
                 "vram_fp16": 24,
                 "vram_fp8": 12,
-                "strengths": ["text rendering", "coherent compositions", "prompt adherence"],
-                "best_for": ["general purpose", "text-heavy images", "logos"],
+                "strengths": ["photorealism", "anatomy", "lighting", "prompt adherence"],
+                "best_for": ["portraits", "general purpose", "artistic styles"],
+                "prompt_style": "natural_language",  # Descriptive, "The image showcases..."
+                "loader": "UNETLoader",
+                "guidance_node": "FluxGuidance",
+                "optimal_cfg": 3.5,
+                "optimal_steps": 20,
+                "sampler": "euler",
+                "scheduler": "simple",
+                "native_res": 1024,
+                "max_res": 2048,
+                "rtx5090_precision": "fp16",  # 32GB can handle fp16 easily
+            },
+            {
+                "name": "Qwen-Image-2512",
+                "comfyui_files": ["qwen_image_2512_fp16.safetensors", "qwen_image_2512_fp8_e4m3fn.safetensors"],
+                "vram_fp16": 14,
+                "vram_fp8": 7,
+                "strengths": ["text rendering", "complex layouts", "OCR-heavy tasks", "UI design"],
+                "best_for": ["posters", "ui design", "charts", "text in images", "logos"],
+                "prompt_style": "instructional",  # "Place text X at top left"
+                "loader": "UNETLoader",
+                "guidance_node": "ModelSamplingAuraFlow",
+                "optimal_shift": 3.1,
+                "optimal_cfg": 3.0,
+                "optimal_steps": 25,
+                "sampler": "euler",
+                "scheduler": "simple",
+                "native_res": 1296,
+                "max_res": 2512,
+                "rtx5090_precision": "fp16",  # 32GB can handle fp16 easily
             },
             {
                 "name": "Z-Image-Turbo",
@@ -40,6 +62,9 @@ SOTA_MODELS = {
                 "vram_fp8": 6,
                 "strengths": ["fast", "good quality", "efficient"],
                 "best_for": ["rapid iteration", "drafts", "batch generation"],
+                "prompt_style": "natural_language",
+                "optimal_steps": 8,
+                "rtx5090_precision": "fp16",
             },
         ],
         "deprecated": ["FLUX.1-dev", "SD 1.5", "SD 2.0", "SDXL Base"],
@@ -49,35 +74,66 @@ SOTA_MODELS = {
             {
                 "name": "LTX-2 19B",
                 "comfyui_files": ["ltx-2-19b-dev-fp8.safetensors", "ltx-2-19b.safetensors"],
-                "vram_fp16": 20,
-                "vram_fp8": 10,
-                "strengths": ["native audio", "lip sync", "long duration"],
-                "best_for": ["talking head", "music videos", "dialogue scenes"],
+                "vram_fp16": 38,  # Too large for RTX 5090!
+                "vram_fp8": 19,
+                "strengths": ["native audio", "lip sync", "long duration", "narrative coherence"],
+                "best_for": ["talking head", "music videos", "dialogue scenes", "audio-reactive"],
+                "prompt_style": "motion",  # Describe change, not static state
+                "audio_support": True,
+                "lip_sync": True,
+                "scheduler": "LTXVScheduler",
+                "max_shift": 2.05,
+                "base_shift": 0.95,
+                "optimal_cfg": 3.0,
+                "optimal_steps": 20,
                 "max_frames": 241,  # ~10 seconds at 24fps
+                "native_res": "1280x720",
+                "rtx5090_precision": "fp8",  # MUST use fp8 - fp16 causes OOM
+                "rtx5090_note": "fp16 requires 38GB - use fp8 on RTX 5090",
             },
             {
                 "name": "Wan 2.6",
-                "comfyui_files": ["wan2.6.safetensors", "wan-2.6-i2v.safetensors"],
-                "vram_fp16": 16,
-                "vram_fp8": 8,
-                "strengths": ["motion quality", "temporal consistency", "i2v"],
-                "best_for": ["image-to-video", "animation", "smooth motion"],
-                "max_frames": 121,
+                "comfyui_files": ["wan2.6_i2v_fp8.safetensors", "wan2.6.safetensors"],
+                "vram_fp16": 32,  # Too tight for RTX 5090
+                "vram_fp8": 16,
+                "strengths": ["motion quality", "high-dynamic motion", "physics simulation", "cinematography"],
+                "best_for": ["image-to-video", "action sequences", "b-roll", "cinematic shots"],
+                "prompt_style": "motion",  # Describe change, not static state
+                "audio_support": False,
+                "motion_brush": True,
+                "scheduler": "WanVideoScheduler",
+                "optimal_cfg": 5.0,
+                "optimal_steps": 30,
+                "max_frames": 121,  # ~5 seconds at 24fps
+                "native_res": "848x480",
+                "rtx5090_precision": "fp8",  # Recommended for headroom
             },
             {
                 "name": "HunyuanVideo 1.5",
-                "comfyui_files": ["hunyuan-video-1.5.safetensors"],
+                "comfyui_files": ["hunyuan-video-1.5.safetensors", "hunyuan-video-1.5-fp8.safetensors"],
                 "vram_fp16": 24,
                 "vram_fp8": 12,
-                "strengths": ["high resolution", "cinematic quality"],
+                "strengths": ["high resolution", "cinematic quality", "stable motion"],
                 "best_for": ["high-quality shorts", "cinematic content"],
+                "prompt_style": "motion",
+                "optimal_cfg": 6.0,
+                "optimal_steps": 30,
                 "max_frames": 129,
+                "rtx5090_precision": "fp16",  # Can fit in 32GB
             },
         ],
-        "deprecated": ["SVD", "AnimateDiff v2", "Wan 2.1"],
+        "deprecated": ["SVD", "AnimateDiff v2", "Wan 2.1", "LTX-1"],
     },
     "controlnet": {
         "sota": [
+            {
+                "name": "Flux.2 Union ControlNet",
+                "comfyui_files": ["Flux2UnionControlNet.safetensors"],
+                "vram": 3.0,
+                "best_for": ["multi-mode control", "edge + depth + pose combined"],
+                "modes": {"canny": 0, "depth": 1, "pose": 2, "normal": 3},
+                "note": "Replaces individual Canny/Depth models for Flux.2",
+            },
             {
                 "name": "Qwen ControlNet (Canny)",
                 "comfyui_files": ["qwen_image_canny_diffsynth_controlnet.safetensors"],
@@ -92,44 +148,144 @@ SOTA_MODELS = {
             },
         ],
     },
+    "ipadapter": {
+        "sota": [
+            {
+                "name": "IP-Adapter FaceID Plus v2",
+                "comfyui_files": ["ip-adapter-faceid-plusv2_sd15.bin", "ip-adapter-faceid-plusv2_sdxl.bin"],
+                "vram": 3.0,
+                "best_for": ["character consistency", "face preservation", "style transfer"],
+                "note": "Standard for character consistency across generations",
+            },
+            {
+                "name": "IP-Adapter Flux",
+                "comfyui_files": ["ip-adapter.bin"],
+                "clip_vision": "google/siglip-so400m-patch14-384",
+                "vram": 3.5,
+                "best_for": ["style transfer", "reference-based generation"],
+                "optimal_weight": 0.35,
+            },
+        ],
+    },
 }
 
 # Model selection matrix based on task and constraints
+# Updated for RTX 5090 32GB with January 2026 SOTA models
 TASK_MODEL_MATRIX = {
+    # === IMAGE GENERATION TASKS ===
     "portrait": {
-        "recommended": "Qwen-Image-2512",
-        "reason": "Best face quality and photorealism",
-        "alternatives": ["FLUX.2-dev"],
+        "recommended": "FLUX.2-dev",
+        "reason": "Superior photorealism, anatomy, and lighting for faces",
+        "alternatives": ["Qwen-Image-2512"],
+        "precision": "fp16",
+        "prompt_tip": "Use natural language: 'A close-up photograph of..., natural lighting'",
     },
     "text_in_image": {
-        "recommended": "FLUX.2-dev",
-        "reason": "Superior text rendering capabilities",
-        "alternatives": ["Qwen-Image-2512"],
+        "recommended": "Qwen-Image-2512",
+        "reason": "Best text rendering - can handle layout instructions",
+        "alternatives": ["FLUX.2-dev"],
+        "precision": "fp16",
+        "prompt_tip": "Use instructional: 'Place text X at top center, bold font, red color'",
+    },
+    "poster_design": {
+        "recommended": "Qwen-Image-2512",
+        "reason": "Handles complex layouts and text positioning",
+        "alternatives": ["FLUX.2-dev"],
+        "precision": "fp16",
+        "prompt_tip": "Be explicit about layout: 'Design a poster. Title at top, image in center...'",
+    },
+    "ui_design": {
+        "recommended": "Qwen-Image-2512",
+        "reason": "OCR-heavy tasks and clean layouts",
+        "alternatives": [],
+        "precision": "fp16",
+        "prompt_tip": "Describe UI elements with positions and sizes",
     },
     "fast_iteration": {
         "recommended": "Z-Image-Turbo",
-        "reason": "Fastest generation with good quality",
+        "reason": "Fastest generation (8 steps) with good quality",
         "alternatives": ["FLUX.2-dev (with fewer steps)"],
+        "precision": "fp16",
     },
+    "artistic_style": {
+        "recommended": "FLUX.2-dev",
+        "reason": "Excellent prompt adherence for artistic styles",
+        "alternatives": ["Qwen-Image-2512"],
+        "precision": "fp16",
+        "prompt_tip": "Describe style naturally: 'in the style of...', 'oil painting', etc.",
+    },
+
+    # === VIDEO GENERATION TASKS ===
     "talking_head": {
         "recommended": "LTX-2 19B",
-        "reason": "Native audio and lip sync support",
+        "reason": "Native audio input with lip sync support",
         "alternatives": ["Wan 2.6"],
+        "precision": "fp8",  # MUST use fp8 on RTX 5090
+        "prompt_tip": "Describe motion, not appearance: 'the person speaks, lips move naturally'",
+        "requires_audio": True,
+    },
+    "music_video": {
+        "recommended": "LTX-2 19B",
+        "reason": "Audio-reactive generation syncs with music",
+        "alternatives": ["Wan 2.6"],
+        "precision": "fp8",
+        "requires_audio": True,
+    },
+    "dialogue_scene": {
+        "recommended": "LTX-2 19B",
+        "reason": "Long coherence (10s) with audio sync",
+        "alternatives": [],
+        "precision": "fp8",
+        "requires_audio": True,
     },
     "image_to_video": {
         "recommended": "Wan 2.6",
-        "reason": "Best motion quality for i2v",
+        "reason": "Best motion quality and physics for I2V",
         "alternatives": ["LTX-2 19B", "HunyuanVideo 1.5"],
+        "precision": "fp8",
+        "prompt_tip": "Describe the CHANGE: 'camera pans left, subject walks forward'",
+    },
+    "action_sequence": {
+        "recommended": "Wan 2.6",
+        "reason": "High-dynamic motion and physics simulation",
+        "alternatives": ["LTX-2 19B"],
+        "precision": "fp8",
+        "prompt_tip": "Focus on movement: 'rapid acceleration, dust kicks up, camera follows'",
     },
     "cinematic_video": {
         "recommended": "HunyuanVideo 1.5",
         "reason": "Highest quality cinematic output",
         "alternatives": ["LTX-2 19B"],
+        "precision": "fp16",  # HunyuanVideo fits in fp16
     },
+    "b_roll": {
+        "recommended": "Wan 2.6",
+        "reason": "Smooth motion for background footage",
+        "alternatives": ["LTX-2 19B"],
+        "precision": "fp8",
+    },
+
+    # === SPECIALIZED TASKS ===
     "style_transfer": {
         "recommended": "Qwen-Image-2512 + ControlNet",
         "reason": "Best structure preservation with style change",
         "alternatives": ["FLUX.2-dev + IP-Adapter"],
+        "precision": "fp16",
+        "controlnet": "qwen_image_canny_diffsynth_controlnet.safetensors",
+    },
+    "character_consistency": {
+        "recommended": "FLUX.2-dev + IP-Adapter FaceID",
+        "reason": "Face preservation across generations",
+        "alternatives": ["Qwen-Image-2512 + ControlNet"],
+        "precision": "fp16",
+        "ipadapter": "ip-adapter-faceid-plusv2",
+    },
+    "reference_style": {
+        "recommended": "FLUX.2-dev + IP-Adapter Flux",
+        "reason": "Style transfer without color bleed",
+        "alternatives": [],
+        "precision": "fp16",
+        "optimal_weight": 0.35,
     },
 }
 

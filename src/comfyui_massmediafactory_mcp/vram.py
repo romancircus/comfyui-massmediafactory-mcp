@@ -12,14 +12,30 @@ from .client import get_client
 
 # Known model VRAM requirements (in GB) at different precisions
 # These are approximate and based on inference, not training
+# Updated January 2026 with RTX 5090 32GB optimization recommendations
 MODEL_VRAM_ESTIMATES = {
-    # Image Models
+    # ==========================================================================
+    # IMAGE MODELS
+    # ==========================================================================
+    # RTX 5090 32GB Strategy: Use fp16 for all image models (quality > speed)
+
     "flux": {
         "fp32": 48.0,
         "fp16": 24.0,
         "bf16": 24.0,
         "fp8": 12.0,
         "default": 24.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "32GB easily handles fp16 with 8GB headroom",
+    },
+    "flux2": {
+        "fp32": 48.0,
+        "fp16": 24.0,
+        "bf16": 24.0,
+        "fp8": 12.0,
+        "default": 24.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Use fp16 for best quality; fp8 only for speed iteration",
     },
     "flux-schnell": {
         "fp32": 48.0,
@@ -27,6 +43,7 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 24.0,
         "fp8": 12.0,
         "default": 24.0,
+        "rtx5090_recommended": "fp16",
     },
     "sdxl": {
         "fp32": 14.0,
@@ -34,6 +51,8 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 7.0,
         "fp8": 4.0,
         "default": 7.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Deprecated - use FLUX.2 or Qwen instead",
     },
     "sd15": {
         "fp32": 8.0,
@@ -41,6 +60,8 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 4.0,
         "fp8": 2.5,
         "default": 4.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Deprecated - use FLUX.2 or Qwen instead",
     },
     "sd3": {
         "fp32": 24.0,
@@ -48,6 +69,7 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 12.0,
         "fp8": 6.0,
         "default": 12.0,
+        "rtx5090_recommended": "fp16",
     },
     "qwen-image": {
         "fp32": 28.0,
@@ -55,21 +77,51 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 14.0,
         "fp8": 7.0,
         "default": 14.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "32GB handles fp16 easily; best for text rendering",
     },
-    # Video Models
+    "z-image-turbo": {
+        "fp32": 24.0,
+        "fp16": 12.0,
+        "bf16": 12.0,
+        "fp8": 6.0,
+        "default": 12.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Fast iteration model - 8 steps",
+    },
+
+    # ==========================================================================
+    # VIDEO MODELS
+    # ==========================================================================
+    # RTX 5090 32GB Strategy: Use fp8 for large video models (19B+)
+
     "ltx": {
         "fp32": 40.0,
         "fp16": 20.0,
         "bf16": 20.0,
         "fp8": 10.0,
         "default": 20.0,
+        "rtx5090_recommended": "fp8",
     },
     "ltx-2": {
-        "fp32": 40.0,
-        "fp16": 20.0,
-        "bf16": 20.0,
-        "fp8": 10.0,
-        "default": 20.0,
+        "fp32": 76.0,  # 19B parameters
+        "fp16": 38.0,  # TOO LARGE for RTX 5090!
+        "bf16": 38.0,
+        "fp8": 19.0,
+        "default": 19.0,  # Default to fp8
+        "rtx5090_recommended": "fp8",
+        "rtx5090_note": "CRITICAL: fp16 requires 38GB - MUST use fp8 on RTX 5090",
+        "rtx5090_warning": "OOM_IF_FP16",
+    },
+    "ltx-2-19b": {
+        "fp32": 76.0,
+        "fp16": 38.0,  # OOM on RTX 5090
+        "bf16": 38.0,
+        "fp8": 19.0,
+        "default": 19.0,
+        "rtx5090_recommended": "fp8",
+        "rtx5090_note": "19B model - fp8 mandatory on 32GB cards",
+        "rtx5090_warning": "OOM_IF_FP16",
     },
     "wan": {
         "fp32": 32.0,
@@ -77,6 +129,8 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 16.0,
         "fp8": 8.0,
         "default": 16.0,
+        "rtx5090_recommended": "fp8",
+        "rtx5090_note": "Use fp8 for headroom with frames/latents",
     },
     "wan2": {
         "fp32": 32.0,
@@ -84,6 +138,16 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 16.0,
         "fp8": 8.0,
         "default": 16.0,
+        "rtx5090_recommended": "fp8",
+    },
+    "wan2.6": {
+        "fp32": 64.0,
+        "fp16": 32.0,  # Too tight on RTX 5090
+        "bf16": 32.0,
+        "fp8": 16.0,
+        "default": 16.0,
+        "rtx5090_recommended": "fp8",
+        "rtx5090_note": "fp16 uses full 32GB - use fp8 for safety margin",
     },
     "hunyuan": {
         "fp32": 48.0,
@@ -91,6 +155,16 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 24.0,
         "fp8": 12.0,
         "default": 24.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Can use fp16 on 32GB with 8GB headroom",
+    },
+    "hunyuan-video": {
+        "fp32": 48.0,
+        "fp16": 24.0,
+        "bf16": 24.0,
+        "fp8": 12.0,
+        "default": 24.0,
+        "rtx5090_recommended": "fp16",
     },
     "svd": {
         "fp32": 16.0,
@@ -98,7 +172,10 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 8.0,
         "fp8": 4.0,
         "default": 8.0,
+        "rtx5090_recommended": "fp16",
+        "rtx5090_note": "Deprecated - use Wan 2.6 or LTX-2 instead",
     },
+
     # Fallback
     "unknown": {
         "fp32": 16.0,
@@ -106,8 +183,14 @@ MODEL_VRAM_ESTIMATES = {
         "bf16": 8.0,
         "fp8": 4.0,
         "default": 8.0,
+        "rtx5090_recommended": "fp16",
     },
 }
+
+# RTX 5090 Specific Constants
+RTX_5090_VRAM_GB = 32.0
+RTX_5090_SAFE_MARGIN_GB = 4.0  # Leave 4GB for system/latents
+RTX_5090_USABLE_GB = RTX_5090_VRAM_GB - RTX_5090_SAFE_MARGIN_GB  # 28GB usable
 
 # Additional VRAM for components
 COMPONENT_VRAM = {
@@ -150,8 +233,10 @@ def detect_model_type(model_name: str) -> Tuple[str, str]:
     elif "gguf" in name_lower or "q4" in name_lower or "q8" in name_lower:
         precision = "fp8"  # Quantized models similar to fp8
 
-    # Detect model type
-    if "flux" in name_lower:
+    # Detect model type - order matters (more specific first)
+    if "flux2" in name_lower or "flux-2" in name_lower or "flux.2" in name_lower:
+        return "flux2", precision
+    elif "flux" in name_lower:
         if "schnell" in name_lower:
             return "flux-schnell", precision
         return "flux", precision
@@ -163,18 +248,102 @@ def detect_model_type(model_name: str) -> Tuple[str, str]:
         return "sd15", precision
     elif "qwen" in name_lower:
         return "qwen-image", precision
+    elif "z-image" in name_lower or "z_image" in name_lower or "zimage" in name_lower:
+        return "z-image-turbo", precision
     elif "ltx" in name_lower:
-        if "2" in name_lower or "19b" in name_lower:
+        if "19b" in name_lower or "ltx-2" in name_lower or "ltx2" in name_lower:
+            return "ltx-2-19b", precision
+        elif "2" in name_lower:
             return "ltx-2", precision
         return "ltx", precision
     elif "wan" in name_lower:
+        if "2.6" in name_lower or "26" in name_lower:
+            return "wan2.6", precision
         return "wan2", precision
     elif "hunyuan" in name_lower:
+        if "video" in name_lower:
+            return "hunyuan-video", precision
         return "hunyuan", precision
-    elif "svd" in name_lower or "video" in name_lower:
+    elif "svd" in name_lower:
         return "svd", precision
 
     return "unknown", precision
+
+
+def get_rtx5090_recommendation(model_name: str) -> dict:
+    """
+    Get RTX 5090 32GB specific recommendations for a model.
+
+    Args:
+        model_name: Model filename
+
+    Returns:
+        Recommendations including precision, will_fit, and notes.
+    """
+    model_type, detected_precision = detect_model_type(model_name)
+    vram_table = MODEL_VRAM_ESTIMATES.get(model_type, MODEL_VRAM_ESTIMATES["unknown"])
+
+    recommended_precision = vram_table.get("rtx5090_recommended", "fp16")
+    recommended_vram = vram_table.get(recommended_precision, vram_table["default"])
+
+    # Add overhead for VAE, CLIP, etc.
+    total_estimated = recommended_vram + 4.0  # Conservative overhead
+
+    will_fit = total_estimated <= RTX_5090_USABLE_GB
+    has_warning = vram_table.get("rtx5090_warning") is not None
+
+    return {
+        "model": model_name,
+        "model_type": model_type,
+        "detected_precision": detected_precision,
+        "recommended_precision": recommended_precision,
+        "estimated_vram_gb": round(recommended_vram, 1),
+        "total_with_overhead_gb": round(total_estimated, 1),
+        "rtx5090_usable_gb": RTX_5090_USABLE_GB,
+        "will_fit": will_fit,
+        "note": vram_table.get("rtx5090_note", ""),
+        "warning": vram_table.get("rtx5090_warning"),
+        "is_video_model": model_type in ["ltx", "ltx-2", "ltx-2-19b", "wan", "wan2", "wan2.6", "hunyuan-video", "svd"],
+    }
+
+
+def get_pipeline_vram_strategy(image_model: str, video_model: str) -> dict:
+    """
+    Get VRAM management strategy for image → video pipelines on RTX 5090.
+
+    Args:
+        image_model: Image generation model name
+        video_model: Video generation model name
+
+    Returns:
+        Strategy for managing VRAM between pipeline stages.
+    """
+    image_rec = get_rtx5090_recommendation(image_model)
+    video_rec = get_rtx5090_recommendation(video_model)
+
+    combined_vram = image_rec["total_with_overhead_gb"] + video_rec["total_with_overhead_gb"]
+    can_stack = combined_vram <= RTX_5090_USABLE_GB
+
+    return {
+        "image_model": {
+            "model": image_model,
+            "precision": image_rec["recommended_precision"],
+            "vram_gb": image_rec["estimated_vram_gb"],
+        },
+        "video_model": {
+            "model": video_model,
+            "precision": video_rec["recommended_precision"],
+            "vram_gb": video_rec["estimated_vram_gb"],
+        },
+        "combined_vram_gb": round(combined_vram, 1),
+        "can_run_simultaneously": can_stack,
+        "strategy": "keep_loaded" if can_stack else "sequential_unload",
+        "action": (
+            "Models can remain loaded simultaneously"
+            if can_stack
+            else "MUST unload image model before loading video model. Use POST /free {unload_models: true}"
+        ),
+    }
 
 
 def estimate_workflow_vram(workflow: dict) -> dict:
