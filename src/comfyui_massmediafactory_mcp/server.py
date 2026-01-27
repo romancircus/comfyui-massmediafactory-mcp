@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from . import discovery
 from . import execution
 from . import persistence
+from . import vram
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -297,6 +298,42 @@ def import_workflow(
         tags: Optional tags.
     """
     return persistence.import_workflow(name, workflow_json, description, tags)
+
+
+# =============================================================================
+# VRAM Estimation Tools
+# =============================================================================
+
+@mcp.tool()
+def estimate_vram(workflow: dict) -> dict:
+    """
+    Estimate GPU VRAM usage for a workflow before execution.
+
+    Use this to check if a workflow will fit in available memory,
+    and get recommendations for optimization if it won't.
+
+    Args:
+        workflow: The workflow JSON to analyze.
+
+    Returns:
+        Estimated VRAM, available VRAM, will_fit flag, and recommendations.
+    """
+    return vram.estimate_workflow_vram(workflow)
+
+
+@mcp.tool()
+def check_model_fits(model_name: str, precision: str = "default") -> dict:
+    """
+    Quick check if a specific model will fit in available VRAM.
+
+    Args:
+        model_name: Model filename (e.g., "flux1-dev-fp8.safetensors")
+        precision: Override precision (fp32, fp16, bf16, fp8, default)
+
+    Returns:
+        Whether model fits, estimated VRAM, and alternatives if it doesn't.
+    """
+    return vram.check_model_fits(model_name, precision)
 
 
 # =============================================================================
