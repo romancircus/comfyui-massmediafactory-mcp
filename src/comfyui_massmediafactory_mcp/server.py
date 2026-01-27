@@ -18,6 +18,7 @@ from . import batch
 from . import pipeline
 from . import publish
 from . import qa
+from . import models
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -1051,6 +1052,146 @@ def flux_txt2img_template() -> str:
         }
     }
     return json.dumps(template, indent=2)
+
+
+# =============================================================================
+# Model Management Tools
+# =============================================================================
+
+@mcp.tool()
+def search_civitai(
+    query: str,
+    model_type: str = None,
+    nsfw: bool = False,
+    limit: int = 10,
+) -> dict:
+    """
+    Search Civitai for models by query.
+
+    Use this to find LoRAs, checkpoints, and other models when a workflow
+    requires a model that isn't installed. Returns download URLs and
+    trigger words.
+
+    Args:
+        query: Search term (e.g., "anime style", "flux lora", "cinematic")
+        model_type: Filter by type: "checkpoint", "lora", "embedding",
+                   "controlnet", "upscaler" (optional)
+        nsfw: Include NSFW models (default False)
+        limit: Maximum results to return (default 10)
+
+    Returns:
+        {
+            "models": [
+                {
+                    "name": "Model Name",
+                    "type": "LORA",
+                    "download_url": "https://...",
+                    "filename": "model.safetensors",
+                    "trigger_words": ["trigger1", "trigger2"],
+                    "base_model": "SDXL 1.0",
+                    "rating": 4.8,
+                    "downloads": 12345
+                }
+            ],
+            "total": 50
+        }
+
+    Example:
+        # Find anime style LoRAs
+        result = search_civitai("anime style", model_type="lora")
+        for model in result["models"]:
+            print(f"{model['name']}: {model['trigger_words']}")
+    """
+    return models.search_civitai(query, model_type, nsfw, limit)
+
+
+@mcp.tool()
+def download_model(
+    url: str,
+    model_type: str,
+    filename: str = None,
+    overwrite: bool = False,
+) -> dict:
+    """
+    Download a model to the appropriate ComfyUI directory.
+
+    Use this for self-healing when a workflow fails due to missing models.
+    Supports Civitai and HuggingFace download URLs.
+
+    Args:
+        url: Download URL (from search_civitai or HuggingFace)
+        model_type: Where to save: "checkpoint", "unet", "lora", "vae",
+                   "controlnet", "clip", "upscaler", "embedding"
+        filename: Target filename (auto-detected if not provided)
+        overwrite: Replace existing file (default False)
+
+    Returns:
+        {
+            "success": True,
+            "path": "/path/to/model.safetensors",
+            "size_mb": 2048.5
+        }
+
+    Example:
+        # Self-healing: workflow failed because LoRA missing
+        search = search_civitai("anime style", model_type="lora")
+        if search["models"]:
+            result = download_model(
+                url=search["models"][0]["download_url"],
+                model_type="lora"
+            )
+            if result["success"]:
+                # Retry workflow
+                execute_workflow(workflow)
+
+    Environment:
+        Set CIVITAI_API_TOKEN for authenticated downloads (higher rate limits)
+    """
+    return models.download_model(url, model_type, filename, overwrite)
+
+
+@mcp.tool()
+def get_model_info(model_path: str) -> dict:
+    """
+    Get information about an installed model.
+
+    Args:
+        model_path: Path to model (can be relative like "anime_style.safetensors")
+
+    Returns:
+        {
+            "exists": True,
+            "filename": "model.safetensors",
+            "size_mb": 2048.5,
+            "type": "safetensors",
+            "full_path": "/path/to/model.safetensors"
+        }
+    """
+    return models.get_model_info(model_path)
+
+
+@mcp.tool()
+def list_installed_models(model_type: str = None) -> dict:
+    """
+    List all installed models, optionally filtered by type.
+
+    Args:
+        model_type: Filter by type (e.g., "lora", "checkpoint")
+
+    Returns:
+        {
+            "models": [
+                {"name": "model.safetensors", "type": "lora", "size_mb": 123.4}
+            ],
+            "total": 50
+        }
+
+    Example:
+        # See what LoRAs are installed
+        result = list_installed_models("lora")
+        print(f"Found {result['total']} LoRAs")
+    """
+    return models.list_installed_models(model_type)
 
 
 # =============================================================================

@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "description": "F5-TTS Voice Cloning - Generate speech in a specific voice",
+    "type": "audio_tts_clone",
+    "use_case": "Clone a voice from reference audio (replaces ElevenLabs voice cloning)",
+    "replaces": "ElevenLabs Voice Cloning",
+    "parameters": ["TEXT", "REFERENCE_AUDIO", "REFERENCE_TEXT", "SPEED", "SEED"],
+    "defaults": {
+      "SPEED": 1.0,
+      "SEED": 42
+    },
+    "agent_notes": {
+      "REFERENCE_AUDIO": "Path to reference voice audio (3-10 seconds, clear speech, no background noise)",
+      "REFERENCE_TEXT": "Exact transcript of what is said in reference audio (must match precisely)",
+      "TEXT": "New text to be spoken in the cloned voice",
+      "quality_tips": [
+        "Reference audio should be 3-10 seconds",
+        "Reference must have clear speech, no music/noise",
+        "REFERENCE_TEXT must exactly match what's spoken",
+        "Similar length/style to reference works best"
+      ]
+    },
+    "custom_nodes_required": ["ComfyUI-F5-TTS"],
+    "installation": "Install via ComfyUI Manager: search 'F5-TTS'"
+  },
+  "1": {
+    "class_type": "F5TTSModelLoader",
+    "inputs": {
+      "model": "F5-TTS",
+      "vocoder": "vocos"
+    }
+  },
+  "2": {
+    "class_type": "LoadAudio",
+    "_comment": "Load reference voice sample",
+    "inputs": {
+      "audio": "{{REFERENCE_AUDIO}}"
+    }
+  },
+  "3": {
+    "class_type": "F5TTSVoiceClone",
+    "_comment": "Clone voice from reference and generate new speech",
+    "inputs": {
+      "model": ["1", 0],
+      "reference_audio": ["2", 0],
+      "reference_text": "{{REFERENCE_TEXT}}",
+      "text": "{{TEXT}}",
+      "seed": "{{SEED}}",
+      "speed": "{{SPEED}}"
+    }
+  },
+  "4": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": ["3", 0],
+      "filename_prefix": "voice_clone_output"
+    }
+  },
+  "5": {
+    "class_type": "GetAudioDuration",
+    "_comment": "Output duration for video sync: frames = duration_seconds * fps",
+    "inputs": {
+      "audio": ["3", 0]
+    }
+  }
+}

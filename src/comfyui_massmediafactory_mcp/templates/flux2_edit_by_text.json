@@ -1,0 +1,150 @@
+{
+  "_meta": {
+    "description": "FLUX.2 text-based inpainting using CLIPSeg for automatic mask generation",
+    "model": "FLUX.2-dev",
+    "type": "inpainting",
+    "use_case": "Edit specific objects in an image by describing what to select",
+    "replaces": "DALL-E inpainting (Select & Edit)",
+    "parameters": ["IMAGE_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "SEED", "STEPS", "GUIDANCE", "DENOISE"],
+    "defaults": {
+      "SEED": 42,
+      "STEPS": 20,
+      "GUIDANCE": 3.5,
+      "DENOISE": 0.85
+    },
+    "agent_notes": {
+      "SELECT_TEXT": "Describe the object to edit (e.g., 'the red car', 'person's face', 'background sky')",
+      "REPLACE_PROMPT": "Describe what the selected area should become",
+      "DENOISE": "0.7-0.9 for moderate changes, 0.3-0.5 for subtle refinements"
+    }
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "2": {
+    "class_type": "CLIPSeg",
+    "_comment": "Text-to-mask: converts text description into binary mask",
+    "inputs": {
+      "image": ["1", 0],
+      "text": "{{SELECT_TEXT}}",
+      "blur": 7,
+      "threshold": 0.4
+    }
+  },
+  "3": {
+    "class_type": "GrowMask",
+    "_comment": "Expand mask slightly for better blending",
+    "inputs": {
+      "mask": ["2", 0],
+      "expand": 8,
+      "tapered_corners": true
+    }
+  },
+  "4": {
+    "class_type": "MaskToImage",
+    "_comment": "Optional: preview the generated mask",
+    "inputs": {
+      "mask": ["3", 0]
+    }
+  },
+  "5": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "6": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "7": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["6", 0],
+      "text": "{{REPLACE_PROMPT}}"
+    }
+  },
+  "9": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["8", 0],
+      "guidance": "{{GUIDANCE}}"
+    }
+  },
+  "10": {
+    "class_type": "VAEEncodeForInpaint",
+    "_comment": "Encodes image + mask for inpainting",
+    "inputs": {
+      "pixels": ["1", 0],
+      "vae": ["7", 0],
+      "mask": ["3", 0],
+      "grow_mask_by": 6
+    }
+  },
+  "11": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "12": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["5", 0],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": "{{DENOISE}}"
+    }
+  },
+  "13": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "14": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["5", 0],
+      "conditioning": ["9", 0]
+    }
+  },
+  "15": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["13", 0],
+      "guider": ["14", 0],
+      "sampler": ["11", 0],
+      "sigmas": ["12", 0],
+      "latent_image": ["10", 0]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["7", 0]
+    }
+  },
+  "17": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["16", 0],
+      "filename_prefix": "flux2_inpaint"
+    }
+  }
+}

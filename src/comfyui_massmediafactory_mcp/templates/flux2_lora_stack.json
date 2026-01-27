@@ -1,0 +1,156 @@
+{
+  "_meta": {
+    "description": "FLUX.2-dev with LoRA style stacking (replaces Midjourney style keywords)",
+    "model": "FLUX.2-dev",
+    "type": "txt2img_styled",
+    "use_case": "Apply art styles via LoRA stacking",
+    "replaces": "Midjourney --style, --niji, etc.",
+    "parameters": ["PROMPT", "LORA_1", "LORA_1_STRENGTH", "LORA_2", "LORA_2_STRENGTH", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+    "defaults": {
+      "WIDTH": 1024,
+      "HEIGHT": 1024,
+      "SEED": 42,
+      "STEPS": 20,
+      "GUIDANCE": 3.5,
+      "LORA_1_STRENGTH": 0.8,
+      "LORA_2_STRENGTH": 0.0
+    },
+    "agent_notes": {
+      "LORA_1": "Primary style LoRA filename (e.g., 'anime_style_xl.safetensors')",
+      "LORA_2": "Optional secondary style (set strength to 0 to disable)",
+      "style_mapping": {
+        "anime": "anime_style_xl.safetensors",
+        "cinematic": "cinematic_xl.safetensors",
+        "oil_painting": "oil_painting_xl.safetensors",
+        "watercolor": "watercolor_v3.safetensors",
+        "3d_render": "3d_render_style.safetensors",
+        "pixel_art": "pixel_art_xl.safetensors",
+        "claymation": "claymation_style.safetensors",
+        "vintage": "vintage_film.safetensors",
+        "photorealistic": "add_detail_xl.safetensors"
+      },
+      "recommended_strengths": {
+        "primary_style": "0.7-0.9",
+        "secondary_style": "0.3-0.5",
+        "detail_enhancement": "0.4-0.6"
+      }
+    }
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoraLoader",
+    "_comment": "Primary style LoRA",
+    "inputs": {
+      "model": ["1", 0],
+      "clip": ["2", 0],
+      "lora_name": "{{LORA_1}}",
+      "strength_model": "{{LORA_1_STRENGTH}}",
+      "strength_clip": "{{LORA_1_STRENGTH}}"
+    }
+  },
+  "5": {
+    "class_type": "LoraLoader",
+    "_comment": "Secondary style LoRA (optional - set strength to 0 to disable)",
+    "inputs": {
+      "model": ["4", 0],
+      "clip": ["4", 1],
+      "lora_name": "{{LORA_2}}",
+      "strength_model": "{{LORA_2_STRENGTH}}",
+      "strength_clip": "{{LORA_2_STRENGTH}}"
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["5", 1],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "7": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["6", 0],
+      "guidance": "{{GUIDANCE}}"
+    }
+  },
+  "8": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "batch_size": 1
+    }
+  },
+  "9": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "10": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["5", 0],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": 1.0
+    }
+  },
+  "11": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "12": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["5", 0],
+      "conditioning": ["7", 0]
+    }
+  },
+  "13": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["11", 0],
+      "guider": ["12", 0],
+      "sampler": ["9", 0],
+      "sigmas": ["10", 0],
+      "latent_image": ["8", 0]
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["13", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "15": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["14", 0],
+      "filename_prefix": "flux2_styled"
+    }
+  }
+}
