@@ -15,6 +15,7 @@ from . import validation
 from . import sota
 from . import templates
 from . import batch
+from . import pipeline
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -638,6 +639,108 @@ def generate_seed_variations(
     """
     return batch.execute_seed_variations(
         workflow, parameters, num_variations, start_seed, parallel
+    )
+
+
+# =============================================================================
+# Multi-Stage Pipelines
+# =============================================================================
+
+@mcp.tool()
+def execute_pipeline_stages(
+    stages: list,
+    initial_params: dict,
+    timeout_per_stage: int = 600,
+) -> dict:
+    """
+    Execute a multi-stage pipeline where outputs flow between stages.
+
+    Use this for complex workflows like: generate image -> upscale -> create video.
+
+    Args:
+        stages: List of stage definitions. Each stage has:
+                - name: Stage identifier
+                - workflow: Workflow JSON with {{PLACEHOLDER}} fields
+                - output_mapping: Optional dict mapping output type to next stage's param
+                  e.g., {"images": "IMAGE_PATH"} passes images to next stage's IMAGE_PATH
+        initial_params: Starting parameters for first stage.
+        timeout_per_stage: Max time per stage in seconds.
+
+    Returns:
+        Complete pipeline results with all stage outputs.
+
+    Example:
+        execute_pipeline_stages(
+            stages=[
+                {
+                    "name": "generate",
+                    "workflow": qwen_workflow,
+                    "output_mapping": {"images": "IMAGE_PATH"}
+                },
+                {
+                    "name": "animate",
+                    "workflow": wan_workflow
+                }
+            ],
+            initial_params={"PROMPT": "a dragon", "SEED": 42}
+        )
+    """
+    return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
+
+
+@mcp.tool()
+def run_image_to_video_pipeline(
+    image_workflow: dict,
+    video_workflow: dict,
+    prompt: str,
+    video_prompt: str = None,
+    seed: int = 42,
+) -> dict:
+    """
+    Convenient pipeline: Generate image then animate to video.
+
+    Common workflow for creating AI videos from text prompts.
+
+    Args:
+        image_workflow: Text-to-image workflow (e.g., Qwen, FLUX.2).
+        video_workflow: Image-to-video workflow (e.g., Wan 2.6).
+        prompt: Image generation prompt.
+        video_prompt: Optional motion prompt (defaults to image prompt).
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Pipeline results with final video output.
+    """
+    return pipeline.create_image_to_video_pipeline(
+        image_workflow, video_workflow, prompt, video_prompt, seed
+    )
+
+
+@mcp.tool()
+def run_upscale_pipeline(
+    base_workflow: dict,
+    upscale_workflow: dict,
+    prompt: str,
+    upscale_factor: float = 2.0,
+    seed: int = 42,
+) -> dict:
+    """
+    Convenient pipeline: Generate image then upscale.
+
+    Use for high-resolution outputs.
+
+    Args:
+        base_workflow: Base image generation workflow.
+        upscale_workflow: Upscaling workflow (uses IMAGE_PATH parameter).
+        prompt: Generation prompt.
+        upscale_factor: How much to upscale (2.0 = double resolution).
+        seed: Random seed.
+
+    Returns:
+        Pipeline results with upscaled output.
+    """
+    return pipeline.create_upscale_pipeline(
+        base_workflow, upscale_workflow, prompt, upscale_factor, seed
     )
 
 
