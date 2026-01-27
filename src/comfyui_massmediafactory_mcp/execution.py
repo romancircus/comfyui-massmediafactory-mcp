@@ -532,3 +532,86 @@ def cleanup_expired_assets() -> dict:
     registry = get_registry()
     removed = registry.cleanup_expired()
     return {"removed": removed}
+
+
+# =============================================================================
+# Image Upload and Download Tools
+# =============================================================================
+
+
+def upload_image(
+    image_path: str,
+    filename: str = None,
+    subfolder: str = "",
+    overwrite: bool = True,
+) -> dict:
+    """
+    Upload an image to ComfyUI for use in workflows.
+
+    Use this to upload reference images for ControlNet, IP-Adapter,
+    or Image-to-Video workflows.
+
+    Args:
+        image_path: Local path to the image file.
+        filename: Target filename in ComfyUI (optional, uses original name).
+        subfolder: Subfolder within ComfyUI input directory.
+        overwrite: Whether to overwrite existing files (default True).
+
+    Returns:
+        {"name": "filename.png", "subfolder": "", "type": "input"}
+        Use the returned name in LoadImage nodes.
+
+    Example:
+        result = upload_image("/path/to/reference.png")
+        # Use result["name"] in workflow:
+        # {"class_type": "LoadImage", "inputs": {"image": result["name"]}}
+    """
+    client = get_client()
+    return client.upload_image(image_path, filename, subfolder, overwrite)
+
+
+def download_output(
+    asset_id: str,
+    output_path: str,
+) -> dict:
+    """
+    Download a generated asset to a local file.
+
+    Args:
+        asset_id: The asset ID to download.
+        output_path: Local path to save the file.
+
+    Returns:
+        {"success": True, "path": "/path/to/file", "bytes": 12345}
+    """
+    from pathlib import Path
+
+    registry = get_registry()
+    asset = registry.get_asset(asset_id)
+
+    if asset is None:
+        return {"error": "ASSET_NOT_FOUND_OR_EXPIRED", "asset_id": asset_id}
+
+    client = get_client()
+    result = client.download_file(
+        filename=asset.filename,
+        subfolder=asset.subfolder or "",
+        folder_type="output",
+    )
+
+    if isinstance(result, dict) and "error" in result:
+        return result
+
+    # Write to file
+    output_file = Path(output_path)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_file, "wb") as f:
+        f.write(result)
+
+    return {
+        "success": True,
+        "path": str(output_file.absolute()),
+        "bytes": len(result),
+        "asset_id": asset_id,
+    }

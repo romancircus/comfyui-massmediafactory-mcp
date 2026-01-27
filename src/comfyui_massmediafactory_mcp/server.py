@@ -317,6 +317,51 @@ def cleanup_expired_assets() -> dict:
     return execution.cleanup_expired_assets()
 
 
+@mcp.tool()
+def upload_image(
+    image_path: str,
+    filename: str = None,
+    subfolder: str = "",
+    overwrite: bool = True,
+) -> dict:
+    """
+    Upload an image to ComfyUI for use in workflows.
+
+    Use this to upload reference images for ControlNet, IP-Adapter,
+    or Image-to-Video workflows.
+
+    Args:
+        image_path: Local path to the image file.
+        filename: Target filename in ComfyUI (optional, uses original name).
+        subfolder: Subfolder within ComfyUI input directory.
+        overwrite: Whether to overwrite existing files (default True).
+
+    Returns:
+        {"name": "filename.png", "subfolder": "", "type": "input"}
+
+    Example:
+        result = upload_image("/path/to/reference.png")
+        # Use result["name"] in workflow LoadImage node:
+        # {"class_type": "LoadImage", "inputs": {"image": result["name"]}}
+    """
+    return execution.upload_image(image_path, filename, subfolder, overwrite)
+
+
+@mcp.tool()
+def download_output(asset_id: str, output_path: str) -> dict:
+    """
+    Download a generated asset to a local file.
+
+    Args:
+        asset_id: The asset ID to download.
+        output_path: Local path to save the file.
+
+    Returns:
+        {"success": True, "path": "/path/to/file", "bytes": 12345}
+    """
+    return execution.download_output(asset_id, output_path)
+
+
 # =============================================================================
 # Publishing Tools
 # =============================================================================

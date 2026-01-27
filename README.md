@@ -85,7 +85,7 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `free_memory(unload_models)` | Free GPU memory |
 | `interrupt_execution()` | Stop current workflow |
 
-### Asset Iteration (NEW)
+### Asset Iteration
 
 | Tool | Description |
 |------|-------------|
@@ -94,8 +94,10 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `get_asset_metadata(asset_id)` | Full provenance including workflow |
 | `view_output(asset_id)` | Get asset URL and preview info |
 | `cleanup_expired_assets()` | Remove expired assets (24h TTL) |
+| `upload_image(image_path, ...)` | Upload reference images for ControlNet/IP-Adapter |
+| `download_output(asset_id, path)` | Download generated files to local disk |
 
-### Publishing (NEW)
+### Publishing
 
 | Tool | Description |
 |------|-------------|
@@ -103,7 +105,7 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `get_publish_info()` | Show publish configuration |
 | `set_publish_dir(path)` | Configure publish directory |
 
-### Quality Assurance (NEW)
+### Quality Assurance
 
 | Tool | Description |
 |------|-------------|
@@ -171,15 +173,21 @@ result = publish_asset(asset_id, target_filename="hero_image.png")
 
 - [x] Workflow persistence (save/load)
 - [x] VRAM estimation before execution
-- [x] Workflow validation
+- [x] Workflow validation (with cycle detection, resolution warnings)
 - [x] SOTA tracker integration
 - [x] Batch execution
 - [x] Multi-stage pipelines
 - [x] Asset registry with iteration support
 - [x] Asset publishing to web directories
 - [x] Automated VLM QA for generated outputs
+- [x] Image upload API (ControlNet, IP-Adapter, I2V support)
+- [x] Output download API
+- [x] Workflow format conversion (UI ↔ API)
+- [x] Connection type wildcards (*, COMBO, union types)
+- [x] Structured error codes with retry logic
 - [ ] Inline image preview (base64)
 - [ ] Video QA support
+- [ ] WebSocket real-time progress
 
 ## License
 

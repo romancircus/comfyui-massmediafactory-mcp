@@ -8,6 +8,20 @@ from typing import Dict, List, Optional, Set, Tuple
 from .client import get_client
 
 
+# =============================================================================
+# Model Resolution Specs
+# =============================================================================
+
+MODEL_RESOLUTION_SPECS = {
+    "flux": {"native": 1024, "divisible_by": 16, "min": 256, "max": 2048},
+    "sdxl": {"native": 1024, "divisible_by": 8, "min": 512, "max": 2048},
+    "sd15": {"native": 512, "divisible_by": 8, "min": 256, "max": 1024},
+    "qwen": {"native": 1296, "divisible_by": 8, "min": 512, "max": 2048},
+    "ltx": {"native": 768, "divisible_by": 8, "min": 256, "max": 1280},
+    "wan": {"native": 848, "divisible_by": 16, "min": 480, "max": 1280},
+}
+
+
 def validate_workflow(workflow: dict) -> dict:
     """
     Validate a ComfyUI workflow for common errors.
@@ -175,6 +189,20 @@ def validate_workflow(workflow: dict) -> dict:
             "message": "No output node found (SaveImage, SaveVideo, etc.)",
         })
 
+    # Check for cycles in the workflow graph
+    cycles = _detect_cycles(workflow)
+    for cycle in cycles:
+        errors.append({
+            "node_id": cycle[0],
+            "type": "cycle_detected",
+            "message": f"Circular dependency detected: {' → '.join(cycle)}",
+            "cycle": cycle,
+        })
+
+    # Check for resolution compatibility issues
+    resolution_warnings = _check_resolution_compatibility(workflow, object_info)
+    warnings.extend(resolution_warnings)
+
     # Check for nodes that aren't connected to anything
     for node_id in node_ids:
         if node_id not in connected_nodes and node_id not in output_nodes:
@@ -242,6 +270,203 @@ def validate_and_fix(workflow: dict) -> dict:
     return validation
 
 
+def _detect_cycles(workflow: dict) -> List[List[str]]:
+    """
+    Detect cycles in the workflow graph using DFS.
+
+    Uses color marking: WHITE (unvisited), GRAY (in progress), BLACK (done).
+
+    Args:
+        workflow: The workflow to check.
+
+    Returns:
+        List of cycles found, each as a list of node IDs.
+    """
+    WHITE, GRAY, BLACK = 0, 1, 2
+
+    # Build adjacency list (node -> nodes it depends on)
+    adj = {str(node_id): [] for node_id in workflow.keys()}
+
+    for node_id, node in workflow.items():
+        inputs = node.get("inputs", {})
+        for input_value in inputs.values():
+            if isinstance(input_value, list) and len(input_value) == 2:
+                source_id = str(input_value[0])
+                if source_id in adj:
+                    adj[str(node_id)].append(source_id)
+
+    color = {node: WHITE for node in adj}
+    parent = {node: None for node in adj}
+    cycles = []
+
+    def dfs(node: str, path: List[str]) -> None:
+        color[node] = GRAY
+
+        for neighbor in adj[node]:
+            if color[neighbor] == GRAY:
+                # Back edge found - extract cycle
+                cycle_start = path.index(neighbor) if neighbor in path else -1
+                if cycle_start >= 0:
+                    cycle = path[cycle_start:] + [neighbor]
+                    cycles.append(cycle)
+            elif color[neighbor] == WHITE:
+                parent[neighbor] = node
+                dfs(neighbor, path + [neighbor])
+
+        color[node] = BLACK
+
+    for node in adj:
+        if color[node] == WHITE:
+            dfs(node, [node])
+
+    return cycles
+
+
+def _check_resolution_compatibility(workflow: dict, object_info: dict) -> List[dict]:
+    """
+    Check for resolution compatibility issues based on model type.
+
+    Args:
+        workflow: The workflow to check.
+        object_info: ComfyUI node information.
+
+    Returns:
+        List of resolution warnings.
+    """
+    warnings = []
+
+    # Detect model type from loader nodes
+    detected_model = None
+    for node_id, node in workflow.items():
+        class_type = node.get("class_type", "")
+        inputs = node.get("inputs", {})
+
+        # Check UNET/checkpoint loaders for model type hints
+        if any(x in class_type.lower() for x in ["unetloader", "checkpointloader"]):
+            model_name = inputs.get("unet_name", inputs.get("ckpt_name", "")).lower()
+            if "flux" in model_name:
+                detected_model = "flux"
+            elif "sdxl" in model_name or "xl" in model_name:
+                detected_model = "sdxl"
+            elif "sd15" in model_name or "1.5" in model_name:
+                detected_model = "sd15"
+            elif "qwen" in model_name:
+                detected_model = "qwen"
+            elif "ltx" in model_name:
+                detected_model = "ltx"
+            elif "wan" in model_name or "hunyuan" in model_name:
+                detected_model = "wan"
+
+    if not detected_model:
+        return warnings
+
+    spec = MODEL_RESOLUTION_SPECS.get(detected_model, {})
+    if not spec:
+        return warnings
+
+    # Check EmptyLatentImage and similar nodes for resolution
+    for node_id, node in workflow.items():
+        class_type = node.get("class_type", "")
+        inputs = node.get("inputs", {})
+
+        if "latent" in class_type.lower() or "empty" in class_type.lower():
+            width = inputs.get("width")
+            height = inputs.get("height")
+
+            if width is not None and height is not None:
+                try:
+                    width = int(width)
+                    height = int(height)
+                except (ValueError, TypeError):
+                    continue
+
+                # Check divisibility
+                if width % spec["divisible_by"] != 0:
+                    warnings.append({
+                        "node_id": node_id,
+                        "type": "resolution_divisibility",
+                        "message": f"Width {width} not divisible by {spec['divisible_by']} (required for {detected_model})",
+                    })
+
+                if height % spec["divisible_by"] != 0:
+                    warnings.append({
+                        "node_id": node_id,
+                        "type": "resolution_divisibility",
+                        "message": f"Height {height} not divisible by {spec['divisible_by']} (required for {detected_model})",
+                    })
+
+                # Check bounds
+                if width < spec["min"] or width > spec["max"]:
+                    warnings.append({
+                        "node_id": node_id,
+                        "type": "resolution_bounds",
+                        "message": f"Width {width} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
+                    })
+
+                if height < spec["min"] or height > spec["max"]:
+                    warnings.append({
+                        "node_id": node_id,
+                        "type": "resolution_bounds",
+                        "message": f"Height {height} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
+                    })
+
+                # Check if significantly different from native
+                native = spec["native"]
+                max_dim = max(width, height)
+                if max_dim > native * 1.5 or max_dim < native * 0.5:
+                    warnings.append({
+                        "node_id": node_id,
+                        "type": "resolution_native",
+                        "message": f"Resolution {width}x{height} differs significantly from native {native}x{native} for {detected_model}",
+                    })
+
+    return warnings
+
+
+def _types_compatible(source_type: str, target_type: str) -> bool:
+    """
+    Check if source output type is compatible with target input type.
+
+    Handles:
+    - Exact match
+    - Wildcard (*) matches any type
+    - Union types (comma-separated, e.g., "IMAGE,MASK")
+    - COMBO types (treated as wildcard for enums)
+
+    Args:
+        source_type: The output type from source node.
+        target_type: The expected input type on target node.
+
+    Returns:
+        True if types are compatible.
+    """
+    # Wildcard matches everything
+    if source_type == "*" or target_type == "*":
+        return True
+
+    # Exact match
+    if source_type == target_type:
+        return True
+
+    # Handle union types (comma-separated)
+    if "," in target_type:
+        accepted_types = [t.strip() for t in target_type.split(",")]
+        if source_type in accepted_types:
+            return True
+
+    if "," in source_type:
+        provided_types = [t.strip() for t in source_type.split(",")]
+        # Source provides multiple types, check if any match target
+        if target_type in provided_types:
+            return True
+
+    # COMBO is a special type for enum dropdowns, usually compatible
+    if target_type == "COMBO":
+        return True
+
+    return False
+
+
 def check_node_compatibility(source_type: str, source_slot: int, target_type: str, target_input: str) -> dict:
     """
     Check if a connection between two nodes is compatible.
@@ -295,12 +520,12 @@ def check_node_compatibility(source_type: str, source_slot: int, target_type: st
     if target_input_type is None:
         return {"compatible": None, "note": "Could not determine target input type"}
 
-    # Check compatibility
-    compatible = source_output_type == target_input_type
+    # Check compatibility using the enhanced type matching
+    compatible = _types_compatible(source_output_type, target_input_type)
 
     return {
         "compatible": compatible,
         "source_output_type": source_output_type,
         "target_input_type": target_input_type,
-        "message": "Types match" if compatible else f"Type mismatch: {source_output_type} → {target_input_type}",
+        "message": "Types compatible" if compatible else f"Type mismatch: {source_output_type} → {target_input_type}",
     }
