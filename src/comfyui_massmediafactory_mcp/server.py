@@ -17,6 +17,7 @@ from . import templates
 from . import batch
 from . import pipeline
 from . import publish
+from . import qa
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -1005,6 +1006,88 @@ def flux_txt2img_template() -> str:
         }
     }
     return json.dumps(template, indent=2)
+
+
+# =============================================================================
+# Quality Assurance Tools
+# =============================================================================
+
+@mcp.tool()
+def qa_output(
+    asset_id: str,
+    prompt: str,
+    checks: list = None,
+    vlm_model: str = None,
+) -> dict:
+    """
+    Run quality assurance on a generated asset using a Vision-Language Model.
+
+    Automatically analyzes generated images to check for issues before
+    presenting to the user. Uses a local VLM (via Ollama) or API-based VLM.
+
+    Args:
+        asset_id: The asset to evaluate.
+        prompt: Original generation prompt for comparison.
+        checks: List of checks to perform. Options:
+                - "prompt_match": Does image match the prompt?
+                - "artifacts": Visual artifacts, distortions, blur?
+                - "faces": Face/hand issues (extra fingers, asymmetry)?
+                - "text": Text rendering issues?
+                - "composition": Overall composition quality?
+                Default: ["prompt_match", "artifacts", "composition"]
+        vlm_model: VLM to use (default: qwen2.5-vl:7b via Ollama).
+
+    Returns:
+        {
+            "passed": True/False,
+            "score": 0.0-1.0,
+            "issues": ["list", "of", "issues"],
+            "recommendation": "accept" | "regenerate" | "tweak_prompt"
+        }
+
+    Example:
+        # After generating an image
+        result = qa_output(
+            asset_id="abc123",
+            prompt="a majestic dragon breathing fire",
+            checks=["prompt_match", "artifacts", "composition"]
+        )
+        if not result["passed"]:
+            # Auto-regenerate with new seed
+            regenerate(asset_id, seed=None)
+    """
+    return qa.qa_output(
+        asset_id=asset_id,
+        prompt=prompt,
+        checks=checks,
+        vlm_model=vlm_model,
+    )
+
+
+@mcp.tool()
+def check_vlm_available(vlm_model: str = None) -> dict:
+    """
+    Check if VLM is available for QA operations.
+
+    Args:
+        vlm_model: Specific model to check for (default: qwen2.5-vl:7b).
+
+    Returns:
+        {
+            "available": True/False,
+            "ollama_url": "http://localhost:11434",
+            "models": ["list", "of", "installed", "models"],
+            "model_available": True/False
+        }
+
+    Example:
+        status = check_vlm_available()
+        if not status["available"]:
+            print("Start Ollama with: ollama serve")
+        if not status["model_available"]:
+            print(f"Pull model with: ollama pull {status['requested_model']}")
+    """
+    return qa.check_vlm_available(vlm_model)
 
 
 def main():

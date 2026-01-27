@@ -103,6 +103,25 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `get_publish_info()` | Show publish configuration |
 | `set_publish_dir(path)` | Configure publish directory |
 
+### Quality Assurance (NEW)
+
+| Tool | Description |
+|------|-------------|
+| `qa_output(asset_id, prompt, checks)` | VLM-based quality check on generated images |
+| `check_vlm_available(model)` | Check if Ollama VLM is available |
+
+**QA Checks:**
+- `prompt_match` - Does image match the original prompt?
+- `artifacts` - Visual artifacts, distortions, blur?
+- `faces` - Face/hand issues (extra fingers, asymmetry)?
+- `text` - Text rendering issues?
+- `composition` - Overall composition quality?
+
+**Requirements:** Ollama with a VLM model (default: `qwen2.5-vl:7b`)
+```bash
+ollama pull qwen2.5-vl:7b
+```
+
 ## Example: Generate Image with Flux
 
 ```python
@@ -158,8 +177,9 @@ result = publish_asset(asset_id, target_filename="hero_image.png")
 - [x] Multi-stage pipelines
 - [x] Asset registry with iteration support
 - [x] Asset publishing to web directories
+- [x] Automated VLM QA for generated outputs
 - [ ] Inline image preview (base64)
-- [ ] Automated VLM QA for generated outputs
+- [ ] Video QA support
 
 ## License
 
