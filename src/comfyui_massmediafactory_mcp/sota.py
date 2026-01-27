@@ -492,13 +492,24 @@ def get_optimal_settings(model_name: str) -> dict:
             "notes": "Use ModelSamplingAuraFlow with shift=3.1. Low CFG like Flux.",
         },
         "ltx": {
-            "cfg": 3.0,
-            "steps": 20,
-            "sampler": "euler",
+            "cfg": 4.0,  # Official Lightricks recommendation for I2V motion
+            "steps": 25,
+            "sampler": "res_2s",  # Official Lightricks I2V workflow sampler
             "scheduler": "LTXVScheduler",
             "max_shift": 2.05,
             "base_shift": 0.95,
-            "notes": "Use LTXVScheduler for best results. Native audio supported.",
+            "strength": 0.6,  # I2V strength (identity preservation)
+            "notes": "Use LTXVScheduler + res_2s sampler for I2V. CFG 4.0 for motion, 3.0 for T2V. Native audio supported.",
+        },
+        "ltx-2": {
+            "cfg": 4.0,  # Official Lightricks recommendation for I2V motion
+            "steps": 25,
+            "sampler": "res_2s",  # Official Lightricks I2V workflow sampler
+            "scheduler": "LTXVScheduler",
+            "max_shift": 2.05,
+            "base_shift": 0.95,
+            "strength": 0.6,  # I2V strength (identity preservation)
+            "notes": "LTX-2 19B with native audio. Use res_2s sampler + CFG 4.0 for I2V, CFG 3.0 for T2V.",
         },
         "wan": {
             "cfg": 5.0,
