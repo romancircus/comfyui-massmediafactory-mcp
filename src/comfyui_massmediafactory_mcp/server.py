@@ -12,6 +12,7 @@ from . import execution
 from . import persistence
 from . import vram
 from . import validation
+from . import sota
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -402,6 +403,85 @@ def check_connection_compatibility(
     return validation.check_node_compatibility(
         source_type, source_slot, target_type, target_input
     )
+
+
+# =============================================================================
+# SOTA Model Recommendations
+# =============================================================================
+
+@mcp.tool()
+def get_sota_models(category: str) -> dict:
+    """
+    Get current State-of-the-Art models for a category.
+
+    Args:
+        category: One of "image_gen", "video_gen", "controlnet"
+
+    Returns:
+        Current SOTA models and deprecated models to avoid.
+    """
+    return sota.get_sota_for_category(category)
+
+
+@mcp.tool()
+def recommend_model(task: str, available_vram_gb: float = None) -> dict:
+    """
+    Get the best model recommendation for a specific task.
+
+    Args:
+        task: The task type. Options:
+              - portrait: Face/person images
+              - text_in_image: Images with text/logos
+              - fast_iteration: Quick drafts
+              - talking_head: Video with speech
+              - image_to_video: Animate an image
+              - cinematic_video: High-quality video
+              - style_transfer: Change image style
+        available_vram_gb: GPU memory (auto-detected if not provided)
+
+    Returns:
+        Model recommendation with settings and VRAM check.
+    """
+    return sota.recommend_model_for_task(task, available_vram_gb)
+
+
+@mcp.tool()
+def check_model_freshness(model_name: str) -> dict:
+    """
+    Check if a model is current SOTA or deprecated.
+
+    Args:
+        model_name: The model filename or name.
+
+    Returns:
+        Status (CURRENT/DEPRECATED/UNKNOWN) with replacement suggestions.
+    """
+    return sota.check_model_is_sota(model_name)
+
+
+@mcp.tool()
+def get_model_settings(model_name: str) -> dict:
+    """
+    Get optimal ComfyUI settings for a model.
+
+    Args:
+        model_name: The model name or filename.
+
+    Returns:
+        Recommended CFG, steps, sampler, scheduler, and notes.
+    """
+    return sota.get_optimal_settings(model_name)
+
+
+@mcp.tool()
+def check_installed_sota() -> dict:
+    """
+    Check which SOTA models are installed in your ComfyUI.
+
+    Returns:
+        List of installed SOTA models and what's missing.
+    """
+    return sota.get_available_sota_models()
 
 
 # =============================================================================
