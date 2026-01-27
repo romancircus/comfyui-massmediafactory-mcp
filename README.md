@@ -85,6 +85,16 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `free_memory(unload_models)` | Free GPU memory |
 | `interrupt_execution()` | Stop current workflow |
 
+### Asset Iteration (NEW)
+
+| Tool | Description |
+|------|-------------|
+| `regenerate(asset_id, ...)` | Re-run with parameter tweaks (prompt, cfg, seed) |
+| `list_assets(session_id, limit)` | Browse recent generations |
+| `get_asset_metadata(asset_id)` | Full provenance including workflow |
+| `view_output(asset_id)` | Get asset URL and preview info |
+| `cleanup_expired_assets()` | Remove expired assets (24h TTL) |
+
 ## Example: Generate Image with Flux
 
 ```python
@@ -102,17 +112,41 @@ result = execute_workflow({
 
 # Claude waits for completion
 output = wait_for_completion("abc123")
-# → {"status": "completed", "outputs": [{"filename": "flux_00001.png", ...}]}
+# → {"status": "completed", "outputs": [{"filename": "flux_00001.png", "asset_id": "abc-123-def", ...}]}
+```
+
+## Example: Iterate on Generation
+
+```python
+# Generate initial image
+result = execute_workflow(workflow)
+output = wait_for_completion(result["prompt_id"])
+asset_id = output["outputs"][0]["asset_id"]
+
+# View the result
+info = view_output(asset_id)
+# → {"url": "http://localhost:8188/view?filename=...", "prompt_preview": "a dragon..."}
+
+# Not quite right? Iterate with higher CFG
+result = regenerate(asset_id, cfg=4.5, seed=None)  # None = new random seed
+output = wait_for_completion(result["prompt_id"])
+
+# Browse all generations this session
+assets = list_assets(limit=10)
+# → {"assets": [{"asset_id": "...", "prompt_preview": "...", ...}], "count": 5}
 ```
 
 ## Roadmap
 
-- [ ] Workflow persistence (save/load)
-- [ ] VRAM estimation before execution
-- [ ] Workflow validation
-- [ ] SOTA tracker integration
-- [ ] Batch execution
-- [ ] Multi-stage pipelines
+- [x] Workflow persistence (save/load)
+- [x] VRAM estimation before execution
+- [x] Workflow validation
+- [x] SOTA tracker integration
+- [x] Batch execution
+- [x] Multi-stage pipelines
+- [x] Asset registry with iteration support
+- [ ] Inline image preview (base64)
+- [ ] Asset publishing to web directories
 
 ## License
 

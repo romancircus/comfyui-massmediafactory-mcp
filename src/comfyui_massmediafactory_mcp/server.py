@@ -198,6 +198,124 @@ def get_queue_status() -> dict:
 
 
 # =============================================================================
+# Asset Iteration Tools
+# =============================================================================
+
+@mcp.tool()
+def regenerate(
+    asset_id: str,
+    prompt: str = None,
+    negative_prompt: str = None,
+    seed: int = None,
+    steps: int = None,
+    cfg: float = None,
+) -> dict:
+    """
+    Regenerate an asset with parameter overrides.
+
+    Enables quick iteration: tweak CFG, change prompt, try new seed.
+
+    Args:
+        asset_id: The asset to regenerate from.
+        prompt: New prompt (optional).
+        negative_prompt: New negative prompt (optional).
+        seed: New seed. Use -1 to keep original, None/omit for random.
+        steps: New step count (optional).
+        cfg: New CFG scale (optional).
+
+    Returns:
+        New prompt_id for the regenerated workflow.
+
+    Example:
+        # Generate initial image
+        result = execute_workflow(workflow)
+        output = wait_for_completion(result["prompt_id"])
+        asset_id = output["outputs"][0]["asset_id"]
+
+        # Iterate with higher CFG
+        result = regenerate(asset_id, cfg=4.5)
+        output = wait_for_completion(result["prompt_id"])
+    """
+    return execution.regenerate(
+        asset_id=asset_id,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        seed=seed,
+        steps=steps,
+        cfg=cfg,
+    )
+
+
+@mcp.tool()
+def list_assets(
+    session_id: str = None,
+    asset_type: str = None,
+    limit: int = 20,
+) -> dict:
+    """
+    List recent generated assets.
+
+    Args:
+        session_id: Filter by session (optional).
+        asset_type: Filter by type: "images", "video", "audio" (optional).
+        limit: Maximum results (default 20).
+
+    Returns:
+        List of asset summaries with asset_ids.
+    """
+    return execution.list_assets(
+        session_id=session_id,
+        asset_type=asset_type,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def get_asset_metadata(asset_id: str) -> dict:
+    """
+    Get full metadata for an asset including workflow and parameters.
+
+    Useful for debugging or understanding how an asset was generated.
+
+    Args:
+        asset_id: The asset ID to retrieve.
+
+    Returns:
+        Full asset metadata including original workflow.
+    """
+    return execution.get_asset_metadata(asset_id)
+
+
+@mcp.tool()
+def view_output(asset_id: str, mode: str = "thumb") -> dict:
+    """
+    View a generated asset.
+
+    Args:
+        asset_id: The asset to view.
+        mode: "thumb" for preview info, "metadata" for full details.
+
+    Returns:
+        Asset URL and preview information.
+    """
+    return execution.view_output(asset_id, mode)
+
+
+@mcp.tool()
+def cleanup_expired_assets() -> dict:
+    """
+    Clean up expired assets from the registry.
+
+    Assets expire after 24 hours by default (configurable via
+    COMFY_MCP_ASSET_TTL_HOURS environment variable).
+
+    Returns:
+        Number of assets removed.
+    """
+    return execution.cleanup_expired_assets()
+
+
+# =============================================================================
 # Persistence Tools (Workflow Library)
 # =============================================================================
 

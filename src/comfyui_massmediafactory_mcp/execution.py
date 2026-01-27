@@ -5,8 +5,11 @@ Tools for executing workflows and managing ComfyUI operations.
 """
 
 import time
-from typing import Optional
+import copy
+import random
+from typing import Optional, Dict, Any
 from .client import get_client
+from .assets import get_registry, AssetRecord
 
 
 def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
@@ -110,6 +113,9 @@ def wait_for_completion(
     prompt_id: str,
     timeout_seconds: int = 600,
     poll_interval: float = 2.0,
+    workflow: dict = None,
+    parameters: dict = None,
+    session_id: str = None,
 ) -> dict:
     """
     Wait for a workflow to complete and return outputs.
@@ -118,9 +124,12 @@ def wait_for_completion(
         prompt_id: The prompt_id to wait for.
         timeout_seconds: Maximum time to wait (default 600s / 10 minutes).
         poll_interval: Seconds between status checks.
+        workflow: Original workflow (for asset registration).
+        parameters: Template parameters used (for regeneration).
+        session_id: Session ID for grouping related generations.
 
     Returns:
-        Final status and output files.
+        Final status and output files with asset_ids.
     """
     start = time.time()
 
@@ -129,6 +138,13 @@ def wait_for_completion(
 
         if status["status"] in ["completed", "error"]:
             status["elapsed_seconds"] = round(time.time() - start, 1)
+
+            # Register assets if workflow provided and completed
+            if status["status"] == "completed" and workflow:
+                status = _register_outputs_as_assets(
+                    status, workflow, parameters, session_id
+                )
+
             return status
 
         time.sleep(poll_interval)
@@ -138,6 +154,31 @@ def wait_for_completion(
         "prompt_id": prompt_id,
         "elapsed_seconds": timeout_seconds,
     }
+
+
+def _register_outputs_as_assets(
+    status: dict,
+    workflow: dict,
+    parameters: dict = None,
+    session_id: str = None,
+) -> dict:
+    """Register completed outputs as assets in the registry."""
+    registry = get_registry()
+    outputs = status.get("outputs", [])
+
+    for output in outputs:
+        asset = registry.register_asset(
+            filename=output.get("filename"),
+            subfolder=output.get("subfolder", ""),
+            asset_type=output.get("type", "images"),
+            workflow=workflow,
+            parameters=parameters,
+            session_id=session_id,
+            node_id=output.get("node_id"),
+        )
+        output["asset_id"] = asset.asset_id
+
+    return status
 
 
 def get_system_stats() -> dict:
@@ -229,3 +270,265 @@ def get_queue_status() -> dict:
         "running": len(result.get("queue_running", [])),
         "pending": len(result.get("queue_pending", [])),
     }
+
+
+# =============================================================================
+# Asset Iteration Tools
+# =============================================================================
+
+
+def regenerate(
+    asset_id: str,
+    prompt: str = None,
+    negative_prompt: str = None,
+    seed: int = None,
+    steps: int = None,
+    cfg: float = None,
+    **extra_overrides,
+) -> dict:
+    """
+    Regenerate an asset with parameter overrides.
+
+    Args:
+        asset_id: The asset to regenerate from.
+        prompt: New prompt (optional).
+        negative_prompt: New negative prompt (optional).
+        seed: New seed. Use -1 to keep original, None for random.
+        steps: New step count (optional).
+        cfg: New CFG scale (optional).
+        **extra_overrides: Additional parameter overrides.
+
+    Returns:
+        New prompt_id for the regenerated workflow.
+    """
+    registry = get_registry()
+    asset = registry.get_asset(asset_id)
+
+    if asset is None:
+        return {"error": "ASSET_NOT_FOUND_OR_EXPIRED", "asset_id": asset_id}
+
+    if not asset.workflow:
+        return {"error": "NO_WORKFLOW_DATA", "asset_id": asset_id}
+
+    # Deep copy to avoid mutation
+    workflow = copy.deepcopy(asset.workflow)
+    new_params = copy.deepcopy(asset.parameters)
+
+    # Collect overrides
+    overrides = {}
+    if prompt is not None:
+        overrides["prompt"] = prompt
+        new_params["PROMPT"] = prompt
+    if negative_prompt is not None:
+        overrides["negative_prompt"] = negative_prompt
+        new_params["NEGATIVE_PROMPT"] = negative_prompt
+    if steps is not None:
+        overrides["steps"] = steps
+        new_params["STEPS"] = steps
+    if cfg is not None:
+        overrides["cfg"] = cfg
+        new_params["CFG"] = cfg
+    overrides.update(extra_overrides)
+    new_params.update(extra_overrides)
+
+    # Apply overrides to workflow
+    workflow = _apply_workflow_overrides(workflow, overrides)
+
+    # Handle seed
+    if seed is None:
+        # Random seed
+        new_seed = random.randint(0, 2**32 - 1)
+        workflow = _update_workflow_seed(workflow, new_seed)
+        new_params["SEED"] = new_seed
+    elif seed != -1:
+        # Use provided seed (not -1 which means keep original)
+        workflow = _update_workflow_seed(workflow, seed)
+        new_params["SEED"] = seed
+
+    # Execute regenerated workflow
+    result = execute_workflow(workflow)
+
+    if "error" in result:
+        return result
+
+    # Return with context for wait_for_completion
+    return {
+        "prompt_id": result["prompt_id"],
+        "status": "queued",
+        "regenerated_from": asset_id,
+        "session_id": asset.session_id,
+        "_workflow": workflow,
+        "_parameters": new_params,
+    }
+
+
+def _apply_workflow_overrides(workflow: dict, overrides: dict) -> dict:
+    """Apply parameter overrides to matching workflow nodes."""
+    override_map = {
+        "prompt": [("CLIPTextEncode", "text"), ("CLIPTextEncodeSDXL", "text_g")],
+        "negative_prompt": [("CLIPTextEncode", "text")],  # Second CLIPTextEncode
+        "steps": [("KSampler", "steps"), ("KSamplerAdvanced", "steps"), ("SamplerCustomAdvanced", "steps")],
+        "cfg": [("KSampler", "cfg"), ("KSamplerAdvanced", "cfg"), ("FluxGuidance", "guidance")],
+    }
+
+    for key, value in overrides.items():
+        if key in override_map:
+            targets = override_map[key]
+            for class_type, input_name in targets:
+                _update_nodes_by_class(workflow, class_type, input_name, value)
+        else:
+            # Try as direct input name across all nodes
+            for node_id, node in workflow.items():
+                if isinstance(node, dict) and "inputs" in node:
+                    if key in node["inputs"]:
+                        node["inputs"][key] = value
+
+    return workflow
+
+
+def _update_nodes_by_class(
+    workflow: dict, class_type: str, input_name: str, value: Any
+) -> None:
+    """Update all nodes of a given class type."""
+    for node_id, node in workflow.items():
+        if isinstance(node, dict) and node.get("class_type") == class_type:
+            if "inputs" in node and input_name in node["inputs"]:
+                node["inputs"][input_name] = value
+
+
+def _update_workflow_seed(workflow: dict, seed: int) -> dict:
+    """Update seed in all relevant nodes."""
+    seed_nodes = [
+        ("KSampler", "seed"),
+        ("KSamplerAdvanced", "noise_seed"),
+        ("RandomNoise", "noise_seed"),
+        ("SamplerCustomAdvanced", "noise_seed"),
+    ]
+
+    for class_type, input_name in seed_nodes:
+        _update_nodes_by_class(workflow, class_type, input_name, seed)
+
+    return workflow
+
+
+def list_assets(
+    session_id: str = None,
+    asset_type: str = None,
+    limit: int = 20,
+    include_expired: bool = False,
+) -> dict:
+    """
+    List recent generated assets.
+
+    Args:
+        session_id: Filter by session (optional).
+        asset_type: Filter by type: "images", "video", "audio" (optional).
+        limit: Maximum results (default 20).
+        include_expired: Include expired assets (default False).
+
+    Returns:
+        List of asset summaries.
+    """
+    registry = get_registry()
+    assets = registry.list_assets(
+        session_id=session_id,
+        asset_type=asset_type,
+        limit=limit,
+        include_expired=include_expired,
+    )
+
+    return {
+        "assets": [asset.to_dict() for asset in assets],
+        "count": len(assets),
+        "has_more": len(assets) == limit,
+    }
+
+
+def get_asset_metadata(asset_id: str) -> dict:
+    """
+    Get full metadata for an asset including workflow and parameters.
+
+    Args:
+        asset_id: The asset ID to retrieve.
+
+    Returns:
+        Full asset metadata for debugging/inspection.
+    """
+    registry = get_registry()
+    asset = registry.get_asset(asset_id)
+
+    if asset is None:
+        return {"error": "ASSET_NOT_FOUND_OR_EXPIRED", "asset_id": asset_id}
+
+    result = asset.to_full_dict()
+    result["url"] = registry.get_asset_url(asset)
+    return result
+
+
+def view_output(
+    asset_id: str,
+    mode: str = "thumb",
+    max_dim: int = 512,
+) -> dict:
+    """
+    View a generated asset.
+
+    Args:
+        asset_id: The asset to view.
+        mode: "thumb" for inline preview, "metadata" for info only.
+        max_dim: Maximum dimension for thumbnail (default 512px).
+
+    Returns:
+        Asset preview or metadata.
+    """
+    registry = get_registry()
+    asset = registry.get_asset(asset_id)
+
+    if asset is None:
+        return {"error": "ASSET_NOT_FOUND_OR_EXPIRED", "asset_id": asset_id}
+
+    # Check supported types for viewing
+    viewable_types = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+    if asset.mime_type not in viewable_types:
+        return {
+            "error": "UNSUPPORTED_TYPE",
+            "mime_type": asset.mime_type,
+            "url": registry.get_asset_url(asset),
+            "message": f"Cannot preview {asset.mime_type}. Use the URL to download.",
+        }
+
+    if mode == "metadata":
+        return {
+            "asset_id": asset.asset_id,
+            "filename": asset.filename,
+            "type": asset.asset_type,
+            "mime_type": asset.mime_type,
+            "dimensions": [asset.width, asset.height] if asset.width else None,
+            "created_at": asset.created_at,
+            "url": registry.get_asset_url(asset),
+            "prompt_preview": asset.prompt_preview,
+        }
+
+    # Thumb mode - return URL for now
+    # Full base64 inline preview would require reading the file
+    # which needs ComfyUI output dir access
+    return {
+        "asset_id": asset.asset_id,
+        "url": registry.get_asset_url(asset),
+        "mime_type": asset.mime_type,
+        "dimensions": [asset.width, asset.height] if asset.width else None,
+        "prompt_preview": asset.prompt_preview,
+        "note": "Use the URL to view the image. Full inline preview requires output dir access.",
+    }
+
+
+def cleanup_expired_assets() -> dict:
+    """
+    Clean up expired assets from the registry.
+
+    Returns:
+        Number of assets removed.
+    """
+    registry = get_registry()
+    removed = registry.cleanup_expired()
+    return {"removed": removed}
