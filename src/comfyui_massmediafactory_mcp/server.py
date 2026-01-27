@@ -14,6 +14,7 @@ from . import vram
 from . import validation
 from . import sota
 from . import templates
+from . import batch
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -555,6 +556,89 @@ def create_workflow_from_template(
         "parameters_used": final_params,
         "note": "Use execute_workflow() with the 'workflow' field to run this.",
     }
+
+
+# =============================================================================
+# Batch Execution
+# =============================================================================
+
+@mcp.tool()
+def execute_batch_workflows(
+    workflow: dict,
+    parameter_sets: list,
+    parallel: int = 1,
+    timeout_per_job: int = 600,
+) -> dict:
+    """
+    Execute the same workflow with multiple parameter sets.
+
+    Use this to generate multiple variations efficiently.
+
+    Args:
+        workflow: Base workflow with {{PLACEHOLDER}} fields.
+        parameter_sets: List of parameter dicts.
+                        e.g., [{"PROMPT": "a cat", "SEED": 1}, {"PROMPT": "a dog", "SEED": 2}]
+        parallel: Max concurrent executions (default 1).
+        timeout_per_job: Timeout per job in seconds.
+
+    Returns:
+        Results for each parameter set with output files.
+    """
+    return batch.execute_batch(workflow, parameter_sets, parallel, timeout_per_job)
+
+
+@mcp.tool()
+def execute_parameter_sweep(
+    workflow: dict,
+    sweep_params: dict,
+    fixed_params: dict = None,
+    parallel: int = 1,
+) -> dict:
+    """
+    Execute a parameter sweep over specified values.
+
+    Useful for testing different CFG values, steps, guidance, etc.
+
+    Args:
+        workflow: Base workflow with {{PLACEHOLDER}} fields.
+        sweep_params: Parameters to sweep over.
+                      e.g., {"CFG": [3.0, 3.5, 4.0], "STEPS": [20, 30]}
+                      This would run 6 combinations.
+        fixed_params: Parameters to keep constant across all runs.
+        parallel: Max concurrent executions.
+
+    Returns:
+        Results organized by parameter combination.
+    """
+    return batch.execute_sweep(workflow, sweep_params, fixed_params, parallel)
+
+
+@mcp.tool()
+def generate_seed_variations(
+    workflow: dict,
+    parameters: dict,
+    num_variations: int = 4,
+    start_seed: int = 42,
+    parallel: int = 2,
+) -> dict:
+    """
+    Generate multiple outputs from the same prompt with different seeds.
+
+    Quick way to explore variations without changing the prompt.
+
+    Args:
+        workflow: Workflow with {{SEED}} placeholder.
+        parameters: Base parameters (PROMPT, etc.).
+        num_variations: Number of variations (default 4).
+        start_seed: Starting seed value.
+        parallel: Concurrent executions (default 2).
+
+    Returns:
+        Results for each seed variation.
+    """
+    return batch.execute_seed_variations(
+        workflow, parameters, num_variations, start_seed, parallel
+    )
 
 
 # =============================================================================
