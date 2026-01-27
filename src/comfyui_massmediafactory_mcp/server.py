@@ -11,6 +11,7 @@ from . import discovery
 from . import execution
 from . import persistence
 from . import vram
+from . import validation
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -334,6 +335,73 @@ def check_model_fits(model_name: str, precision: str = "default") -> dict:
         Whether model fits, estimated VRAM, and alternatives if it doesn't.
     """
     return vram.check_model_fits(model_name, precision)
+
+
+# =============================================================================
+# Validation Tools
+# =============================================================================
+
+@mcp.tool()
+def validate_workflow(workflow: dict) -> dict:
+    """
+    Validate a workflow before execution to catch errors early.
+
+    Checks:
+    - All node types exist in ComfyUI
+    - All model files referenced exist
+    - Node connections are valid
+    - Required inputs are provided
+    - Has output node (SaveImage, etc.)
+
+    Args:
+        workflow: The workflow JSON to validate.
+
+    Returns:
+        Validation result with errors, warnings, and suggestions.
+    """
+    return validation.validate_workflow(workflow)
+
+
+@mcp.tool()
+def validate_and_fix_workflow(workflow: dict) -> dict:
+    """
+    Validate workflow and attempt to fix common issues.
+
+    Fixes applied:
+    - Ensures all node IDs are strings
+    - Fixes connection references
+
+    Args:
+        workflow: The workflow JSON to validate and fix.
+
+    Returns:
+        Fixed workflow and validation results.
+    """
+    return validation.validate_and_fix(workflow)
+
+
+@mcp.tool()
+def check_connection_compatibility(
+    source_type: str,
+    source_slot: int,
+    target_type: str,
+    target_input: str,
+) -> dict:
+    """
+    Check if a connection between two nodes is type-compatible.
+
+    Args:
+        source_type: Source node class type (e.g., "UNETLoader")
+        source_slot: Output slot index on source node
+        target_type: Target node class type (e.g., "KSampler")
+        target_input: Input name on target node (e.g., "model")
+
+    Returns:
+        Compatibility result with type information.
+    """
+    return validation.check_node_compatibility(
+        source_type, source_slot, target_type, target_input
+    )
 
 
 # =============================================================================
