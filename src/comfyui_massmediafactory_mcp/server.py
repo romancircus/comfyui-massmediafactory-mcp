@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 
 from . import discovery
 from . import execution
+from . import persistence
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -188,6 +189,114 @@ def get_queue_status() -> dict:
     Get current queue status (running and pending jobs).
     """
     return execution.get_queue_status()
+
+
+# =============================================================================
+# Persistence Tools (Workflow Library)
+# =============================================================================
+
+@mcp.tool()
+def save_workflow(
+    name: str,
+    workflow: dict,
+    description: str = "",
+    tags: list = None,
+) -> dict:
+    """
+    Save a workflow to the local library for reuse.
+
+    Args:
+        name: Unique name (e.g., "flux-portrait", "qwen-landscape")
+        workflow: The workflow JSON object
+        description: What this workflow does
+        tags: List of tags (e.g., ["image", "flux", "portrait"])
+
+    Returns:
+        Success status and file path.
+    """
+    return persistence.save_workflow(name, workflow, description, tags or [])
+
+
+@mcp.tool()
+def load_workflow(name: str) -> dict:
+    """
+    Load a workflow from the local library.
+
+    Args:
+        name: The workflow name to load.
+
+    Returns:
+        The workflow object with metadata.
+    """
+    return persistence.load_workflow(name)
+
+
+@mcp.tool()
+def list_saved_workflows(tag: str = None) -> dict:
+    """
+    List all saved workflows in the library.
+
+    Args:
+        tag: Optional tag to filter by.
+
+    Returns:
+        List of workflow summaries.
+    """
+    return persistence.list_workflows(tag)
+
+
+@mcp.tool()
+def delete_workflow(name: str) -> dict:
+    """
+    Delete a workflow from the library.
+
+    Args:
+        name: The workflow name to delete.
+    """
+    return persistence.delete_workflow(name)
+
+
+@mcp.tool()
+def duplicate_workflow(source_name: str, new_name: str) -> dict:
+    """
+    Duplicate an existing workflow with a new name.
+
+    Args:
+        source_name: The workflow to copy.
+        new_name: Name for the new workflow.
+    """
+    return persistence.duplicate_workflow(source_name, new_name)
+
+
+@mcp.tool()
+def export_workflow(name: str) -> dict:
+    """
+    Export a workflow as raw JSON (without metadata).
+    Useful for sharing or using in ComfyUI directly.
+
+    Args:
+        name: The workflow name.
+    """
+    return persistence.export_workflow(name)
+
+
+@mcp.tool()
+def import_workflow(
+    name: str,
+    workflow_json: dict,
+    description: str = "",
+    tags: list = None,
+) -> dict:
+    """
+    Import a raw workflow JSON (e.g., exported from ComfyUI).
+
+    Args:
+        name: Name for the workflow.
+        workflow_json: The raw workflow JSON.
+        description: Optional description.
+        tags: Optional tags.
+    """
+    return persistence.import_workflow(name, workflow_json, description, tags)
 
 
 # =============================================================================
