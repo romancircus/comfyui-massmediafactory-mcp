@@ -95,6 +95,14 @@ claude mcp add --transport stdio --scope user comfyui-massmediafactory \
 | `view_output(asset_id)` | Get asset URL and preview info |
 | `cleanup_expired_assets()` | Remove expired assets (24h TTL) |
 
+### Publishing (NEW)
+
+| Tool | Description |
+|------|-------------|
+| `publish_asset(asset_id, ...)` | Export to web directory with compression |
+| `get_publish_info()` | Show publish configuration |
+| `set_publish_dir(path)` | Configure publish directory |
+
 ## Example: Generate Image with Flux
 
 ```python
@@ -134,6 +142,10 @@ output = wait_for_completion(result["prompt_id"])
 # Browse all generations this session
 assets = list_assets(limit=10)
 # → {"assets": [{"asset_id": "...", "prompt_preview": "...", ...}], "count": 5}
+
+# Publish final image to web directory
+result = publish_asset(asset_id, target_filename="hero_image.png")
+# → {"success": True, "url": "/gen/hero_image.png", "bytes": 245000}
 ```
 
 ## Roadmap
@@ -145,8 +157,9 @@ assets = list_assets(limit=10)
 - [x] Batch execution
 - [x] Multi-stage pipelines
 - [x] Asset registry with iteration support
+- [x] Asset publishing to web directories
 - [ ] Inline image preview (base64)
-- [ ] Asset publishing to web directories
+- [ ] Automated VLM QA for generated outputs
 
 ## License
 

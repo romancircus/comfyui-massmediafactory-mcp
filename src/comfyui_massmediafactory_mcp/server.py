@@ -16,6 +16,7 @@ from . import sota
 from . import templates
 from . import batch
 from . import pipeline
+from . import publish
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -313,6 +314,76 @@ def cleanup_expired_assets() -> dict:
         Number of assets removed.
     """
     return execution.cleanup_expired_assets()
+
+
+# =============================================================================
+# Publishing Tools
+# =============================================================================
+
+@mcp.tool()
+def publish_asset(
+    asset_id: str,
+    target_filename: str = None,
+    manifest_key: str = None,
+    publish_dir: str = None,
+    web_optimize: bool = True,
+) -> dict:
+    """
+    Publish a generated asset to a web directory.
+
+    Two modes:
+    - Demo mode: Provide target_filename for explicit naming (e.g., "hero.png")
+    - Library mode: Provide manifest_key for auto-naming + manifest.json update
+
+    Args:
+        asset_id: The asset to publish.
+        target_filename: Explicit filename (demo mode).
+        manifest_key: Key for manifest.json (library mode).
+        publish_dir: Target directory (auto-detected from public/gen, static/gen).
+        web_optimize: Apply compression (default True).
+
+    Returns:
+        Published asset info with URL and path.
+
+    Example:
+        # Demo mode - explicit filename
+        publish_asset(asset_id, target_filename="product_hero.png")
+
+        # Library mode - auto filename + manifest
+        publish_asset(asset_id, manifest_key="product_shot_1")
+    """
+    return publish.publish_asset(
+        asset_id=asset_id,
+        target_filename=target_filename,
+        manifest_key=manifest_key,
+        publish_dir=publish_dir,
+        web_optimize=web_optimize,
+    )
+
+
+@mcp.tool()
+def get_publish_info() -> dict:
+    """
+    Get current publish configuration.
+
+    Returns:
+        ComfyUI output dir, publish dir, and whether auto-detected.
+    """
+    return publish.get_publish_info()
+
+
+@mcp.tool()
+def set_publish_dir(publish_dir: str) -> dict:
+    """
+    Set the publish directory for assets.
+
+    Args:
+        publish_dir: Path to publish directory (will be created if needed).
+
+    Returns:
+        Success status.
+    """
+    return publish.set_publish_dir(publish_dir)
 
 
 # =============================================================================
