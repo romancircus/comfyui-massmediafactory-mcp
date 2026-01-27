@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "comfyui-massmediafactory-mcp"
+version = "0.1.0"
+description = "MCP server for ComfyUI workflow orchestration - create, iterate, and maintain image/video generation pipelines"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "RomanCircus" }
+]
+keywords = ["comfyui", "mcp", "ai", "image-generation", "video-generation", "diffusion"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.scripts]
+comfyui-massmediafactory-mcp = "comfyui_massmediafactory_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/romancircus/comfyui-massmediafactory-mcp"
+Repository = "https://github.com/romancircus/comfyui-massmediafactory-mcp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/comfyui_massmediafactory_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
