@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "description": "Video Inpainting - Edit specific elements within a video",
+    "description": "Video Inpainting - Edit specific elements within a video (Single Frame Reference)",
     "type": "video_edit",
-    "use_case": "Edit/replace objects in video while maintaining temporal consistency (replaces Kling O1)",
-    "replaces": "Kling O1 Video Editing",
+    "use_case": "Edit/replace objects in video using first-frame mask propagation",
+    "replaces": "Basic video masking workflows",
     "parameters": ["VIDEO_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "DENOISE", "SEED"],
     "defaults": {
       "DENOISE": 0.7,
@@ -17,18 +17,24 @@
       "how_it_works": [
         "1. Extract frames from video",
         "2. Generate mask using CLIPSeg on first frame",
-        "3. Propagate mask across all frames",
-        "4. Inpaint each frame with temporal consistency",
+        "3. Apply same mask to all frames (static masking)",
+        "4. Inpaint each frame independently",
         "5. Reconstruct video with original audio"
       ],
       "limitations": [
-        "Best for static or slow-moving objects",
-        "Fast motion may cause flickering",
-        "Large objects work better than small details"
+        "IMPORTANT: This template uses static masking - object must not move significantly",
+        "For moving objects, use ProPainter or dedicated video inpainting models",
+        "Best for: background replacement, static object removal",
+        "Not suitable for: tracking moving objects, precise temporal consistency"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-VideoHelperSuite", "ComfyUI-segment-anything"],
-    "vram_required_gb": 16
+    "custom_nodes_required": ["ComfyUI-VideoHelperSuite", "ComfyUI-CLIPSeg"],
+    "alternative_solutions": {
+      "ProPainter": "Best for moving object removal with temporal consistency",
+      "Kling O1": "Cloud API for complex video editing"
+    },
+    "vram_required_gb": 16,
+    "status": "EXPERIMENTAL - Uses static mask, not true temporal propagation"
   },
   "1": {
     "class_type": "VHS_LoadVideo",
@@ -42,11 +48,11 @@
     }
   },
   "2": {
-    "class_type": "VHS_SplitImages",
-    "_comment": "Get first frame for mask generation",
+    "class_type": "GetImageFromBatch",
+    "_comment": "Get first frame for mask generation (node from ComfyUI-VideoHelperSuite or built-in)",
     "inputs": {
       "images": ["1", 0],
-      "split_index": 1
+      "index": 0
     }
   },
   "3": {
@@ -69,12 +75,11 @@
     }
   },
   "5": {
-    "class_type": "PropagateMask",
-    "_comment": "Propagate mask across all video frames",
+    "class_type": "RepeatMaskBatch",
+    "_comment": "Repeat the same mask for all video frames (static masking)",
     "inputs": {
-      "images": ["1", 0],
       "mask": ["4", 0],
-      "method": "optical_flow"
+      "amount": 120
     }
   },
   "6": {
@@ -113,12 +118,13 @@
     }
   },
   "11": {
-    "class_type": "VHS_BatchedVAEEncode",
-    "_comment": "Encode all video frames to latent",
+    "class_type": "VAEEncodeForInpaint",
+    "_comment": "Encode video frames with mask for inpainting (supports batch)",
     "inputs": {
       "pixels": ["1", 0],
       "vae": ["8", 0],
-      "mask": ["5", 0]
+      "mask": ["5", 0],
+      "grow_mask_by": 6
     }
   },
   "12": {
@@ -150,20 +156,19 @@
     }
   },
   "16": {
-    "class_type": "VHS_BatchedSampler",
-    "_comment": "Process all frames with temporal consistency",
+    "class_type": "SamplerCustomAdvanced",
+    "_comment": "Process all frames (batched latents, no temporal consistency)",
     "inputs": {
       "noise": ["14", 0],
       "guider": ["15", 0],
       "sampler": ["12", 0],
       "sigmas": ["13", 0],
-      "latent_image": ["11", 0],
-      "temporal_consistency": 0.8
+      "latent_image": ["11", 0]
     }
   },
   "17": {
-    "class_type": "VHS_BatchedVAEDecode",
-    "_comment": "Decode all frames back to images",
+    "class_type": "VAEDecode",
+    "_comment": "Decode all frames back to images (supports batch)",
     "inputs": {
       "samples": ["16", 0],
       "vae": ["8", 0]
@@ -174,12 +179,16 @@
     "_comment": "Reconstruct video with original audio",
     "inputs": {
       "images": ["17", 0],
-      "audio": ["1", 1],
+      "audio": ["1", 2],
       "frame_rate": 24,
+      "loop_count": 0,
       "filename_prefix": "video_inpaint",
       "format": "video/h264-mp4",
       "pingpong": false,
-      "save_output": true
+      "save_output": true,
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true
     }
   }
 }

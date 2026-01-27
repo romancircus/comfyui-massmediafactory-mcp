@@ -7,14 +7,14 @@
     "replaces": "Magnific AI upscaling",
     "parameters": ["IMAGE_PATH", "SCALE_FACTOR", "DENOISE", "TILE_SIZE", "SEED", "STEPS"],
     "defaults": {
-      "SCALE_FACTOR": 2,
+      "SCALE_FACTOR": 0.5,
       "DENOISE": 0.35,
       "TILE_SIZE": 512,
       "SEED": 42,
       "STEPS": 20
     },
     "agent_notes": {
-      "SCALE_FACTOR": "2 for 2x upscale (1024→2048), 4 for 4x (1024→4096)",
+      "SCALE_FACTOR": "0.5 for 2x final upscale (1024→2048), 1.0 for 4x (1024→4096). UltraSharp does 4x, then this scales.",
       "DENOISE": "0.3-0.4 for detail enhancement, 0.5-0.7 for more creative reinterpretation",
       "TILE_SIZE": "512 recommended. Larger = faster but less detail. Smaller = more detail but slower.",
       "pattern": "Generate Low Res → Pixel Upscale → Latent Refine with ControlNet Tile",
@@ -30,18 +30,25 @@
     }
   },
   "2": {
-    "class_type": "ImageUpscaleWithModel",
-    "_comment": "Pixel upscale first using 4x-UltraSharp",
+    "class_type": "UpscaleModelLoader",
+    "_comment": "Load 4x-UltraSharp upscaler",
     "inputs": {
-      "upscale_model": "4x-UltraSharp.pth",
-      "image": ["1", 0]
+      "model_name": "4x-UltraSharp.pth"
     }
   },
   "3": {
-    "class_type": "ImageScaleBy",
-    "_comment": "Scale to target size based on SCALE_FACTOR",
+    "class_type": "ImageUpscaleWithModel",
+    "_comment": "Pixel upscale using neural network (always 4x)",
     "inputs": {
-      "image": ["2", 0],
+      "upscale_model": ["2", 0],
+      "image": ["1", 0]
+    }
+  },
+  "3b": {
+    "class_type": "ImageScaleBy",
+    "_comment": "Normalize to target SCALE_FACTOR (0.5 = final 2x, 1.0 = final 4x)",
+    "inputs": {
+      "image": ["3", 0],
       "upscale_method": "lanczos",
       "scale_by": "{{SCALE_FACTOR}}"
     }
@@ -68,51 +75,34 @@
     }
   },
   "7": {
-    "class_type": "ControlNetLoader",
-    "_comment": "Load ControlNet Tile for structure preservation",
+    "class_type": "CLIPTextEncode",
+    "_comment": "Quality enhancement prompt",
     "inputs": {
-      "control_net_name": "control_v11f1e_sd15_tile.pth"
+      "clip": ["5", 0],
+      "text": "high resolution, sharp details, 8k uhd, masterpiece quality"
     }
   },
   "8": {
-    "class_type": "CLIPTextEncode",
-    "_comment": "Empty prompt - let ControlNet guide the detail",
-    "inputs": {
-      "clip": ["5", 0],
-      "text": "high resolution, sharp details, 8k uhd"
-    }
-  },
-  "9": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["8", 0],
+      "conditioning": ["7", 0],
       "guidance": 3.5
     }
   },
-  "10": {
-    "class_type": "ControlNetApply",
-    "_comment": "Apply tile ControlNet to preserve structure",
-    "inputs": {
-      "conditioning": ["9", 0],
-      "control_net": ["7", 0],
-      "image": ["3", 0],
-      "strength": 0.6
-    }
-  },
-  "11": {
+  "9": {
     "class_type": "VAEEncode",
     "inputs": {
-      "pixels": ["3", 0],
+      "pixels": ["3b", 0],
       "vae": ["6", 0]
     }
   },
-  "12": {
+  "10": {
     "class_type": "KSamplerSelect",
     "inputs": {
       "sampler_name": "euler"
     }
   },
-  "13": {
+  "11": {
     "class_type": "BasicScheduler",
     "inputs": {
       "model": ["4", 0],
@@ -121,42 +111,42 @@
       "denoise": "{{DENOISE}}"
     }
   },
-  "14": {
+  "12": {
     "class_type": "RandomNoise",
     "inputs": {
       "noise_seed": "{{SEED}}"
     }
   },
-  "15": {
+  "13": {
     "class_type": "BasicGuider",
     "inputs": {
       "model": ["4", 0],
-      "conditioning": ["10", 0]
+      "conditioning": ["8", 0]
     }
   },
-  "16": {
+  "14": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["14", 0],
-      "guider": ["15", 0],
-      "sampler": ["12", 0],
-      "sigmas": ["13", 0],
-      "latent_image": ["11", 0]
+      "noise": ["12", 0],
+      "guider": ["13", 0],
+      "sampler": ["10", 0],
+      "sigmas": ["11", 0],
+      "latent_image": ["9", 0]
     }
   },
-  "17": {
+  "15": {
     "class_type": "VAEDecodeTiled",
     "_comment": "Use tiled VAE decode for large images to prevent OOM",
     "inputs": {
-      "samples": ["16", 0],
+      "samples": ["14", 0],
       "vae": ["6", 0],
       "tile_size": "{{TILE_SIZE}}"
     }
   },
-  "18": {
+  "16": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["17", 0],
+      "images": ["15", 0],
       "filename_prefix": "upscaled_4k"
     }
   }

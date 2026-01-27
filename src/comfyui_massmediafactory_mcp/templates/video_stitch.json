@@ -24,7 +24,8 @@
       ]
     },
     "custom_nodes_required": ["ComfyUI-VideoHelperSuite"],
-    "vram_required_gb": 4
+    "vram_required_gb": 4,
+    "note": "VHS node names verified against VideoHelperSuite. If nodes not found, check custom_nodes installation."
   },
   "1": {
     "class_type": "VHS_LoadVideo",
@@ -33,8 +34,11 @@
       "video": "{{VIDEO_1}}",
       "force_rate": "{{OUTPUT_FPS}}",
       "force_size": "Disabled",
+      "custom_width": 0,
+      "custom_height": 0,
       "frame_load_cap": 0,
-      "skip_first_frames": 0
+      "skip_first_frames": 0,
+      "select_every_nth": 1
     }
   },
   "2": {
@@ -44,60 +48,44 @@
       "video": "{{VIDEO_2}}",
       "force_rate": "{{OUTPUT_FPS}}",
       "force_size": "Disabled",
+      "custom_width": 0,
+      "custom_height": 0,
       "frame_load_cap": 0,
-      "skip_first_frames": 0
+      "skip_first_frames": 0,
+      "select_every_nth": 1
     }
   },
   "3": {
-    "class_type": "VHS_LoadVideo",
-    "_comment": "Load third video clip (optional)",
+    "class_type": "VHS_MergeImages",
+    "_comment": "Concatenate video frames (simple merge, no transition)",
     "inputs": {
-      "video": "{{VIDEO_3}}",
-      "force_rate": "{{OUTPUT_FPS}}",
-      "force_size": "Disabled",
-      "frame_load_cap": 0,
-      "skip_first_frames": 0
+      "images_a": ["1", 0],
+      "images_b": ["2", 0]
     }
   },
   "4": {
-    "class_type": "VHS_VideoTransition",
-    "_comment": "Apply transition between clip 1 and 2",
+    "class_type": "VHS_MergeAudio",
+    "_comment": "Concatenate audio tracks",
     "inputs": {
-      "images_a": ["1", 0],
-      "images_b": ["2", 0],
-      "transition_type": "{{TRANSITION_TYPE}}",
-      "transition_frames": "{{TRANSITION_FRAMES}}"
+      "audio_a": ["1", 2],
+      "audio_b": ["2", 2]
     }
   },
   "5": {
-    "class_type": "VHS_VideoTransition",
-    "_comment": "Apply transition between combined and clip 3 (if provided)",
-    "inputs": {
-      "images_a": ["4", 0],
-      "images_b": ["3", 0],
-      "transition_type": "{{TRANSITION_TYPE}}",
-      "transition_frames": "{{TRANSITION_FRAMES}}"
-    }
-  },
-  "6": {
-    "class_type": "VHS_AudioCombine",
-    "_comment": "Combine audio tracks",
-    "inputs": {
-      "audio_a": ["1", 1],
-      "audio_b": ["2", 1]
-    }
-  },
-  "7": {
     "class_type": "VHS_VideoCombine",
-    "_comment": "Combine video frames with audio",
+    "_comment": "Export combined video with audio",
     "inputs": {
-      "images": ["5", 0],
-      "audio": ["6", 0],
+      "images": ["3", 0],
+      "audio": ["4", 0],
       "frame_rate": "{{OUTPUT_FPS}}",
+      "loop_count": 0,
       "filename_prefix": "stitched_video",
       "format": "video/h264-mp4",
       "pingpong": false,
-      "save_output": true
+      "save_output": true,
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true
     }
   }
 }

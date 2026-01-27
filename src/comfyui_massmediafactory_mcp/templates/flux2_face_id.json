@@ -24,9 +24,10 @@
         "Works best with realistic prompts"
       ]
     },
-    "custom_nodes_required": ["ComfyUI_IPAdapter_plus", "ComfyUI-InsightFace"],
-    "models_required": ["ip-adapter-faceid-plusv2_sd15.bin", "insightface/buffalo_l"],
-    "vram_required_gb": 18
+    "custom_nodes_required": ["ComfyUI_IPAdapter_plus", "ComfyUI_InstantID"],
+    "models_required": ["ip-adapter.bin", "antelopev2"],
+    "vram_required_gb": 18,
+    "compatibility_note": "This template uses IP-Adapter for face consistency. For FLUX, ensure you have FLUX-compatible IP-Adapter models installed. Alternative: Use PuLID or InstantID custom nodes."
   },
   "1": {
     "class_type": "UNETLoader",
@@ -57,30 +58,31 @@
     }
   },
   "5": {
-    "class_type": "IPAdapterFaceIDLoader",
-    "_comment": "Load FaceID IP-Adapter model",
+    "class_type": "IPAdapterModelLoader",
+    "_comment": "Load IP-Adapter model (use FLUX-compatible version)",
     "inputs": {
-      "model_name": "ip-adapter-faceid-plusv2_sd15.bin"
+      "ipadapter_file": "ip-adapter_sd15.safetensors"
     }
   },
   "6": {
-    "class_type": "InsightFaceLoader",
-    "_comment": "Load InsightFace for face embedding extraction",
+    "class_type": "CLIPVisionLoader",
+    "_comment": "Load CLIP Vision for image encoding",
     "inputs": {
-      "provider": "CUDA"
+      "clip_name": "clip-vit-h-14-laion2B-s32B-b79K.safetensors"
     }
   },
   "7": {
-    "class_type": "IPAdapterFaceID",
-    "_comment": "Apply face identity to model",
+    "class_type": "IPAdapterApply",
+    "_comment": "Apply face reference to model conditioning",
     "inputs": {
       "model": ["1", 0],
       "ipadapter": ["5", 0],
-      "insightface": ["6", 0],
+      "clip_vision": ["6", 0],
       "image": ["4", 0],
       "weight": "{{FACE_STRENGTH}}",
       "weight_type": "linear",
-      "combine_embeds": "average"
+      "start_at": 0.0,
+      "end_at": 1.0
     }
   },
   "8": {

@@ -25,9 +25,10 @@
         "Object detection with bounding boxes needed"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-GroundingDINO", "ComfyUI-segment-anything"],
-    "models_required": ["groundingdino_swint_ogc.pth", "sam_vit_h_4b8939.pth"],
-    "vram_required_gb": 12
+    "custom_nodes_required": ["ComfyUI-segment-anything"],
+    "models_required": ["GroundingDINO_SwinT_OGC.py", "sam_vit_h_4b8939.pth"],
+    "vram_required_gb": 12,
+    "node_name_note": "Node class names may vary by custom_node version. Common variants: 'GroundingDinoModelLoader (segment anything)', 'SAMModelLoader (segment anything)', 'GroundingDinoSAMSegment (segment anything)'. Adjust class_type if nodes not found."
   },
   "1": {
     "class_type": "LoadImage",
