@@ -13,6 +13,7 @@ from . import persistence
 from . import vram
 from . import validation
 from . import sota
+from . import templates
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -485,7 +486,79 @@ def check_installed_sota() -> dict:
 
 
 # =============================================================================
-# Templates as Resources
+# Workflow Templates
+# =============================================================================
+
+@mcp.tool()
+def list_workflow_templates() -> dict:
+    """
+    List all available workflow templates.
+
+    Returns templates for SOTA models with {{PLACEHOLDER}} syntax for customization.
+    """
+    return templates.list_templates()
+
+
+@mcp.tool()
+def get_template(name: str) -> dict:
+    """
+    Get a workflow template by name.
+
+    Args:
+        name: Template name (e.g., "qwen_txt2img", "flux2_txt2img", "ltx2_txt2vid")
+
+    Returns:
+        Template with metadata and {{PLACEHOLDER}} fields.
+    """
+    return templates.load_template(name)
+
+
+@mcp.tool()
+def create_workflow_from_template(
+    template_name: str,
+    parameters: dict,
+) -> dict:
+    """
+    Create a ready-to-execute workflow from a template.
+
+    Replaces {{PLACEHOLDER}} fields with actual values.
+
+    Args:
+        template_name: Name of the template (e.g., "qwen_txt2img")
+        parameters: Dict of parameter values (e.g., {"PROMPT": "a dragon", "SEED": 123})
+
+    Returns:
+        Complete workflow ready for execute_workflow().
+
+    Example:
+        create_workflow_from_template(
+            "qwen_txt2img",
+            {"PROMPT": "a majestic dragon", "WIDTH": 1024, "HEIGHT": 1024}
+        )
+    """
+    template = templates.load_template(template_name)
+    if "error" in template:
+        return template
+
+    # Get defaults from metadata
+    defaults = template.get("_meta", {}).get("defaults", {})
+
+    # Merge defaults with provided parameters
+    final_params = {**defaults, **parameters}
+
+    # Inject parameters into template
+    workflow = templates.inject_parameters(template, final_params)
+
+    return {
+        "workflow": workflow,
+        "template": template_name,
+        "parameters_used": final_params,
+        "note": "Use execute_workflow() with the 'workflow' field to run this.",
+    }
+
+
+# =============================================================================
+# Templates as Resources (Legacy)
 # =============================================================================
 
 @mcp.resource("template://flux-txt2img")

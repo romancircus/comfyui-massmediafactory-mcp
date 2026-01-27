@@ -1,0 +1,94 @@
+{
+  "_meta": {
+    "description": "LTX-2 19B text-to-video workflow",
+    "model": "LTX-2 19B",
+    "type": "txt2vid",
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
+    "defaults": {
+      "WIDTH": 768,
+      "HEIGHT": 512,
+      "SEED": 42,
+      "FRAMES": 97,
+      "FPS": 24,
+      "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
+    }
+  },
+  "1": {
+    "class_type": "LTXVLoader",
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
+      "dtype": "bfloat16"
+    }
+  },
+  "2": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["1", 1],
+      "text": "{{NEGATIVE}}"
+    }
+  },
+  "4": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{FRAMES}}",
+      "batch_size": 1
+    }
+  },
+  "5": {
+    "class_type": "LTXVScheduler",
+    "inputs": {
+      "steps": 30,
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true
+    }
+  },
+  "6": {
+    "class_type": "SamplerCustom",
+    "inputs": {
+      "model": ["1", 0],
+      "add_noise": true,
+      "noise_seed": "{{SEED}}",
+      "cfg": 3.0,
+      "positive": ["2", 0],
+      "negative": ["3", 0],
+      "sampler": ["7", 0],
+      "sigmas": ["5", 0],
+      "latent_image": ["4", 0]
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["6", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "9": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["8", 0],
+      "frame_rate": "{{FPS}}",
+      "loop_count": 0,
+      "filename_prefix": "ltx2_output",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

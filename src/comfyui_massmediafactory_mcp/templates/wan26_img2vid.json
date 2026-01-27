@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "description": "Wan 2.6 image-to-video workflow",
+    "model": "Wan 2.6",
+    "type": "img2vid",
+    "parameters": ["IMAGE_PATH", "PROMPT", "SEED", "FRAMES", "FPS"],
+    "defaults": {
+      "SEED": 42,
+      "FRAMES": 81,
+      "FPS": 16,
+      "PROMPT": "smooth motion, high quality video"
+    }
+  },
+  "1": {
+    "class_type": "DownloadAndLoadWanModel",
+    "inputs": {
+      "model": "Wan-AI/Wan2.6-I2V-14B-720P-bf16"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "3": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "WanImageToVideo",
+    "inputs": {
+      "model": ["1", 0],
+      "image": ["2", 0],
+      "prompt": "{{PROMPT}}",
+      "negative_prompt": "worst quality, blurry, jittery",
+      "width": ["3", 0],
+      "height": ["3", 1],
+      "num_frames": "{{FRAMES}}",
+      "guidance_scale": 5.0,
+      "flow_shift": 3.0,
+      "num_inference_steps": 30,
+      "seed": "{{SEED}}",
+      "enable_teacache": true,
+      "teacache_threshold": 0.3
+    }
+  },
+  "5": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["4", 0],
+      "frame_rate": "{{FPS}}",
+      "loop_count": 0,
+      "filename_prefix": "wan26_output",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}
