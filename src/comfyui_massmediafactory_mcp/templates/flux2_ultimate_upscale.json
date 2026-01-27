@@ -1,0 +1,163 @@
+{
+  "_meta": {
+    "description": "FLUX.2 Ultimate Upscale - 4K/8K detail enhancement with ControlNet Tile",
+    "model": "FLUX.2-dev",
+    "type": "upscale",
+    "use_case": "Upscale images to 4K/8K while adding detail (replaces Magnific AI)",
+    "replaces": "Magnific AI upscaling",
+    "parameters": ["IMAGE_PATH", "SCALE_FACTOR", "DENOISE", "TILE_SIZE", "SEED", "STEPS"],
+    "defaults": {
+      "SCALE_FACTOR": 2,
+      "DENOISE": 0.35,
+      "TILE_SIZE": 512,
+      "SEED": 42,
+      "STEPS": 20
+    },
+    "agent_notes": {
+      "SCALE_FACTOR": "2 for 2x upscale (1024→2048), 4 for 4x (1024→4096)",
+      "DENOISE": "0.3-0.4 for detail enhancement, 0.5-0.7 for more creative reinterpretation",
+      "TILE_SIZE": "512 recommended. Larger = faster but less detail. Smaller = more detail but slower.",
+      "pattern": "Generate Low Res → Pixel Upscale → Latent Refine with ControlNet Tile",
+      "vram_warning": "4x upscale of 1024x1024 requires ~20GB VRAM with tiled VAE"
+    },
+    "custom_nodes_required": ["ComfyUI-Ultimate-SD-Upscale"],
+    "vram_required_gb": 16
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "2": {
+    "class_type": "ImageUpscaleWithModel",
+    "_comment": "Pixel upscale first using 4x-UltraSharp",
+    "inputs": {
+      "upscale_model": "4x-UltraSharp.pth",
+      "image": ["1", 0]
+    }
+  },
+  "3": {
+    "class_type": "ImageScaleBy",
+    "_comment": "Scale to target size based on SCALE_FACTOR",
+    "inputs": {
+      "image": ["2", 0],
+      "upscale_method": "lanczos",
+      "scale_by": "{{SCALE_FACTOR}}"
+    }
+  },
+  "4": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "5": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "6": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "7": {
+    "class_type": "ControlNetLoader",
+    "_comment": "Load ControlNet Tile for structure preservation",
+    "inputs": {
+      "control_net_name": "control_v11f1e_sd15_tile.pth"
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "_comment": "Empty prompt - let ControlNet guide the detail",
+    "inputs": {
+      "clip": ["5", 0],
+      "text": "high resolution, sharp details, 8k uhd"
+    }
+  },
+  "9": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["8", 0],
+      "guidance": 3.5
+    }
+  },
+  "10": {
+    "class_type": "ControlNetApply",
+    "_comment": "Apply tile ControlNet to preserve structure",
+    "inputs": {
+      "conditioning": ["9", 0],
+      "control_net": ["7", 0],
+      "image": ["3", 0],
+      "strength": 0.6
+    }
+  },
+  "11": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": ["3", 0],
+      "vae": ["6", 0]
+    }
+  },
+  "12": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "13": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["4", 0],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": "{{DENOISE}}"
+    }
+  },
+  "14": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "15": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["4", 0],
+      "conditioning": ["10", 0]
+    }
+  },
+  "16": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["14", 0],
+      "guider": ["15", 0],
+      "sampler": ["12", 0],
+      "sigmas": ["13", 0],
+      "latent_image": ["11", 0]
+    }
+  },
+  "17": {
+    "class_type": "VAEDecodeTiled",
+    "_comment": "Use tiled VAE decode for large images to prevent OOM",
+    "inputs": {
+      "samples": ["16", 0],
+      "vae": ["6", 0],
+      "tile_size": "{{TILE_SIZE}}"
+    }
+  },
+  "18": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["17", 0],
+      "filename_prefix": "upscaled_4k"
+    }
+  }
+}

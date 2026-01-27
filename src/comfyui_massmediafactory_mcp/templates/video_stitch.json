@@ -1,0 +1,103 @@
+{
+  "_meta": {
+    "description": "Video Stitch - Combine multiple video clips into a sequence",
+    "type": "video_combine",
+    "use_case": "Combine video clips with optional transitions (replaces basic Premiere/CapCut edits)",
+    "replaces": "Premiere Pro / CapCut for simple video combining",
+    "parameters": ["VIDEO_1", "VIDEO_2", "VIDEO_3", "TRANSITION_TYPE", "TRANSITION_FRAMES", "OUTPUT_FPS"],
+    "defaults": {
+      "VIDEO_3": "",
+      "TRANSITION_TYPE": "none",
+      "TRANSITION_FRAMES": 12,
+      "OUTPUT_FPS": 24
+    },
+    "agent_notes": {
+      "VIDEO_1": "Path to first video clip",
+      "VIDEO_2": "Path to second video clip",
+      "VIDEO_3": "Optional: Path to third video clip (leave empty to skip)",
+      "TRANSITION_TYPE": "none, fade, dissolve, wipe",
+      "TRANSITION_FRAMES": "Number of frames for transition (12 = 0.5s at 24fps)",
+      "limitations": [
+        "All clips should have same resolution for best results",
+        "Audio is preserved from all clips",
+        "For complex edits, use dedicated video editor"
+      ]
+    },
+    "custom_nodes_required": ["ComfyUI-VideoHelperSuite"],
+    "vram_required_gb": 4
+  },
+  "1": {
+    "class_type": "VHS_LoadVideo",
+    "_comment": "Load first video clip",
+    "inputs": {
+      "video": "{{VIDEO_1}}",
+      "force_rate": "{{OUTPUT_FPS}}",
+      "force_size": "Disabled",
+      "frame_load_cap": 0,
+      "skip_first_frames": 0
+    }
+  },
+  "2": {
+    "class_type": "VHS_LoadVideo",
+    "_comment": "Load second video clip",
+    "inputs": {
+      "video": "{{VIDEO_2}}",
+      "force_rate": "{{OUTPUT_FPS}}",
+      "force_size": "Disabled",
+      "frame_load_cap": 0,
+      "skip_first_frames": 0
+    }
+  },
+  "3": {
+    "class_type": "VHS_LoadVideo",
+    "_comment": "Load third video clip (optional)",
+    "inputs": {
+      "video": "{{VIDEO_3}}",
+      "force_rate": "{{OUTPUT_FPS}}",
+      "force_size": "Disabled",
+      "frame_load_cap": 0,
+      "skip_first_frames": 0
+    }
+  },
+  "4": {
+    "class_type": "VHS_VideoTransition",
+    "_comment": "Apply transition between clip 1 and 2",
+    "inputs": {
+      "images_a": ["1", 0],
+      "images_b": ["2", 0],
+      "transition_type": "{{TRANSITION_TYPE}}",
+      "transition_frames": "{{TRANSITION_FRAMES}}"
+    }
+  },
+  "5": {
+    "class_type": "VHS_VideoTransition",
+    "_comment": "Apply transition between combined and clip 3 (if provided)",
+    "inputs": {
+      "images_a": ["4", 0],
+      "images_b": ["3", 0],
+      "transition_type": "{{TRANSITION_TYPE}}",
+      "transition_frames": "{{TRANSITION_FRAMES}}"
+    }
+  },
+  "6": {
+    "class_type": "VHS_AudioCombine",
+    "_comment": "Combine audio tracks",
+    "inputs": {
+      "audio_a": ["1", 1],
+      "audio_b": ["2", 1]
+    }
+  },
+  "7": {
+    "class_type": "VHS_VideoCombine",
+    "_comment": "Combine video frames with audio",
+    "inputs": {
+      "images": ["5", 0],
+      "audio": ["6", 0],
+      "frame_rate": "{{OUTPUT_FPS}}",
+      "filename_prefix": "stitched_video",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

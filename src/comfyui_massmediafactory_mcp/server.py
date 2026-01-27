@@ -19,6 +19,8 @@ from . import pipeline
 from . import publish
 from . import qa
 from . import models
+from . import analysis
+from . import style_learning
 
 # Initialize MCP server
 mcp = FastMCP(
@@ -1195,6 +1197,103 @@ def list_installed_models(model_type: str = None) -> dict:
 
 
 # =============================================================================
+# Asset Analysis Tools
+# =============================================================================
+
+@mcp.tool()
+def get_image_dimensions(asset_id: str) -> dict:
+    """
+    Get dimensions of an image asset.
+
+    Essential for Image-to-Video workflows where agent needs to know
+    aspect ratio to set video width/height correctly.
+
+    Args:
+        asset_id: The asset ID to analyze.
+
+    Returns:
+        {
+            "width": 1024,
+            "height": 768,
+            "aspect_ratio": "4:3",
+            "aspect_ratio_decimal": 1.333,
+            "orientation": "landscape",
+            "recommended_video_size": {"width": 1280, "height": 720}
+        }
+
+    Example:
+        # After generating an image, check dimensions for video
+        dims = get_image_dimensions(image_asset_id)
+        video_workflow = inject_parameters(workflow, {
+            "WIDTH": dims["recommended_video_size"]["width"],
+            "HEIGHT": dims["recommended_video_size"]["height"]
+        })
+    """
+    return analysis.get_image_dimensions(asset_id)
+
+
+@mcp.tool()
+def detect_objects(
+    asset_id: str,
+    objects: list,
+    vlm_model: str = None,
+) -> dict:
+    """
+    Detect if specific objects exist in a generated image.
+
+    Use this to validate output before expensive operations like video
+    generation. E.g., verify "a cat" actually exists in output before
+    generating a 5-second video of it.
+
+    Args:
+        asset_id: The asset to analyze.
+        objects: List of objects to detect (e.g., ["cat", "dog", "person"]).
+        vlm_model: VLM to use (default: qwen2.5-vl:7b via Ollama).
+
+    Returns:
+        {
+            "detected": ["cat", "person"],
+            "not_detected": ["dog"],
+            "confidence": {
+                "cat": 0.95,
+                "person": 0.87,
+                "dog": 0.12
+            },
+            "description": "The image shows a cat sitting next to a person..."
+        }
+
+    Example:
+        # Validate before video generation
+        result = detect_objects(image_id, ["dragon", "fire"])
+        if "dragon" not in result["detected"]:
+            # Regenerate with different seed
+            regenerate(image_id, seed=None)
+    """
+    return analysis.detect_objects(asset_id, objects, vlm_model)
+
+
+@mcp.tool()
+def get_video_info(asset_id: str) -> dict:
+    """
+    Get information about a video asset.
+
+    Args:
+        asset_id: The video asset ID.
+
+    Returns:
+        {
+            "width": 1280,
+            "height": 720,
+            "duration_seconds": 5.0,
+            "frame_count": 120,
+            "fps": 24,
+            "aspect_ratio": "16:9"
+        }
+    """
+    return analysis.get_video_info(asset_id)
+
+
+# =============================================================================
 # Quality Assurance Tools
 # =============================================================================
 
@@ -1274,6 +1373,272 @@ def check_vlm_available(vlm_model: str = None) -> dict:
             print(f"Pull model with: ollama pull {status['requested_model']}")
     """
     return qa.check_vlm_available(vlm_model)
+
+
+# =============================================================================
+# Style Learning Tools
+# =============================================================================
+
+@mcp.tool()
+def record_generation(
+    prompt: str,
+    model: str,
+    seed: int,
+    parameters: dict = None,
+    negative_prompt: str = "",
+    rating: float = None,
+    tags: list = None,
+    outcome: str = "success",
+    qa_score: float = None,
+    notes: str = "",
+) -> dict:
+    """
+    Record a generation for style learning.
+
+    Store prompts, seeds, and ratings to learn from successful generations
+    and improve future prompt engineering.
+
+    Args:
+        prompt: The generation prompt.
+        model: Model used (e.g., "flux2-dev").
+        seed: Random seed.
+        parameters: Full parameter dict.
+        negative_prompt: Negative prompt if any.
+        rating: User rating 0.0-1.0 (None if not rated yet).
+        tags: Style tags (e.g., ["anime", "portrait"]).
+        outcome: "success", "failed", or "regenerated".
+        qa_score: Automated QA score if available.
+        notes: Any additional notes.
+
+    Returns:
+        {"record_id": "gen_xxx", "success": True}
+
+    Example:
+        # After a successful generation
+        record_generation(
+            prompt="a majestic dragon",
+            model="flux2-dev",
+            seed=42,
+            rating=0.9,
+            tags=["fantasy", "creature"]
+        )
+    """
+    record_id = style_learning.record_generation(
+        prompt=prompt,
+        model=model,
+        seed=seed,
+        parameters=parameters,
+        negative_prompt=negative_prompt,
+        rating=rating,
+        tags=tags,
+        outcome=outcome,
+        qa_score=qa_score,
+        notes=notes,
+    )
+    return {"record_id": record_id, "success": True}
+
+
+@mcp.tool()
+def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
+    """
+    Rate a past generation (0.0-1.0).
+
+    Args:
+        record_id: The generation record ID.
+        rating: Rating between 0.0 (bad) and 1.0 (excellent).
+        notes: Optional notes about what was good/bad.
+
+    Returns:
+        {"success": True/False}
+    """
+    success = style_learning.rate_generation(record_id, rating, notes)
+    return {"success": success}
+
+
+@mcp.tool()
+def suggest_prompt_enhancement(
+    prompt: str,
+    model: str = None,
+    style_tags: list = None,
+) -> dict:
+    """
+    Get prompt enhancement suggestions based on past successful generations.
+
+    Analyzes your generation history to suggest improvements.
+
+    Args:
+        prompt: The base prompt to enhance.
+        model: Target model.
+        style_tags: Desired style tags.
+
+    Returns:
+        {
+            "recommended_additions": ["words", "to", "add"],
+            "negative_suggestions": ["suggested negative prompts"],
+            "similar_successful": [...],
+            "best_seeds": [...]
+        }
+
+    Example:
+        suggestions = suggest_prompt_enhancement(
+            prompt="a portrait of a woman",
+            model="flux2-dev",
+            style_tags=["portrait", "realistic"]
+        )
+        enhanced_prompt = prompt + ", " + ", ".join(suggestions["recommended_additions"])
+    """
+    return style_learning.suggest_prompt_enhancement(
+        prompt=prompt,
+        model=model,
+        style_tags=style_tags,
+    )
+
+
+@mcp.tool()
+def find_similar_prompts(
+    prompt: str,
+    model: str = None,
+    min_rating: float = 0.7,
+    limit: int = 5,
+) -> dict:
+    """
+    Find similar past generations with good ratings.
+
+    Args:
+        prompt: The prompt to match against.
+        model: Optional model filter.
+        min_rating: Minimum rating threshold (default 0.7).
+        limit: Maximum results (default 5).
+
+    Returns:
+        {"similar": [...], "count": N}
+    """
+    results = style_learning.find_similar_prompts(
+        prompt=prompt,
+        model=model,
+        min_rating=min_rating,
+        limit=limit,
+    )
+    return {"similar": results, "count": len(results)}
+
+
+@mcp.tool()
+def get_best_seeds_for_style(
+    tags: list,
+    model: str = None,
+    limit: int = 10,
+) -> dict:
+    """
+    Get best-rated seeds for a specific style.
+
+    Args:
+        tags: Style tags to match (e.g., ["anime", "portrait"]).
+        model: Optional model filter.
+        limit: Maximum results.
+
+    Returns:
+        {"seeds": [...], "count": N}
+
+    Example:
+        # Find seeds that worked well for anime portraits
+        result = get_best_seeds_for_style(["anime", "portrait"])
+        for item in result["seeds"]:
+            print(f"Seed {item['seed']} rated {item['rating']}")
+    """
+    results = style_learning.get_best_seeds_for_style(
+        tags=tags,
+        model=model,
+        limit=limit,
+    )
+    return {"seeds": results, "count": len(results)}
+
+
+@mcp.tool()
+def save_style_preset(
+    name: str,
+    description: str,
+    prompt_additions: str,
+    negative_additions: str = "",
+    recommended_model: str = None,
+    recommended_params: dict = None,
+) -> dict:
+    """
+    Save a reusable style preset.
+
+    Args:
+        name: Preset name (e.g., "cinematic_portrait").
+        description: Description of the style.
+        prompt_additions: Text to add to prompts.
+        negative_additions: Text to add to negative prompts.
+        recommended_model: Best model for this style.
+        recommended_params: Recommended parameters.
+
+    Returns:
+        {"success": True}
+
+    Example:
+        save_style_preset(
+            name="anime_portrait",
+            description="High-quality anime character portraits",
+            prompt_additions="anime style, detailed eyes, soft shading",
+            negative_additions="realistic, photograph, 3d render",
+            recommended_model="flux2-dev"
+        )
+    """
+    success = style_learning.save_style_preset(
+        name=name,
+        description=description,
+        prompt_additions=prompt_additions,
+        negative_additions=negative_additions,
+        recommended_model=recommended_model,
+        recommended_params=recommended_params,
+    )
+    return {"success": success}
+
+
+@mcp.tool()
+def get_style_preset(name: str) -> dict:
+    """
+    Get a saved style preset.
+
+    Args:
+        name: Preset name.
+
+    Returns:
+        Style preset dict or {"error": "Not found"}
+    """
+    preset = style_learning.get_style_preset(name)
+    if preset:
+        return preset
+    return {"error": f"Style preset '{name}' not found"}
+
+
+@mcp.tool()
+def list_style_presets() -> dict:
+    """
+    List all saved style presets.
+
+    Returns:
+        {"presets": [...], "count": N}
+    """
+    presets = style_learning.list_style_presets()
+    return {"presets": presets, "count": len(presets)}
+
+
+@mcp.tool()
+def get_style_learning_stats() -> dict:
+    """
+    Get statistics about stored generations and learning data.
+
+    Returns:
+        {
+            "total_generations": N,
+            "average_rating": 0.X,
+            "high_rated_count": N,
+            "style_presets": N
+        }
+    """
+    return style_learning.get_statistics()
 
 
 def main():

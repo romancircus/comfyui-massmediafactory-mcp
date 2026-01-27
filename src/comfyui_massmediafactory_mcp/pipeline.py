@@ -307,3 +307,179 @@ def _extract_output_files(outputs: Dict[str, Any], output_type: str) -> List[str
                     files.append(item)
 
     return files
+
+
+# =============================================================================
+# Audio-Video Sync Automation
+# =============================================================================
+
+def calculate_video_frames(
+    audio_duration_seconds: float,
+    fps: int = 24,
+    buffer_frames: int = 1,
+) -> int:
+    """
+    Calculate required video frames for audio sync.
+
+    Critical formula: frames = (audio_duration * fps) + buffer
+
+    Args:
+        audio_duration_seconds: Duration of audio in seconds.
+        fps: Target video framerate (default 24).
+        buffer_frames: Extra frames to ensure full coverage (default 1).
+
+    Returns:
+        Number of frames needed.
+
+    Example:
+        frames = calculate_video_frames(5.5, fps=24)
+        # Returns 133 (5.5 * 24 + 1)
+    """
+    return int(audio_duration_seconds * fps) + buffer_frames
+
+
+def create_tts_to_video_pipeline(
+    tts_workflow: Dict[str, Any],
+    img2vid_workflow: Dict[str, Any],
+    text: str,
+    portrait_image: str,
+    fps: int = 24,
+    voice_params: Optional[Dict[str, Any]] = None,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """
+    Create a complete TTS to talking-head video pipeline.
+
+    Automatically handles audio-video frame synchronization.
+
+    Args:
+        tts_workflow: TTS workflow template (Qwen3-TTS or Chatterbox).
+        img2vid_workflow: Image-to-video workflow (LTX-2 audio-reactive).
+        text: Text to speak.
+        portrait_image: Path to portrait image.
+        fps: Target video framerate.
+        voice_params: Optional voice parameters (SPEAKER, INSTRUCT, etc.).
+        seed: Random seed.
+
+    Returns:
+        Pipeline execution results with synced video.
+
+    Example:
+        result = create_tts_to_video_pipeline(
+            tts_workflow=load_template("qwen3_tts_custom_voice"),
+            img2vid_workflow=load_template("ltx2_audio_reactive"),
+            text="Hello, welcome to our channel!",
+            portrait_image="character.png",
+            voice_params={"SPEAKER": "Ryan", "INSTRUCT": "Excited"}
+        )
+    """
+    voice_params = voice_params or {}
+
+    # Stage 1: Generate TTS audio
+    # Stage 2: Calculate frames from audio duration
+    # Stage 3: Generate lip-synced video
+
+    def _get_audio_duration(stage_outputs: Dict) -> float:
+        """Extract audio duration from TTS stage output."""
+        # Look for duration in metadata or calculate from audio file
+        for node_outputs in stage_outputs.values():
+            if "audio" in node_outputs:
+                for item in node_outputs["audio"]:
+                    if isinstance(item, dict) and "duration" in item:
+                        return item["duration"]
+        # Default fallback: estimate from text length
+        # ~150 words per minute = 2.5 words per second
+        word_count = len(text.split())
+        return word_count / 2.5
+
+    stages = [
+        {
+            "name": "generate_audio",
+            "workflow": tts_workflow,
+            "output_mapping": {"audio": "AUDIO_PATH"},
+        },
+        {
+            "name": "generate_video",
+            "workflow": img2vid_workflow,
+            # FRAMES will be calculated dynamically
+        },
+    ]
+
+    initial_params = {
+        "TEXT": text,
+        "IMAGE_PATH": portrait_image,
+        "PROMPT": "speaking naturally, subtle head movements, lip sync",
+        "SEED": seed,
+        "FPS": fps,
+        **voice_params,
+    }
+
+    # Execute with custom frame calculation between stages
+    client = get_client()
+    results = {
+        "stages": [],
+        "total_duration": 0,
+        "status": "running",
+    }
+
+    current_params = initial_params.copy()
+    start_time = time.time()
+
+    # Stage 1: TTS
+    tts_workflow_prepared = _substitute_params(tts_workflow, current_params)
+    queue_result = client.queue_prompt(tts_workflow_prepared)
+
+    if "error" in queue_result:
+        return {"status": "error", "error": queue_result["error"]}
+
+    tts_completion = wait_for_completion(queue_result["prompt_id"], timeout=300)
+
+    if tts_completion.get("status") == "error":
+        return {"status": "error", "error": tts_completion.get("error")}
+
+    results["stages"].append({
+        "name": "generate_audio",
+        "status": "completed",
+        "outputs": tts_completion.get("outputs", {}),
+    })
+
+    # Extract audio path and duration
+    audio_path = _extract_output_files(tts_completion.get("outputs", {}), "audio")
+    if audio_path:
+        current_params["AUDIO_PATH"] = audio_path[0]
+
+    # Calculate frames from audio duration
+    audio_duration = _get_audio_duration(tts_completion.get("outputs", {}))
+    current_params["FRAMES"] = calculate_video_frames(audio_duration, fps)
+
+    # Stage 2: Video generation with calculated frames
+    video_workflow_prepared = _substitute_params(img2vid_workflow, current_params)
+    queue_result = client.queue_prompt(video_workflow_prepared)
+
+    if "error" in queue_result:
+        return {"status": "error", "error": queue_result["error"]}
+
+    video_completion = wait_for_completion(queue_result["prompt_id"], timeout=600)
+
+    if video_completion.get("status") == "error":
+        return {"status": "error", "error": video_completion.get("error")}
+
+    results["stages"].append({
+        "name": "generate_video",
+        "status": "completed",
+        "outputs": video_completion.get("outputs", {}),
+        "audio_duration": audio_duration,
+        "calculated_frames": current_params["FRAMES"],
+    })
+
+    results["total_duration"] = time.time() - start_time
+    results["status"] = "completed"
+    results["final_outputs"] = video_completion.get("outputs", {})
+    results["sync_info"] = {
+        "audio_duration_seconds": audio_duration,
+        "video_frames": current_params["FRAMES"],
+        "fps": fps,
+        "video_duration_seconds": current_params["FRAMES"] / fps,
+    }
+
+    return results

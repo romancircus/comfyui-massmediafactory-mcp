@@ -1,0 +1,183 @@
+{
+  "_meta": {
+    "description": "FLUX.2 Inpainting with GroundingDINO + SAM for precise object selection",
+    "model": "FLUX.2-dev",
+    "type": "inpainting_precise",
+    "use_case": "High-precision inpainting using GroundingDINO detection + SAM segmentation",
+    "replaces": "DALL-E inpainting (with higher precision than CLIPSeg)",
+    "parameters": ["IMAGE_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "DETECTION_THRESHOLD", "DENOISE", "SEED"],
+    "defaults": {
+      "DETECTION_THRESHOLD": 0.3,
+      "DENOISE": 0.85,
+      "SEED": 42
+    },
+    "agent_notes": {
+      "SELECT_TEXT": "Object to detect (e.g., 'car', 'person', 'dog'). Use simple nouns.",
+      "DETECTION_THRESHOLD": "0.2-0.4 for general objects, 0.4-0.6 for high-confidence only",
+      "comparison_to_clipseg": {
+        "GroundingDINO+SAM": "Higher precision, better edges, slower, works with object classes",
+        "CLIPSeg": "Faster, handles abstract concepts better, softer edges"
+      },
+      "when_to_use": [
+        "Complex object shapes (people, animals)",
+        "Multiple instances of same object",
+        "Need precise edges (hair, fur, transparent objects)",
+        "Object detection with bounding boxes needed"
+      ]
+    },
+    "custom_nodes_required": ["ComfyUI-GroundingDINO", "ComfyUI-segment-anything"],
+    "models_required": ["groundingdino_swint_ogc.pth", "sam_vit_h_4b8939.pth"],
+    "vram_required_gb": 12
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "2": {
+    "class_type": "GroundingDinoModelLoader",
+    "_comment": "Load GroundingDINO for object detection",
+    "inputs": {
+      "model_name": "groundingdino_swint_ogc.pth"
+    }
+  },
+  "3": {
+    "class_type": "SAMModelLoader",
+    "_comment": "Load Segment Anything Model",
+    "inputs": {
+      "model_name": "sam_vit_h_4b8939.pth"
+    }
+  },
+  "4": {
+    "class_type": "GroundingDinoDetect",
+    "_comment": "Detect object bounding boxes from text",
+    "inputs": {
+      "model": ["2", 0],
+      "image": ["1", 0],
+      "prompt": "{{SELECT_TEXT}}",
+      "threshold": "{{DETECTION_THRESHOLD}}"
+    }
+  },
+  "5": {
+    "class_type": "SAMSegment",
+    "_comment": "Generate precise mask from bounding boxes",
+    "inputs": {
+      "sam_model": ["3", 0],
+      "image": ["1", 0],
+      "boxes": ["4", 0]
+    }
+  },
+  "6": {
+    "class_type": "GrowMask",
+    "_comment": "Slightly expand mask for better blending",
+    "inputs": {
+      "mask": ["5", 0],
+      "expand": 4,
+      "tapered_corners": true
+    }
+  },
+  "7": {
+    "class_type": "MaskToImage",
+    "_comment": "Preview the generated mask",
+    "inputs": {
+      "mask": ["6", 0]
+    }
+  },
+  "8": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "9": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "10": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "11": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["9", 0],
+      "text": "{{REPLACE_PROMPT}}"
+    }
+  },
+  "12": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["11", 0],
+      "guidance": 3.5
+    }
+  },
+  "13": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["1", 0],
+      "vae": ["10", 0],
+      "mask": ["6", 0],
+      "grow_mask_by": 6
+    }
+  },
+  "14": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "15": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["8", 0],
+      "scheduler": "simple",
+      "steps": 20,
+      "denoise": "{{DENOISE}}"
+    }
+  },
+  "16": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "17": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["8", 0],
+      "conditioning": ["12", 0]
+    }
+  },
+  "18": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["16", 0],
+      "guider": ["17", 0],
+      "sampler": ["14", 0],
+      "sigmas": ["15", 0],
+      "latent_image": ["13", 0]
+    }
+  },
+  "19": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["18", 0],
+      "vae": ["10", 0]
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["19", 0],
+      "filename_prefix": "grounding_dino_inpaint"
+    }
+  }
+}

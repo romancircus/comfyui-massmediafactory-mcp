@@ -1,0 +1,160 @@
+{
+  "_meta": {
+    "description": "FLUX.2 Face ID - Force specific face identity in generated images",
+    "model": "FLUX.2-dev",
+    "type": "txt2img_faceid",
+    "use_case": "Generate images with consistent face identity (replaces Midjourney --cref)",
+    "replaces": "Midjourney --cref (character reference)",
+    "parameters": ["PROMPT", "FACE_IMAGE", "FACE_STRENGTH", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+    "defaults": {
+      "WIDTH": 1024,
+      "HEIGHT": 1024,
+      "SEED": 42,
+      "STEPS": 20,
+      "GUIDANCE": 3.5,
+      "FACE_STRENGTH": 0.85
+    },
+    "agent_notes": {
+      "FACE_IMAGE": "Path to reference face image (clear frontal face works best)",
+      "FACE_STRENGTH": "0.7-0.9 for strong likeness, 0.5-0.7 for subtle influence",
+      "tips": [
+        "Use clear, well-lit frontal face photos",
+        "Multiple reference images improve consistency",
+        "Lower strength allows more style variation",
+        "Works best with realistic prompts"
+      ]
+    },
+    "custom_nodes_required": ["ComfyUI_IPAdapter_plus", "ComfyUI-InsightFace"],
+    "models_required": ["ip-adapter-faceid-plusv2_sd15.bin", "insightface/buffalo_l"],
+    "vram_required_gb": 18
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux2-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "_comment": "Load reference face image",
+    "inputs": {
+      "image": "{{FACE_IMAGE}}"
+    }
+  },
+  "5": {
+    "class_type": "IPAdapterFaceIDLoader",
+    "_comment": "Load FaceID IP-Adapter model",
+    "inputs": {
+      "model_name": "ip-adapter-faceid-plusv2_sd15.bin"
+    }
+  },
+  "6": {
+    "class_type": "InsightFaceLoader",
+    "_comment": "Load InsightFace for face embedding extraction",
+    "inputs": {
+      "provider": "CUDA"
+    }
+  },
+  "7": {
+    "class_type": "IPAdapterFaceID",
+    "_comment": "Apply face identity to model",
+    "inputs": {
+      "model": ["1", 0],
+      "ipadapter": ["5", 0],
+      "insightface": ["6", 0],
+      "image": ["4", 0],
+      "weight": "{{FACE_STRENGTH}}",
+      "weight_type": "linear",
+      "combine_embeds": "average"
+    }
+  },
+  "8": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "9": {
+    "class_type": "FluxGuidance",
+    "inputs": {
+      "conditioning": ["8", 0],
+      "guidance": "{{GUIDANCE}}"
+    }
+  },
+  "10": {
+    "class_type": "EmptySD3LatentImage",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "batch_size": 1
+    }
+  },
+  "11": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "12": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": ["7", 0],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": 1.0
+    }
+  },
+  "13": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "14": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": ["7", 0],
+      "conditioning": ["9", 0]
+    }
+  },
+  "15": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": ["13", 0],
+      "guider": ["14", 0],
+      "sampler": ["11", 0],
+      "sigmas": ["12", 0],
+      "latent_image": ["10", 0]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "17": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["16", 0],
+      "filename_prefix": "faceid_output"
+    }
+  }
+}
