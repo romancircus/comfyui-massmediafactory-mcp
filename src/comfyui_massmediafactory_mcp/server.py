@@ -20,7 +20,7 @@ from . import pipeline
 # Initialize MCP server
 mcp = FastMCP(
     "comfyui-massmediafactory",
-    description="ComfyUI workflow orchestration for image and video generation",
+    instructions="ComfyUI workflow orchestration for image and video generation",
 )
 
 
