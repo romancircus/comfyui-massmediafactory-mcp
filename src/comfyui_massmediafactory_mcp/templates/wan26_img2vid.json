@@ -1,131 +1,59 @@
 {
   "_meta": {
-    "description": "Wan 2.1 image-to-video workflow (Official Granular Pattern)",
-    "model": "Wan 2.1 I2V 14B",
+    "description": "Wan 2.6 image-to-video workflow",
+    "model": "Wan 2.6",
     "type": "img2vid",
-    "source": "Based on official ComfyUI Wan examples (comfyanonymous.github.io)",
-    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
+    "parameters": ["IMAGE_PATH", "PROMPT", "SEED", "FRAMES", "FPS"],
     "defaults": {
       "SEED": 42,
-      "WIDTH": 832,
-      "HEIGHT": 480,
       "FRAMES": 81,
       "FPS": 16,
-      "NEGATIVE": "worst quality, blurry, jittery, distorted"
-    },
-    "performance": {
-      "vram_gb": 24,
-      "steps": 30,
-      "quality": "14B High Quality"
+      "PROMPT": "smooth motion, high quality video"
     }
   },
   "1": {
-    "class_type": "WanVideoModelLoader",
-    "_meta": { "title": "Load Wan 2.1 Video Model" },
+    "class_type": "DownloadAndLoadWanModel",
     "inputs": {
-      "model": "wan_2.1_i2v_14b_480p_bf16.safetensors"
+      "model": "Wan-AI/Wan2.6-I2V-14B-720P-bf16"
     }
   },
   "2": {
-    "class_type": "CLIPLoader",
-    "_meta": { "title": "Load T5 Text Encoder" },
-    "inputs": {
-      "clip_name": "umt5_xxl_fp8.safetensors",
-      "type": "wan"
-    }
-  },
-  "3": {
     "class_type": "LoadImage",
-    "_meta": { "title": "Load Input Image" },
     "inputs": {
       "image": "{{IMAGE_PATH}}"
     }
   },
-  "4": {
-    "class_type": "WanImageEncode",
-    "_meta": { "title": "Encode Image for I2V" },
+  "3": {
+    "class_type": "GetImageSize",
     "inputs": {
-      "vae": ["1", 1],
-      "image": ["3", 0],
-      "width": "{{WIDTH}}",
-      "height": "{{HEIGHT}}",
-      "length": "{{FRAMES}}"
+      "image": ["2", 0]
+    }
+  },
+  "4": {
+    "class_type": "WanImageToVideo",
+    "inputs": {
+      "model": ["1", 0],
+      "image": ["2", 0],
+      "prompt": "{{PROMPT}}",
+      "negative_prompt": "worst quality, blurry, jittery",
+      "width": ["3", 0],
+      "height": ["3", 1],
+      "num_frames": "{{FRAMES}}",
+      "guidance_scale": 5.0,
+      "flow_shift": 3.0,
+      "num_inference_steps": 30,
+      "seed": "{{SEED}}",
+      "enable_teacache": true,
+      "teacache_threshold": 0.3
     }
   },
   "5": {
-    "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
-    "inputs": {
-      "clip": ["2", 0],
-      "text": "{{PROMPT}}"
-    }
-  },
-  "6": {
-    "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
-    "inputs": {
-      "clip": ["2", 0],
-      "text": "{{NEGATIVE}}"
-    }
-  },
-  "7": {
-    "class_type": "EmptyWanLatentVideo",
-    "_meta": { "title": "Create Empty Latent (merged with image)" },
-    "inputs": {
-      "width": "{{WIDTH}}",
-      "height": "{{HEIGHT}}",
-      "length": "{{FRAMES}}",
-      "batch_size": 1
-    }
-  },
-  "8": {
-    "class_type": "BasicScheduler",
-    "_meta": { "title": "Scheduler" },
-    "inputs": {
-      "model": ["1", 0],
-      "scheduler": "simple",
-      "steps": 30,
-      "denoise": 1.0
-    }
-  },
-  "9": {
-    "class_type": "KSamplerSelect",
-    "_meta": { "title": "Select Sampler" },
-    "inputs": {
-      "sampler_name": "uni_pc"
-    }
-  },
-  "10": {
-    "class_type": "SamplerCustom",
-    "_meta": { "title": "Sample Video" },
-    "inputs": {
-      "model": ["1", 0],
-      "add_noise": true,
-      "noise_seed": "{{SEED}}",
-      "cfg": 5.0,
-      "positive": ["5", 0],
-      "negative": ["6", 0],
-      "sampler": ["9", 0],
-      "sigmas": ["8", 0],
-      "latent_image": ["4", 0]
-    }
-  },
-  "11": {
-    "class_type": "WanVAEDecode",
-    "_meta": { "title": "Decode Video" },
-    "inputs": {
-      "samples": ["10", 0],
-      "vae": ["1", 1]
-    }
-  },
-  "12": {
     "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Save Video" },
     "inputs": {
-      "images": ["11", 0],
+      "images": ["4", 0],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
-      "filename_prefix": "wan21_output",
+      "filename_prefix": "wan26_output",
       "format": "video/h264-mp4",
       "pingpong": false,
       "save_output": true
