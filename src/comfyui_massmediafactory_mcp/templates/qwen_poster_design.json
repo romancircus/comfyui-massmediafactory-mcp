@@ -3,16 +3,22 @@
     "description": "Qwen-Image-2512 optimized for poster design with precise text placement",
     "model": "Qwen-Image-2512",
     "type": "txt2img",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT"],
+    "source": "Based on ComfyUI Qwen examples",
+    "notes": "Uses SamplerCustom with ModelSamplingAuraFlow for optimal text rendering. 3:4 portrait aspect ratio optimal for posters.",
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
     "defaults": {
       "WIDTH": 1296,
       "HEIGHT": 1728,
       "SEED": 42,
+      "STEPS": 30,
+      "CFG": 3.0,
       "NEGATIVE": "blurry, low quality, distorted text, misspelled, watermark, ugly"
     },
-    "rtx5090_precision": "fp16",
-    "estimated_vram_gb": 18,
-    "prompt_style": "instructional",
+    "performance": {
+      "vram_gb": 18,
+      "precision": "fp16",
+      "quality": "Optimized for text-heavy designs"
+    },
     "prompt_tips": [
       "Be explicit about text placement: 'Text at top center'",
       "Specify font style: 'bold font, red color'",
@@ -22,6 +28,7 @@
   },
   "1": {
     "class_type": "UNETLoader",
+    "_meta": { "title": "Load Qwen Image UNET" },
     "inputs": {
       "unet_name": "qwen_image_2512_fp16.safetensors",
       "weight_dtype": "fp16"
@@ -29,20 +36,22 @@
   },
   "2": {
     "class_type": "CLIPLoader",
+    "_meta": { "title": "Load Qwen VL CLIP" },
     "inputs": {
       "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-      "type": "qwen_image",
-      "device": "default"
+      "type": "qwen_image"
     }
   },
   "3": {
     "class_type": "VAELoader",
+    "_meta": { "title": "Load Qwen VAE" },
     "inputs": {
       "vae_name": "qwen_image_vae.safetensors"
     }
   },
   "4": {
     "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Positive Prompt" },
     "inputs": {
       "clip": ["2", 0],
       "text": "{{PROMPT}}"
@@ -50,6 +59,7 @@
   },
   "5": {
     "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Negative Prompt" },
     "inputs": {
       "clip": ["2", 0],
       "text": "{{NEGATIVE}}"
@@ -57,13 +67,15 @@
   },
   "6": {
     "class_type": "ModelSamplingAuraFlow",
+    "_meta": { "title": "Apply Qwen Sampling Shift" },
     "inputs": {
       "model": ["1", 0],
       "shift": 3.1
     }
   },
   "7": {
-    "class_type": "EmptySD3LatentImage",
+    "class_type": "EmptyLatentImage",
+    "_meta": { "title": "Create Empty Latent" },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -71,31 +83,50 @@
     }
   },
   "8": {
-    "class_type": "KSampler",
+    "class_type": "KSamplerSelect",
+    "_meta": { "title": "Select Sampler" },
     "inputs": {
-      "model": ["6", 0],
-      "positive": ["4", 0],
-      "negative": ["5", 0],
-      "latent_image": ["7", 0],
-      "seed": "{{SEED}}",
-      "steps": 30,
-      "cfg": 3.0,
-      "sampler_name": "euler",
-      "scheduler": "simple",
-      "denoise": 1.0
+      "sampler_name": "euler"
     }
   },
   "9": {
-    "class_type": "VAEDecode",
+    "class_type": "BasicScheduler",
+    "_meta": { "title": "Scheduler" },
     "inputs": {
-      "samples": ["8", 0],
-      "vae": ["3", 0]
+      "model": ["6", 0],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": 1.0
     }
   },
   "10": {
-    "class_type": "SaveImage",
+    "class_type": "SamplerCustom",
+    "_meta": { "title": "Sample Image" },
     "inputs": {
-      "images": ["9", 0],
+      "model": ["6", 0],
+      "add_noise": true,
+      "noise_seed": "{{SEED}}",
+      "cfg": "{{CFG}}",
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "sampler": ["8", 0],
+      "sigmas": ["9", 0],
+      "latent_image": ["7", 0]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "_meta": { "title": "Decode Latent" },
+    "inputs": {
+      "samples": ["10", 0],
+      "vae": ["3", 0]
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "_meta": { "title": "Save Output" },
+    "inputs": {
+      "images": ["11", 0],
       "filename_prefix": "qwen_poster"
     }
   }

@@ -1,8 +1,10 @@
 {
   "_meta": {
-    "description": "FLUX.2-dev text-to-image workflow",
+    "description": "FLUX.2-dev text-to-image workflow (Official Pattern)",
     "model": "FLUX.2-dev",
     "type": "txt2img",
+    "source": "Based on official ComfyUI FLUX examples",
+    "notes": "Includes ModelSamplingFlux for resolution-adaptive shift values",
     "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
     "defaults": {
       "WIDTH": 1024,
@@ -10,10 +12,16 @@
       "SEED": 42,
       "STEPS": 20,
       "GUIDANCE": 3.5
+    },
+    "performance": {
+      "vram_gb": 12,
+      "precision": "fp8_e4m3fn",
+      "quality": "High quality with text rendering"
     }
   },
   "1": {
     "class_type": "UNETLoader",
+    "_meta": { "title": "Load FLUX UNET" },
     "inputs": {
       "unet_name": "flux2-dev-fp8.safetensors",
       "weight_dtype": "fp8_e4m3fn"
@@ -21,6 +29,7 @@
   },
   "2": {
     "class_type": "DualCLIPLoader",
+    "_meta": { "title": "Load Dual CLIP (L + T5)" },
     "inputs": {
       "clip_name1": "clip_l.safetensors",
       "clip_name2": "t5xxl_fp16.safetensors",
@@ -29,12 +38,14 @@
   },
   "3": {
     "class_type": "VAELoader",
+    "_meta": { "title": "Load VAE" },
     "inputs": {
       "vae_name": "ae.safetensors"
     }
   },
   "4": {
     "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Prompt" },
     "inputs": {
       "clip": ["2", 0],
       "text": "{{PROMPT}}"
@@ -42,6 +53,7 @@
   },
   "5": {
     "class_type": "FluxGuidance",
+    "_meta": { "title": "Apply Flux Guidance" },
     "inputs": {
       "conditioning": ["4", 0],
       "guidance": "{{GUIDANCE}}"
@@ -49,6 +61,7 @@
   },
   "6": {
     "class_type": "EmptySD3LatentImage",
+    "_meta": { "title": "Create Empty Latent" },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -57,14 +70,27 @@
   },
   "7": {
     "class_type": "KSamplerSelect",
+    "_meta": { "title": "Select Sampler" },
     "inputs": {
       "sampler_name": "euler"
     }
   },
-  "8": {
-    "class_type": "BasicScheduler",
+  "14": {
+    "class_type": "ModelSamplingFlux",
+    "_meta": { "title": "Resolution-Adaptive Sampling" },
     "inputs": {
       "model": ["1", 0],
+      "max_shift": 1.15,
+      "base_shift": 0.5,
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}"
+    }
+  },
+  "8": {
+    "class_type": "BasicScheduler",
+    "_meta": { "title": "Scheduler" },
+    "inputs": {
+      "model": ["14", 0],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": 1.0
@@ -72,19 +98,22 @@
   },
   "9": {
     "class_type": "RandomNoise",
+    "_meta": { "title": "Generate Noise" },
     "inputs": {
       "noise_seed": "{{SEED}}"
     }
   },
   "10": {
     "class_type": "BasicGuider",
+    "_meta": { "title": "Guider" },
     "inputs": {
-      "model": ["1", 0],
+      "model": ["14", 0],
       "conditioning": ["5", 0]
     }
   },
   "11": {
     "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "Sample Image" },
     "inputs": {
       "noise": ["9", 0],
       "guider": ["10", 0],
@@ -95,6 +124,7 @@
   },
   "12": {
     "class_type": "VAEDecode",
+    "_meta": { "title": "Decode Latent" },
     "inputs": {
       "samples": ["11", 0],
       "vae": ["3", 0]
@@ -102,6 +132,7 @@
   },
   "13": {
     "class_type": "SaveImage",
+    "_meta": { "title": "Save Output" },
     "inputs": {
       "images": ["12", 0],
       "filename_prefix": "flux2_output"

@@ -21,6 +21,46 @@ MODEL_RESOLUTION_SPECS = {
     "wan": {"native": 848, "divisible_by": 16, "min": 480, "max": 1280},
 }
 
+# LTX Video frame constraint: frames must be 8n+1 (9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+LTX_VALID_FRAME_COUNTS = [9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121, 129, 137, 145, 153, 161, 169, 177, 185, 193, 201]
+
+
+def validate_ltx_frame_count(frames: int) -> Tuple[bool, str]:
+    """
+    Validate that LTX video frame count follows the 8n+1 rule.
+
+    LTX-Video requires frames = 8n + 1 for proper temporal encoding.
+
+    Args:
+        frames: Number of frames to validate.
+
+    Returns:
+        Tuple of (is_valid, message)
+    """
+    if (frames - 1) % 8 == 0:
+        return True, f"Frame count {frames} is valid (8n+1 rule satisfied)"
+
+    # Find nearest valid values
+    lower = ((frames - 1) // 8) * 8 + 1
+    upper = lower + 8
+
+    return False, f"Frame count {frames} invalid for LTX-Video. Must be 8n+1. Nearest valid: {lower} or {upper}"
+
+
+def get_nearest_valid_ltx_frames(target_frames: int) -> int:
+    """
+    Get the nearest valid LTX frame count for a target.
+
+    Args:
+        target_frames: Desired frame count.
+
+    Returns:
+        Nearest valid frame count (8n+1).
+    """
+    # Round to nearest 8n+1
+    n = round((target_frames - 1) / 8)
+    return max(9, n * 8 + 1)  # Minimum 9 frames
+
 
 def validate_workflow(workflow: dict) -> dict:
     """
@@ -202,6 +242,10 @@ def validate_workflow(workflow: dict) -> dict:
     # Check for resolution compatibility issues
     resolution_warnings = _check_resolution_compatibility(workflow, object_info)
     warnings.extend(resolution_warnings)
+
+    # Check for LTX video frame count constraints
+    ltx_frame_errors = _check_ltx_frame_count(workflow)
+    errors.extend(ltx_frame_errors)
 
     # Check for nodes that aren't connected to anything
     for node_id in node_ids:
@@ -421,6 +465,75 @@ def _check_resolution_compatibility(workflow: dict, object_info: dict) -> List[d
                     })
 
     return warnings
+
+
+def _check_ltx_frame_count(workflow: dict) -> List[dict]:
+    """
+    Check LTX video workflows for valid frame counts (8n+1 rule).
+
+    LTX-Video requires frame count to be 8n+1 (9, 17, 25, 33, etc.)
+    for proper temporal encoding.
+
+    Args:
+        workflow: The workflow to check.
+
+    Returns:
+        List of frame count errors.
+    """
+    errors = []
+
+    # First, detect if this is an LTX workflow
+    is_ltx_workflow = False
+    for node_id, node in workflow.items():
+        class_type = node.get("class_type", "").lower()
+        if "ltxv" in class_type or "ltx" in class_type:
+            is_ltx_workflow = True
+            break
+
+        # Also check model names in loaders
+        inputs = node.get("inputs", {})
+        for input_name in ["ckpt_name", "unet_name", "model"]:
+            if input_name in inputs:
+                model_name = str(inputs[input_name]).lower()
+                if "ltx" in model_name:
+                    is_ltx_workflow = True
+                    break
+
+    if not is_ltx_workflow:
+        return errors
+
+    # Check frame count in relevant nodes
+    for node_id, node in workflow.items():
+        class_type = node.get("class_type", "")
+        inputs = node.get("inputs", {})
+
+        # Check EmptyLTXVLatentVideo, LTXVImgToVideo, and similar nodes
+        frame_params = ["length", "num_frames", "frames"]
+        for param in frame_params:
+            if param in inputs:
+                frames_value = inputs[param]
+
+                # Skip placeholders
+                if isinstance(frames_value, str) and "{{" in frames_value:
+                    continue
+
+                try:
+                    frames = int(frames_value)
+                    is_valid, message = validate_ltx_frame_count(frames)
+
+                    if not is_valid:
+                        errors.append({
+                            "node_id": node_id,
+                            "type": "ltx_frame_count",
+                            "message": message,
+                            "current_value": frames,
+                            "suggested_fix": get_nearest_valid_ltx_frames(frames),
+                        })
+                except (ValueError, TypeError):
+                    # Can't parse as int, skip
+                    pass
+
+    return errors
 
 
 def _types_compatible(source_type: str, target_type: str) -> bool:
