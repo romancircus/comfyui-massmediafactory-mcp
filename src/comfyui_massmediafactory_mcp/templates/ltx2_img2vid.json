@@ -1,16 +1,17 @@
 {
   "_meta": {
-    "description": "LTX-2 19B text-to-video workflow (Full Quality)",
+    "description": "LTX-2 19B image-to-video workflow",
     "model": "LTX-2 19B Dev FP8",
-    "type": "txt2vid",
-    "source": "Based on official ComfyUI LTX-Video examples",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
+    "type": "img2vid",
+    "source": "Based on official ComfyUI LTX-Video I2V examples",
+    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STRENGTH"],
     "defaults": {
       "WIDTH": 768,
       "HEIGHT": 512,
       "SEED": 42,
       "FRAMES": 97,
       "FPS": 24,
+      "STRENGTH": 40,
       "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
     },
     "performance": {
@@ -28,6 +29,21 @@
     }
   },
   "2": {
+    "class_type": "LoadImage",
+    "_meta": { "title": "Load Input Image" },
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "3": {
+    "class_type": "LTXVPreprocess",
+    "_meta": { "title": "Preprocess Image for Video" },
+    "inputs": {
+      "image": ["2", 0],
+      "strength": "{{STRENGTH}}"
+    }
+  },
+  "4": {
     "class_type": "CLIPTextEncode",
     "_meta": { "title": "Encode Positive Prompt" },
     "inputs": {
@@ -35,7 +51,7 @@
       "text": "{{PROMPT}}"
     }
   },
-  "3": {
+  "5": {
     "class_type": "CLIPTextEncode",
     "_meta": { "title": "Encode Negative Prompt" },
     "inputs": {
@@ -43,26 +59,30 @@
       "text": "{{NEGATIVE}}"
     }
   },
-  "4": {
+  "6": {
     "class_type": "LTXVConditioning",
     "_meta": { "title": "Apply Frame Rate Conditioning" },
     "inputs": {
-      "positive": ["2", 0],
-      "negative": ["3", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
       "frame_rate": "{{FPS}}"
     }
   },
-  "5": {
-    "class_type": "EmptyLTXVLatentVideo",
-    "_meta": { "title": "Create Empty Latent" },
+  "7": {
+    "class_type": "LTXVImgToVideo",
+    "_meta": { "title": "Create I2V Latent" },
     "inputs": {
+      "positive": ["6", 0],
+      "negative": ["6", 1],
+      "vae": ["1", 2],
+      "image": ["3", 0],
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
       "length": "{{FRAMES}}",
       "batch_size": 1
     }
   },
-  "6": {
+  "8": {
     "class_type": "LTXVScheduler",
     "_meta": { "title": "LTX Scheduler" },
     "inputs": {
@@ -72,14 +92,14 @@
       "stretch": true
     }
   },
-  "7": {
+  "9": {
     "class_type": "KSamplerSelect",
     "_meta": { "title": "Select Sampler" },
     "inputs": {
       "sampler_name": "euler"
     }
   },
-  "8": {
+  "10": {
     "class_type": "SamplerCustom",
     "_meta": { "title": "Sample Video" },
     "inputs": {
@@ -87,29 +107,29 @@
       "add_noise": true,
       "noise_seed": "{{SEED}}",
       "cfg": 3.0,
-      "positive": ["4", 0],
-      "negative": ["4", 1],
-      "sampler": ["7", 0],
-      "sigmas": ["6", 0],
-      "latent_image": ["5", 0]
+      "positive": ["7", 0],
+      "negative": ["7", 1],
+      "sampler": ["9", 0],
+      "sigmas": ["8", 0],
+      "latent_image": ["7", 2]
     }
   },
-  "9": {
+  "11": {
     "class_type": "VAEDecode",
     "_meta": { "title": "Decode Latent to Video" },
     "inputs": {
-      "samples": ["8", 0],
+      "samples": ["10", 0],
       "vae": ["1", 2]
     }
   },
-  "10": {
+  "12": {
     "class_type": "VHS_VideoCombine",
     "_meta": { "title": "Save Video" },
     "inputs": {
-      "images": ["9", 0],
+      "images": ["11", 0],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
-      "filename_prefix": "ltx2_output",
+      "filename_prefix": "ltx2_i2v",
       "format": "video/h264-mp4",
       "pingpong": false,
       "save_output": true
