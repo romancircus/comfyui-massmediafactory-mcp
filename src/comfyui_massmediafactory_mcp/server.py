@@ -21,6 +21,8 @@ from . import vram
 from . import validation
 from . import sota
 from . import templates
+from . import patterns
+from . import workflow_builder
 from . import batch
 from . import pipeline
 from . import publish
@@ -911,6 +913,356 @@ def create_workflow_from_template(
         "parameters_used": final_params,
         "note": "Use execute_workflow() with the 'workflow' field to run this.",
     }
+
+
+# =============================================================================
+# Workflow Pattern Tools (Prevent Drift)
+# =============================================================================
+
+@mcp.tool()
+def get_workflow_skeleton(
+    model: str,
+    task: str,
+) -> dict:
+    """
+    Get exact working workflow JSON for a model+task combination.
+
+    IMPORTANT: Use this instead of building workflows from scratch to prevent
+    drift from working patterns. Returns complete, tested workflow structures.
+
+    Args:
+        model: Model identifier - "ltx2", "flux2", "wan26", "qwen", "sdxl"
+        task: Task type - "txt2vid", "img2vid", "txt2img", "txt2vid_distilled"
+
+    Returns:
+        Complete workflow JSON with {{PLACEHOLDER}} parameters ready for injection.
+
+    Example:
+        skeleton = get_workflow_skeleton("ltx2", "txt2vid")
+        # Returns exact 10-node workflow with LTXVLoader, LTXVConditioning,
+        # SamplerCustom, etc. - not the broken KSampler pattern.
+    """
+    return patterns.get_workflow_skeleton(model, task)
+
+
+@mcp.tool()
+def get_model_constraints(model: str) -> dict:
+    """
+    Get hard constraints for a model that must not be violated.
+
+    Returns critical parameters like:
+    - CFG ranges (LTX-2 must be 3.0, not 7.0)
+    - Resolution divisibility (FLUX: 16, others: 8)
+    - Frame count rules (LTX-2: must be 8n+1)
+    - Required nodes (SamplerCustom not KSampler for video)
+    - Forbidden nodes (CheckpointLoaderSimple for FLUX)
+
+    Args:
+        model: Model identifier - "ltx2", "flux2", "wan26", "qwen", "sdxl", "hunyuan15"
+
+    Returns:
+        Constraints dict with cfg, resolution, frames, required_nodes, forbidden_nodes.
+
+    Example:
+        constraints = get_model_constraints("ltx2")
+        # Returns: {"cfg": {"default": 3.0}, "frames": {"formula": "8n+1"}, ...}
+    """
+    return patterns.get_model_constraints(model)
+
+
+@mcp.tool()
+def get_node_chain(
+    model: str,
+    task: str,
+) -> dict:
+    """
+    Get ordered list of required nodes with exact connection information.
+
+    Shows the precise slot indices for each connection, preventing errors like
+    connecting to slot [1, 1] when it should be [2, 0].
+
+    Args:
+        model: Model identifier
+        task: Task type
+
+    Returns:
+        List of nodes in execution order with input/output slot mappings.
+
+    Example:
+        chain = get_node_chain("flux2", "txt2img")
+        # Returns 13 nodes showing UNETLoader→DualCLIPLoader→FluxGuidance→...
+        # with exact slot indices for each connection.
+    """
+    result = patterns.get_node_chain(model, task)
+    if isinstance(result, dict) and "error" in result:
+        return result
+    return {"nodes": result, "model": model, "task": task, "count": len(result)}
+
+
+@mcp.tool()
+def validate_against_pattern(
+    workflow: dict,
+    model: str,
+) -> dict:
+    """
+    Validate a workflow against known working patterns to detect drift.
+
+    Catches common mistakes like:
+    - Using KSampler instead of SamplerCustom
+    - Missing LTXVConditioning or FluxGuidance
+    - Wrong CFG values (7.0 instead of 3.0 for LTX-2)
+    - Wrong loader nodes
+    - Invalid resolution or frame counts
+
+    Args:
+        workflow: Workflow JSON to validate
+        model: Model identifier for constraint lookup
+
+    Returns:
+        {
+            "valid": True/False,
+            "errors": ["Using KSampler - should use SamplerCustom", ...],
+            "warnings": [...],
+            "suggestions": [...]
+        }
+
+    Example:
+        result = validate_against_pattern(my_workflow, "ltx2")
+        if not result["valid"]:
+            print("Errors:", result["errors"])
+    """
+    return patterns.validate_against_pattern(workflow, model)
+
+
+@mcp.tool()
+def list_available_patterns() -> dict:
+    """
+    List all available workflow patterns and supported models.
+
+    Returns:
+        {
+            "skeletons": [{"model": "ltx2", "task": "txt2vid", "description": "..."}],
+            "models": ["ltx2", "flux2", "wan26", "qwen", "sdxl", "hunyuan15"],
+            "total": count
+        }
+    """
+    return patterns.list_available_patterns()
+
+
+# =============================================================================
+# Workflow Builder Tools
+# =============================================================================
+
+@mcp.tool()
+def explain_workflow(workflow: dict) -> dict:
+    """
+    Generate natural language description of a workflow.
+
+    Analyzes the workflow structure and describes what each node does
+    and how they're connected. Useful for understanding existing workflows.
+
+    Args:
+        workflow: Workflow JSON to explain
+
+    Returns:
+        Human-readable description of the workflow structure.
+    """
+    explanation = workflow_builder.explain_workflow(workflow)
+    return {"explanation": explanation}
+
+
+@mcp.tool()
+def get_required_nodes(model: str) -> dict:
+    """
+    Get required and forbidden nodes for a specific model.
+
+    Use this to understand what nodes are mandatory and which to avoid
+    when building workflows for a particular model.
+
+    Args:
+        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl)
+
+    Returns:
+        Dict with required_nodes and forbidden_nodes for the model.
+
+    Example:
+        nodes = get_required_nodes("ltx2")
+        # Returns: {"required_nodes": {"sampler": "SamplerCustom", ...},
+        #           "forbidden_nodes": {"KSampler": "Use SamplerCustom..."}}
+    """
+    return workflow_builder.get_required_nodes_for_model(model)
+
+
+@mcp.tool()
+def get_connection_pattern(
+    source_node: str,
+    target_node: str,
+) -> dict:
+    """
+    Get the correct connection pattern between two node types.
+
+    Shows the exact output slot and input name to use when connecting nodes.
+    Prevents common mistakes like wrong slot indices.
+
+    Args:
+        source_node: Source node class_type (e.g., "LTXVLoader")
+        target_node: Target node class_type (e.g., "CLIPTextEncode")
+
+    Returns:
+        Connection info with output_slot and input_name.
+
+    Example:
+        pattern = get_connection_pattern("LTXVLoader", "CLIPTextEncode")
+        # Returns: {"output_slot": 1, "input_name": "clip", "note": "CLIP is at slot 1"}
+    """
+    return workflow_builder.get_connection_pattern(source_node, target_node)
+
+
+@mcp.tool()
+def compare_workflows(
+    workflow1: dict,
+    workflow2: dict,
+) -> dict:
+    """
+    Compare two workflows and show differences.
+
+    Useful for understanding what changed between versions or comparing
+    a generated workflow against a known working template.
+
+    Args:
+        workflow1: First workflow (e.g., reference)
+        workflow2: Second workflow (e.g., generated)
+
+    Returns:
+        Dict with added, removed, and modified nodes.
+    """
+    return workflow_builder.get_workflow_diff(workflow1, workflow2)
+
+
+# =============================================================================
+# Template Discovery Tools
+# =============================================================================
+
+@mcp.tool()
+def find_template_for_task(
+    task_description: str,
+) -> dict:
+    """
+    Find the best template for a given task description.
+
+    Matches the task description against available templates based on
+    model type, task type, and capabilities.
+
+    Args:
+        task_description: Natural language description of what you want to do.
+                          E.g., "generate a video from text", "create an image with text"
+
+    Returns:
+        List of matching templates ranked by relevance.
+
+    Example:
+        templates = find_template_for_task("fast video from an image")
+        # Returns templates for img2vid sorted by speed
+    """
+    all_templates = templates.list_templates()["templates"]
+
+    # Simple keyword matching (could be enhanced with semantic search)
+    keywords = task_description.lower().split()
+
+    scored = []
+    for t in all_templates:
+        score = 0
+        template_text = f"{t['description']} {t['type']} {t['model']}".lower()
+
+        for keyword in keywords:
+            if keyword in template_text:
+                score += 1
+
+        # Boost for exact type matches
+        if "video" in keywords and "vid" in t["type"]:
+            score += 2
+        if "image" in keywords and "img" in t["type"]:
+            score += 2
+        if "fast" in keywords and "distilled" in t["name"]:
+            score += 3
+        if "text" in keywords and "txt" in t["type"]:
+            score += 1
+
+        if score > 0:
+            scored.append({"template": t, "score": score})
+
+    # Sort by score descending
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    return {
+        "query": task_description,
+        "matches": scored[:5],
+        "total_templates": len(all_templates)
+    }
+
+
+@mcp.tool()
+def get_templates_by_type(
+    template_type: str,
+) -> dict:
+    """
+    Filter templates by type.
+
+    Args:
+        template_type: One of "txt2img", "img2vid", "txt2vid", "img2img"
+
+    Returns:
+        List of templates matching the type.
+    """
+    all_templates = templates.list_templates()["templates"]
+    filtered = [t for t in all_templates if t["type"] == template_type]
+
+    return {
+        "type": template_type,
+        "templates": filtered,
+        "count": len(filtered)
+    }
+
+
+@mcp.tool()
+def get_templates_by_model(
+    model: str,
+) -> dict:
+    """
+    Filter templates by model.
+
+    Args:
+        model: Model name to filter by (e.g., "LTX-2", "FLUX", "Wan")
+
+    Returns:
+        List of templates for that model.
+    """
+    all_templates = templates.list_templates()["templates"]
+    model_lower = model.lower()
+    filtered = [t for t in all_templates if model_lower in t["model"].lower() or model_lower in t["name"]]
+
+    return {
+        "model": model,
+        "templates": filtered,
+        "count": len(filtered)
+    }
+
+
+@mcp.tool()
+def validate_all_templates() -> dict:
+    """
+    Validate all templates in the library.
+
+    Checks each template for:
+    - Valid _meta section
+    - Declared parameters match placeholders
+    - Valid node structure
+    - Valid connection formats
+
+    Returns:
+        Validation results for each template.
+    """
+    return templates.validate_all_templates()
 
 
 # =============================================================================

@@ -1,0 +1,1035 @@
+"""
+Workflow Patterns Module
+
+Provides exact working workflow patterns that prevent Claude from drifting
+when constructing ComfyUI workflows.
+
+Key tools:
+- get_workflow_skeleton(): Returns exact working workflow JSON
+- get_model_constraints(): Returns hard constraints per model
+- get_node_chain(): Returns ordered nodes with connections
+- validate_against_pattern(): Detects drift from working patterns
+"""
+
+import json
+import copy
+from typing import Dict, Any, List, Optional, Tuple
+
+# =============================================================================
+# Model Constraints
+# =============================================================================
+
+MODEL_CONSTRAINTS = {
+    "ltx2": {
+        "display_name": "LTX-Video 2.0",
+        "type": "video",
+        "cfg": {
+            "min": 2.5,
+            "max": 4.0,
+            "default": 3.0,
+            "note": "LTX-2 is optimized for low CFG. Higher values cause artifacts."
+        },
+        "resolution": {
+            "divisible_by": 8,
+            "native": [768, 512],
+            "max": [1920, 1088],
+            "note": "Width and height must be divisible by 8"
+        },
+        "frames": {
+            "formula": "8n+1",
+            "valid_examples": [9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121],
+            "default": 97,
+            "note": "Frame count must be 8n+1 format"
+        },
+        "steps": {
+            "full": {"min": 25, "max": 35, "default": 30},
+            "distilled": {"min": 6, "max": 12, "default": 8}
+        },
+        "required_nodes": {
+            "loader": "LTXVLoader",
+            "sampler": "SamplerCustom",
+            "scheduler": "LTXVScheduler",
+            "conditioning_wrapper": "LTXVConditioning",
+            "latent": "EmptyLTXVLatentVideo",
+            "output": "VHS_VideoCombine"
+        },
+        "forbidden_nodes": {
+            "KSampler": "Use SamplerCustom with LTXVScheduler instead",
+            "CheckpointLoaderSimple": "Use LTXVLoader for LTX-2 models",
+            "EmptyLatentImage": "Use EmptyLTXVLatentVideo for video",
+            "SaveImage": "Use VHS_VideoCombine for video output"
+        },
+        "scheduler_params": {
+            "max_shift": 2.05,
+            "base_shift": 0.95,
+            "stretch": True
+        }
+    },
+
+    "flux2": {
+        "display_name": "FLUX.2",
+        "type": "image",
+        "cfg": {
+            "via": "FluxGuidance",
+            "min": 2.5,
+            "max": 5.0,
+            "default": 3.5,
+            "note": "FLUX uses FluxGuidance node instead of cfg parameter"
+        },
+        "resolution": {
+            "divisible_by": 16,
+            "native": [1024, 1024],
+            "max": [2048, 2048],
+            "note": "Width and height must be divisible by 16"
+        },
+        "steps": {
+            "dev": {"min": 15, "max": 50, "default": 20},
+            "schnell": {"min": 1, "max": 8, "default": 4}
+        },
+        "required_nodes": {
+            "loader": ["UNETLoader", "DualCLIPLoader", "VAELoader"],
+            "sampler": "SamplerCustomAdvanced",
+            "scheduler": "BasicScheduler",
+            "conditioning_wrapper": "FluxGuidance",
+            "guider": "BasicGuider",
+            "noise": "RandomNoise",
+            "latent": "EmptySD3LatentImage",
+            "output": "SaveImage"
+        },
+        "forbidden_nodes": {
+            "KSampler": "Use SamplerCustomAdvanced with BasicGuider",
+            "CheckpointLoaderSimple": "Use UNETLoader + DualCLIPLoader + VAELoader",
+            "EmptyLatentImage": "Use EmptySD3LatentImage for FLUX"
+        },
+        "clip_models": {
+            "clip_name1": "clip_l.safetensors",
+            "clip_name2": "t5xxl_fp16.safetensors",
+            "type": "flux"
+        },
+        "scheduler_params": {
+            "scheduler": "simple",
+            "denoise": 1.0
+        }
+    },
+
+    "wan26": {
+        "display_name": "Wan 2.6",
+        "type": "video",
+        "cfg": {
+            "min": 4.0,
+            "max": 7.0,
+            "default": 5.0,
+            "note": "Wan uses standard CFG in sampler"
+        },
+        "resolution": {
+            "divisible_by": 8,
+            "480p": [832, 480],
+            "720p": [1280, 720],
+            "note": "Use 480p for faster generation, 720p for quality"
+        },
+        "frames": {
+            "default": 81,
+            "max": 121,
+            "note": "81 frames is ~3.4 seconds at 24fps"
+        },
+        "steps": {
+            "default": 30,
+            "min": 20,
+            "max": 50
+        },
+        "required_nodes": {
+            "loader": "DownloadAndLoadWanModel",
+            "text_encoder": "CLIPLoader",
+            "image_encoder": "WanImageEncode",
+            "sampler": "WanSampler",
+            "latent": "EmptyWanLatentVideo",
+            "output": "VHS_VideoCombine"
+        },
+        "forbidden_nodes": {
+            "CheckpointLoaderSimple": "Use DownloadAndLoadWanModel",
+            "KSampler": "Use WanSampler",
+            "VAEEncode": "Use WanImageEncode for I2V"
+        },
+        "sampler_params": {
+            "shift": 8.0,
+            "scheduler": "unipc"
+        }
+    },
+
+    "qwen": {
+        "display_name": "Qwen Image",
+        "type": "image",
+        "cfg": {
+            "min": 3.0,
+            "max": 8.0,
+            "default": 7.0,
+            "note": "Qwen works well with standard CFG values"
+        },
+        "resolution": {
+            "divisible_by": 8,
+            "native": [1296, 1296],
+            "note": "1296x1296 is native, good for text rendering"
+        },
+        "steps": {
+            "default": 25,
+            "min": 20,
+            "max": 40
+        },
+        "required_nodes": {
+            "loader": "CheckpointLoaderSimple",
+            "sampler": "KSampler",
+            "latent": "EmptyLatentImage",
+            "output": "SaveImage"
+        },
+        "strengths": [
+            "Text rendering",
+            "Posters and logos",
+            "Complex layouts",
+            "UI design mockups"
+        ]
+    },
+
+    "sdxl": {
+        "display_name": "SDXL",
+        "type": "image",
+        "cfg": {
+            "min": 5.0,
+            "max": 10.0,
+            "default": 7.0,
+            "note": "SDXL works best with CFG 6-8"
+        },
+        "resolution": {
+            "divisible_by": 8,
+            "native": [1024, 1024],
+            "supported": [[1024, 1024], [1152, 896], [896, 1152], [1216, 832], [832, 1216]],
+            "note": "Use SDXL-optimized aspect ratios"
+        },
+        "steps": {
+            "default": 25,
+            "min": 15,
+            "max": 50
+        },
+        "required_nodes": {
+            "loader": "CheckpointLoaderSimple",
+            "sampler": "KSampler",
+            "latent": "EmptyLatentImage",
+            "output": "SaveImage"
+        }
+    },
+
+    "hunyuan15": {
+        "display_name": "HunyuanVideo 1.5",
+        "type": "video",
+        "cfg": {
+            "min": 4.0,
+            "max": 8.0,
+            "default": 6.0
+        },
+        "resolution": {
+            "divisible_by": 16,
+            "native": [1280, 720],
+            "note": "720p native, supports up to 1080p"
+        },
+        "frames": {
+            "default": 81,
+            "max": 129,
+            "note": "129 frames is ~5 seconds at 24fps"
+        },
+        "steps": {
+            "default": 30,
+            "min": 20,
+            "max": 50
+        },
+        "required_nodes": {
+            "loader": "HunyuanVideoModelLoader",
+            "sampler": "HunyuanVideoSampler",
+            "output": "VHS_VideoCombine"
+        }
+    }
+}
+
+
+# =============================================================================
+# Workflow Skeletons
+# =============================================================================
+
+WORKFLOW_SKELETONS = {
+    ("ltx2", "txt2vid"): {
+        "_meta": {
+            "description": "LTX-2 text-to-video (full quality)",
+            "model": "LTX-2 19B Dev",
+            "type": "txt2vid",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
+            "defaults": {
+                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
+            }
+        },
+        "1": {
+            "class_type": "LTXVLoader",
+            "_meta": {"title": "Load LTX-2 Model"},
+            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"}
+        },
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+        },
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+        },
+        "4": {
+            "class_type": "LTXVConditioning",
+            "_meta": {"title": "Apply Frame Rate Conditioning"},
+            "inputs": {"positive": ["2", 0], "negative": ["3", 0], "frame_rate": "{{FPS}}"}
+        },
+        "5": {
+            "class_type": "EmptyLTXVLatentVideo",
+            "_meta": {"title": "Create Empty Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+        },
+        "6": {
+            "class_type": "LTXVScheduler",
+            "_meta": {"title": "LTX Scheduler"},
+            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+        },
+        "7": {
+            "class_type": "KSamplerSelect",
+            "_meta": {"title": "Select Sampler"},
+            "inputs": {"sampler_name": "euler"}
+        },
+        "8": {
+            "class_type": "SamplerCustom",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 3.0,
+                "positive": ["4", 0], "negative": ["4", 1],
+                "sampler": ["7", 0], "sigmas": ["6", 0], "latent_image": ["5", 0]
+            }
+        },
+        "9": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent to Video"},
+            "inputs": {"samples": ["8", 0], "vae": ["1", 2]}
+        },
+        "10": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["9", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
+                "filename_prefix": "ltx2_output", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("ltx2", "txt2vid_distilled"): {
+        "_meta": {
+            "description": "LTX-2 text-to-video (distilled, 3-4x faster)",
+            "model": "LTX-2 19B Distilled",
+            "type": "txt2vid",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS"],
+            "defaults": {
+                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24, "STEPS": 10,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
+            }
+        },
+        "1": {
+            "class_type": "CheckpointLoaderSimple",
+            "_meta": {"title": "Load LTX-2 Distilled Model"},
+            "inputs": {"ckpt_name": "ltx-2-19b-distilled-fp8.safetensors"}
+        },
+        "2": {
+            "class_type": "LTXVGemmaCLIPModelLoader",
+            "_meta": {"title": "Load Gemma-3 Text Encoder"},
+            "inputs": {
+                "gemma_path": "gemma_3_12B_it_fp8_e4m3fn.safetensors",
+                "ltxv_path": "ltx-2-19b-distilled-fp8.safetensors",
+                "max_length": 1024
+            }
+        },
+        "3": {
+            "class_type": "LTXVGemmaEnhancePrompt",
+            "_meta": {"title": "Enhance Prompt with AI"},
+            "inputs": {"clip": ["2", 0], "prompt": "{{PROMPT}}", "max_tokens": 512, "bypass_i2v": False, "seed": "{{SEED}}"}
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Enhanced Prompt"},
+            "inputs": {"clip": ["2", 0], "text": ["3", 0]}
+        },
+        "5": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+        },
+        "6": {
+            "class_type": "LTXVConditioning",
+            "_meta": {"title": "Apply Frame Rate Conditioning"},
+            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"}
+        },
+        "7": {
+            "class_type": "EmptyLTXVLatentVideo",
+            "_meta": {"title": "Create Empty Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+        },
+        "8": {
+            "class_type": "LTXVScheduler",
+            "_meta": {"title": "LTX Scheduler (Distilled)"},
+            "inputs": {"steps": "{{STEPS}}", "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+        },
+        "9": {
+            "class_type": "KSamplerSelect",
+            "_meta": {"title": "Select Sampler"},
+            "inputs": {"sampler_name": "euler"}
+        },
+        "10": {
+            "class_type": "SamplerCustom",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 2.5,
+                "positive": ["6", 0], "negative": ["6", 1],
+                "sampler": ["9", 0], "sigmas": ["8", 0], "latent_image": ["7", 0]
+            }
+        },
+        "11": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent to Video"},
+            "inputs": {"samples": ["10", 0], "vae": ["1", 2]}
+        },
+        "12": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["11", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
+                "filename_prefix": "ltx2_distilled", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("ltx2", "img2vid"): {
+        "_meta": {
+            "description": "LTX-2 image-to-video",
+            "model": "LTX-2 19B Dev",
+            "type": "img2vid",
+            "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STRENGTH"],
+            "defaults": {
+                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24, "STRENGTH": 40,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
+            }
+        },
+        "1": {
+            "class_type": "LTXVLoader",
+            "_meta": {"title": "Load LTX-2 Model"},
+            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"}
+        },
+        "2": {
+            "class_type": "LoadImage",
+            "_meta": {"title": "Load Input Image"},
+            "inputs": {"image": "{{IMAGE_PATH}}"}
+        },
+        "3": {
+            "class_type": "LTXVPreprocess",
+            "_meta": {"title": "Preprocess Image for Video"},
+            "inputs": {"image": ["2", 0], "strength": "{{STRENGTH}}"}
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+        },
+        "5": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+        },
+        "6": {
+            "class_type": "LTXVConditioning",
+            "_meta": {"title": "Apply Frame Rate Conditioning"},
+            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"}
+        },
+        "7": {
+            "class_type": "LTXVImgToVideo",
+            "_meta": {"title": "Create I2V Latent"},
+            "inputs": {
+                "positive": ["6", 0], "negative": ["6", 1], "vae": ["1", 2],
+                "image": ["3", 0], "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
+                "length": "{{FRAMES}}", "batch_size": 1
+            }
+        },
+        "8": {
+            "class_type": "LTXVScheduler",
+            "_meta": {"title": "LTX Scheduler"},
+            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+        },
+        "9": {
+            "class_type": "KSamplerSelect",
+            "_meta": {"title": "Select Sampler"},
+            "inputs": {"sampler_name": "euler"}
+        },
+        "10": {
+            "class_type": "SamplerCustom",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 3.0,
+                "positive": ["7", 0], "negative": ["7", 1],
+                "sampler": ["9", 0], "sigmas": ["8", 0], "latent_image": ["7", 2]
+            }
+        },
+        "11": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent to Video"},
+            "inputs": {"samples": ["10", 0], "vae": ["1", 2]}
+        },
+        "12": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["11", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
+                "filename_prefix": "ltx2_i2v", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("flux2", "txt2img"): {
+        "_meta": {
+            "description": "FLUX.2-dev text-to-image",
+            "model": "FLUX.2-dev",
+            "type": "txt2img",
+            "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+            "defaults": {"WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 20, "GUIDANCE": 3.5}
+        },
+        "1": {
+            "class_type": "UNETLoader",
+            "_meta": {"title": "Load FLUX UNET"},
+            "inputs": {"unet_name": "flux2-dev-fp8.safetensors", "weight_dtype": "fp8_e4m3fn"}
+        },
+        "2": {
+            "class_type": "DualCLIPLoader",
+            "_meta": {"title": "Load Dual CLIP"},
+            "inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"}
+        },
+        "3": {
+            "class_type": "VAELoader",
+            "_meta": {"title": "Load VAE"},
+            "inputs": {"vae_name": "ae.safetensors"}
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+        },
+        "5": {
+            "class_type": "FluxGuidance",
+            "_meta": {"title": "Apply Guidance"},
+            "inputs": {"conditioning": ["4", 0], "guidance": "{{GUIDANCE}}"}
+        },
+        "6": {
+            "class_type": "EmptySD3LatentImage",
+            "_meta": {"title": "Create Empty Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+        },
+        "7": {
+            "class_type": "KSamplerSelect",
+            "_meta": {"title": "Select Sampler"},
+            "inputs": {"sampler_name": "euler"}
+        },
+        "8": {
+            "class_type": "BasicScheduler",
+            "_meta": {"title": "Basic Scheduler"},
+            "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": "{{STEPS}}", "denoise": 1.0}
+        },
+        "9": {
+            "class_type": "RandomNoise",
+            "_meta": {"title": "Generate Noise"},
+            "inputs": {"noise_seed": "{{SEED}}"}
+        },
+        "10": {
+            "class_type": "BasicGuider",
+            "_meta": {"title": "Basic Guider"},
+            "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}
+        },
+        "11": {
+            "class_type": "SamplerCustomAdvanced",
+            "_meta": {"title": "Advanced Sampler"},
+            "inputs": {
+                "noise": ["9", 0], "guider": ["10", 0], "sampler": ["7", 0],
+                "sigmas": ["8", 0], "latent_image": ["6", 0]
+            }
+        },
+        "12": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent"},
+            "inputs": {"samples": ["11", 0], "vae": ["3", 0]}
+        },
+        "13": {
+            "class_type": "SaveImage",
+            "_meta": {"title": "Save Image"},
+            "inputs": {"images": ["12", 0], "filename_prefix": "flux2_output"}
+        }
+    },
+
+    ("wan26", "img2vid"): {
+        "_meta": {
+            "description": "Wan 2.6 image-to-video",
+            "model": "Wan 2.6 14B",
+            "type": "img2vid",
+            "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
+            "defaults": {
+                "WIDTH": 832, "HEIGHT": 480, "SEED": 42, "FRAMES": 81,
+                "NEGATIVE": "worst quality, blurry, distorted"
+            }
+        },
+        "1": {
+            "class_type": "DownloadAndLoadWanModel",
+            "_meta": {"title": "Load Wan Model"},
+            "inputs": {"model": "Wan-AI/Wan2.6-I2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"}
+        },
+        "2": {
+            "class_type": "LoadImage",
+            "_meta": {"title": "Load Input Image"},
+            "inputs": {"image": "{{IMAGE_PATH}}"}
+        },
+        "3": {
+            "class_type": "WanImageEncode",
+            "_meta": {"title": "Encode Image for Video"},
+            "inputs": {"wan_model": ["1", 0], "image": ["2", 0], "image_strength": 1.0, "enable_tiling": False}
+        },
+        "4": {
+            "class_type": "WanSampler",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "wan_model": ["3", 0], "positive": "{{PROMPT}}", "negative": "{{NEGATIVE}}",
+                "image_embeds": ["3", 1], "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
+                "num_frames": "{{FRAMES}}", "steps": 30, "cfg": 5.0, "seed": "{{SEED}}",
+                "shift": 8.0, "scheduler": "unipc"
+            }
+        },
+        "5": {
+            "class_type": "WanVAEDecode",
+            "_meta": {"title": "Decode Video"},
+            "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]}
+        },
+        "6": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["5", 0], "frame_rate": 24, "loop_count": 0,
+                "filename_prefix": "wan26_output", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("wan26", "txt2vid"): {
+        "_meta": {
+            "description": "Wan 2.6 text-to-video",
+            "model": "Wan 2.6 14B",
+            "type": "txt2vid",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
+            "defaults": {
+                "WIDTH": 832, "HEIGHT": 480, "SEED": 42, "FRAMES": 81,
+                "NEGATIVE": "worst quality, blurry, distorted"
+            }
+        },
+        "1": {
+            "class_type": "DownloadAndLoadWanModel",
+            "_meta": {"title": "Load Wan Model"},
+            "inputs": {"model": "Wan-AI/Wan2.6-T2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"}
+        },
+        "2": {
+            "class_type": "WanSampler",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "wan_model": ["1", 0], "positive": "{{PROMPT}}", "negative": "{{NEGATIVE}}",
+                "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
+                "num_frames": "{{FRAMES}}", "steps": 30, "cfg": 5.0, "seed": "{{SEED}}",
+                "shift": 8.0, "scheduler": "unipc"
+            }
+        },
+        "3": {
+            "class_type": "WanVAEDecode",
+            "_meta": {"title": "Decode Video"},
+            "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]}
+        },
+        "4": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["3", 0], "frame_rate": 24, "loop_count": 0,
+                "filename_prefix": "wan26_t2v", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("qwen", "txt2img"): {
+        "_meta": {
+            "description": "Qwen text-to-image (best for text rendering)",
+            "model": "Qwen Image 2512",
+            "type": "txt2img",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
+            "defaults": {
+                "WIDTH": 1296, "HEIGHT": 1296, "SEED": 42, "STEPS": 25, "CFG": 7.0,
+                "NEGATIVE": "worst quality, blurry, distorted"
+            }
+        },
+        "1": {
+            "class_type": "CheckpointLoaderSimple",
+            "_meta": {"title": "Load Qwen Model"},
+            "inputs": {"ckpt_name": "qwen_image_2512.safetensors"}
+        },
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+        },
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+        },
+        "4": {
+            "class_type": "EmptyLatentImage",
+            "_meta": {"title": "Create Empty Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+        },
+        "5": {
+            "class_type": "KSampler",
+            "_meta": {"title": "Sample Image"},
+            "inputs": {
+                "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
+                "latent_image": ["4", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0
+            }
+        },
+        "6": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent"},
+            "inputs": {"samples": ["5", 0], "vae": ["1", 2]}
+        },
+        "7": {
+            "class_type": "SaveImage",
+            "_meta": {"title": "Save Image"},
+            "inputs": {"images": ["6", 0], "filename_prefix": "qwen_output"}
+        }
+    },
+
+    ("sdxl", "txt2img"): {
+        "_meta": {
+            "description": "SDXL text-to-image",
+            "model": "SDXL Base",
+            "type": "txt2img",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
+            "defaults": {
+                "WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 25, "CFG": 7.0,
+                "NEGATIVE": "worst quality, low quality, blurry"
+            }
+        },
+        "1": {
+            "class_type": "CheckpointLoaderSimple",
+            "_meta": {"title": "Load SDXL Model"},
+            "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"}
+        },
+        "2": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+        },
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+        },
+        "4": {
+            "class_type": "EmptyLatentImage",
+            "_meta": {"title": "Create Empty Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+        },
+        "5": {
+            "class_type": "KSampler",
+            "_meta": {"title": "Sample Image"},
+            "inputs": {
+                "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
+                "latent_image": ["4", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0
+            }
+        },
+        "6": {
+            "class_type": "VAEDecode",
+            "_meta": {"title": "Decode Latent"},
+            "inputs": {"samples": ["5", 0], "vae": ["1", 2]}
+        },
+        "7": {
+            "class_type": "SaveImage",
+            "_meta": {"title": "Save Image"},
+            "inputs": {"images": ["6", 0], "filename_prefix": "sdxl_output"}
+        }
+    }
+}
+
+
+# =============================================================================
+# Node Chains (ordered nodes with connection info)
+# =============================================================================
+
+NODE_CHAINS = {
+    ("ltx2", "txt2vid"): [
+        {"id": "1", "class_type": "LTXVLoader", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
+        {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "4", "class_type": "LTXVConditioning", "inputs": {"positive": ["2", 0], "negative": ["3", 0]}, "outputs": {"POSITIVE": 0, "NEGATIVE": 1}},
+        {"id": "5", "class_type": "EmptyLTXVLatentVideo", "outputs": {"LATENT": 0}},
+        {"id": "6", "class_type": "LTXVScheduler", "outputs": {"SIGMAS": 0}},
+        {"id": "7", "class_type": "KSamplerSelect", "outputs": {"SAMPLER": 0}},
+        {"id": "8", "class_type": "SamplerCustom", "inputs": {"model": ["1", 0], "positive": ["4", 0], "negative": ["4", 1], "sampler": ["7", 0], "sigmas": ["6", 0], "latent_image": ["5", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "9", "class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
+        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}}
+    ],
+
+    ("flux2", "txt2img"): [
+        {"id": "1", "class_type": "UNETLoader", "outputs": {"MODEL": 0}},
+        {"id": "2", "class_type": "DualCLIPLoader", "outputs": {"CLIP": 0}},
+        {"id": "3", "class_type": "VAELoader", "outputs": {"VAE": 0}},
+        {"id": "4", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "5", "class_type": "FluxGuidance", "inputs": {"conditioning": ["4", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "6", "class_type": "EmptySD3LatentImage", "outputs": {"LATENT": 0}},
+        {"id": "7", "class_type": "KSamplerSelect", "outputs": {"SAMPLER": 0}},
+        {"id": "8", "class_type": "BasicScheduler", "inputs": {"model": ["1", 0]}, "outputs": {"SIGMAS": 0}},
+        {"id": "9", "class_type": "RandomNoise", "outputs": {"NOISE": 0}},
+        {"id": "10", "class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}, "outputs": {"GUIDER": 0}},
+        {"id": "11", "class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["9", 0], "guider": ["10", 0], "sampler": ["7", 0], "sigmas": ["8", 0], "latent_image": ["6", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "12", "class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}, "outputs": {"IMAGE": 0}},
+        {"id": "13", "class_type": "SaveImage", "inputs": {"images": ["12", 0]}, "outputs": {}}
+    ],
+
+    ("wan26", "img2vid"): [
+        {"id": "1", "class_type": "DownloadAndLoadWanModel", "outputs": {"WANMODEL": 0}},
+        {"id": "2", "class_type": "LoadImage", "outputs": {"IMAGE": 0, "MASK": 1}},
+        {"id": "3", "class_type": "WanImageEncode", "inputs": {"wan_model": ["1", 0], "image": ["2", 0]}, "outputs": {"WANMODEL": 0, "IMAGEEMBEDS": 1}},
+        {"id": "4", "class_type": "WanSampler", "inputs": {"wan_model": ["3", 0], "image_embeds": ["3", 1]}, "outputs": {"LATENT": 0}},
+        {"id": "5", "class_type": "WanVAEDecode", "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]}, "outputs": {"IMAGE": 0}},
+        {"id": "6", "class_type": "VHS_VideoCombine", "inputs": {"images": ["5", 0]}, "outputs": {"FILENAMES": 0}}
+    ]
+}
+
+
+# =============================================================================
+# API Functions
+# =============================================================================
+
+def get_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
+    """
+    Get exact working workflow JSON for model+task.
+
+    Args:
+        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl)
+        task: Task type (txt2vid, img2vid, txt2img, txt2vid_distilled)
+
+    Returns:
+        Complete workflow JSON with {{PLACEHOLDER}} parameters
+    """
+    key = (model.lower(), task.lower())
+
+    if key not in WORKFLOW_SKELETONS:
+        # Try to find partial matches
+        available = [f"{m}/{t}" for m, t in WORKFLOW_SKELETONS.keys()]
+        return {
+            "error": f"No skeleton for {model}/{task}",
+            "available": available
+        }
+
+    return copy.deepcopy(WORKFLOW_SKELETONS[key])
+
+
+def get_model_constraints(model: str) -> Dict[str, Any]:
+    """
+    Get hard constraints for a model.
+
+    Args:
+        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl, hunyuan15)
+
+    Returns:
+        Constraints dict with cfg, resolution, frames, required_nodes, forbidden_nodes
+    """
+    model_lower = model.lower()
+
+    if model_lower not in MODEL_CONSTRAINTS:
+        available = list(MODEL_CONSTRAINTS.keys())
+        return {
+            "error": f"No constraints for {model}",
+            "available": available
+        }
+
+    return copy.deepcopy(MODEL_CONSTRAINTS[model_lower])
+
+
+def get_node_chain(model: str, task: str) -> List[Dict[str, Any]]:
+    """
+    Get ordered list of required nodes with connections.
+
+    Args:
+        model: Model identifier
+        task: Task type
+
+    Returns:
+        List of nodes in order with input/output slot information
+    """
+    key = (model.lower(), task.lower())
+
+    if key not in NODE_CHAINS:
+        available = [f"{m}/{t}" for m, t in NODE_CHAINS.keys()]
+        return {
+            "error": f"No node chain for {model}/{task}",
+            "available": available
+        }
+
+    return copy.deepcopy(NODE_CHAINS[key])
+
+
+def validate_against_pattern(workflow: Dict[str, Any], model: str) -> Dict[str, Any]:
+    """
+    Validate a workflow against known working patterns.
+
+    Args:
+        workflow: Workflow JSON to validate
+        model: Model identifier for constraint lookup
+
+    Returns:
+        {
+            "valid": bool,
+            "errors": list of error messages,
+            "warnings": list of warnings,
+            "suggestions": list of fixes
+        }
+    """
+    errors = []
+    warnings = []
+    suggestions = []
+
+    model_lower = model.lower()
+    constraints = MODEL_CONSTRAINTS.get(model_lower, {})
+
+    if not constraints:
+        return {
+            "valid": True,
+            "errors": [],
+            "warnings": [f"No constraints defined for model '{model}', skipping validation"],
+            "suggestions": []
+        }
+
+    # Check for forbidden nodes
+    forbidden = constraints.get("forbidden_nodes", {})
+    for node_id, node in workflow.items():
+        if node_id.startswith("_"):
+            continue
+
+        class_type = node.get("class_type", "")
+        if class_type in forbidden:
+            errors.append(f"Node {node_id} uses forbidden '{class_type}': {forbidden[class_type]}")
+
+    # Check for required nodes
+    required = constraints.get("required_nodes", {})
+    workflow_types = {n.get("class_type") for n in workflow.values() if isinstance(n, dict) and "class_type" in n}
+
+    for role, required_type in required.items():
+        if isinstance(required_type, list):
+            # All must be present (e.g., FLUX loaders)
+            for rt in required_type:
+                if rt not in workflow_types:
+                    errors.append(f"Missing required {role} node: {rt}")
+        else:
+            if required_type not in workflow_types:
+                errors.append(f"Missing required {role} node: {required_type}")
+
+    # Check CFG values
+    cfg_constraints = constraints.get("cfg", {})
+    if cfg_constraints:
+        for node_id, node in workflow.items():
+            if node_id.startswith("_"):
+                continue
+
+            inputs = node.get("inputs", {})
+            if "cfg" in inputs:
+                cfg_val = inputs["cfg"]
+                if isinstance(cfg_val, (int, float)):
+                    if cfg_constraints.get("min") and cfg_val < cfg_constraints["min"]:
+                        errors.append(f"CFG {cfg_val} is below minimum {cfg_constraints['min']} for {model}")
+                    if cfg_constraints.get("max") and cfg_val > cfg_constraints["max"]:
+                        errors.append(f"CFG {cfg_val} exceeds maximum {cfg_constraints['max']} for {model}")
+
+            # Check for guidance in FluxGuidance
+            if node.get("class_type") == "FluxGuidance" and "guidance" in inputs:
+                guidance_val = inputs["guidance"]
+                if isinstance(guidance_val, (int, float)):
+                    if cfg_constraints.get("min") and guidance_val < cfg_constraints["min"]:
+                        warnings.append(f"Guidance {guidance_val} is low for FLUX (typical: {cfg_constraints.get('default', 3.5)})")
+
+    # Check resolution constraints
+    res_constraints = constraints.get("resolution", {})
+    if res_constraints:
+        divisible_by = res_constraints.get("divisible_by", 8)
+        for node_id, node in workflow.items():
+            if node_id.startswith("_"):
+                continue
+
+            inputs = node.get("inputs", {})
+            for dim in ["width", "height"]:
+                if dim in inputs:
+                    val = inputs[dim]
+                    if isinstance(val, int) and val % divisible_by != 0:
+                        errors.append(f"{dim.capitalize()} {val} not divisible by {divisible_by} for {model}")
+
+    # Check frame count for LTX
+    if model_lower == "ltx2":
+        frame_constraints = constraints.get("frames", {})
+        for node_id, node in workflow.items():
+            if node_id.startswith("_"):
+                continue
+
+            inputs = node.get("inputs", {})
+            if "length" in inputs:
+                frames = inputs["length"]
+                if isinstance(frames, int) and (frames - 1) % 8 != 0:
+                    valid_examples = frame_constraints.get("valid_examples", [])
+                    errors.append(f"Frame count {frames} doesn't follow 8n+1 rule. Valid: {valid_examples}")
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "suggestions": suggestions
+    }
+
+
+def list_available_patterns() -> Dict[str, Any]:
+    """
+    List all available workflow patterns.
+
+    Returns:
+        {
+            "skeletons": [{"model": "ltx2", "task": "txt2vid", "description": "..."}],
+            "models": ["ltx2", "flux2", ...],
+            "total": count
+        }
+    """
+    skeletons = []
+    for (model, task), workflow in WORKFLOW_SKELETONS.items():
+        meta = workflow.get("_meta", {})
+        skeletons.append({
+            "model": model,
+            "task": task,
+            "description": meta.get("description", ""),
+            "type": meta.get("type", ""),
+            "parameters": meta.get("parameters", [])
+        })
+
+    return {
+        "skeletons": skeletons,
+        "models": list(MODEL_CONSTRAINTS.keys()),
+        "total": len(skeletons)
+    }

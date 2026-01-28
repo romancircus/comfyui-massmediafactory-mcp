@@ -1,0 +1,70 @@
+{
+  "_meta": {
+    "description": "Wan 2.6 14B text-to-video generation",
+    "model": "Wan 2.6 14B",
+    "type": "txt2vid",
+    "source": "Based on Kijai ComfyUI-WanVideoWrapper",
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
+    "defaults": {
+      "WIDTH": 832,
+      "HEIGHT": 480,
+      "SEED": 42,
+      "FRAMES": 81,
+      "STEPS": 30,
+      "CFG": 5.0,
+      "NEGATIVE": "worst quality, blurry, distorted, low resolution"
+    },
+    "performance": {
+      "vram_gb": 16,
+      "resolution": "480p (832x480) or 720p (1280x720)",
+      "duration": "~3.4 seconds at 24fps"
+    }
+  },
+  "1": {
+    "class_type": "DownloadAndLoadWanModel",
+    "_meta": { "title": "Load Wan 2.6 T2V Model" },
+    "inputs": {
+      "model": "Wan-AI/Wan2.6-T2V-14B-480P",
+      "base_precision": "bf16",
+      "quantization": "disabled"
+    }
+  },
+  "2": {
+    "class_type": "WanSampler",
+    "_meta": { "title": "Sample Video" },
+    "inputs": {
+      "wan_model": ["1", 0],
+      "positive": "{{PROMPT}}",
+      "negative": "{{NEGATIVE}}",
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "num_frames": "{{FRAMES}}",
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "seed": "{{SEED}}",
+      "shift": 8.0,
+      "scheduler": "unipc"
+    }
+  },
+  "3": {
+    "class_type": "WanVAEDecode",
+    "_meta": { "title": "Decode Video" },
+    "inputs": {
+      "samples": ["2", 0],
+      "wan_model": ["1", 0]
+    }
+  },
+  "4": {
+    "class_type": "VHS_VideoCombine",
+    "_meta": { "title": "Save Video" },
+    "inputs": {
+      "images": ["3", 0],
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "wan26_t2v",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

@@ -252,6 +252,75 @@ VHS_VideoCombine
 
 ---
 
+## HunyuanVideo 1.5 Workflows
+
+### Official Source
+
+| Source | URL |
+|--------|-----|
+| Kijai Wrapper | https://github.com/Kijai/ComfyUI-HunyuanVideoWrapper |
+| Tencent HunyuanVideo | https://github.com/Tencent/HunyuanVideo |
+
+### Text-to-Video
+
+**Node Flow:**
+```
+HunyuanVideoModelLoader (hunyuanvideo_t2v_720p)
+    ↓
+CLIPLoader (llava_llama3_fp8) ─────────────────┐
+    ↓                                          │
+CLIPTextEncode (positive) ←────────────────────┤
+CLIPTextEncode (negative) ←────────────────────┘
+    ↓
+EmptyHunyuanLatentVideo (1280×720, 81 frames)
+    ↓
+HunyuanVideoSampler (cfg: 6.0, steps: 30)
+    ↓
+HunyuanVideoVAEDecode
+    ↓
+VHS_VideoCombine (24fps)
+```
+
+**Key Parameters:**
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Resolution | 1280×720 | 720p native, divisible by 16 |
+| Frames | 81-129 | ~3-5 seconds @ 24fps |
+| Steps | 30 | Quality generation |
+| CFG | 6.0 | Higher than LTX/Wan |
+| Sampler | euler | Standard |
+
+### Image-to-Video
+
+**Additional Nodes for I2V:**
+```
+LoadImage (input image)
+    ↓
+HunyuanVideoImageEncode (encodes reference)
+    ↓
+HunyuanVideoSampler (with image_embeds input)
+```
+
+**I2V Parameters:**
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| Image strength | 0.7-1.0 | Higher = more input preservation |
+| Steps | 30-40 | Slightly more for I2V |
+
+### HunyuanVideo Node Reference
+
+| Node | Purpose | Outputs |
+|------|---------|---------|
+| HunyuanVideoModelLoader | Load HunyuanVideo model | MODEL, VAE |
+| EmptyHunyuanLatentVideo | Create blank video latent | LATENT |
+| HunyuanVideoSampler | Sample video frames | LATENT |
+| HunyuanVideoVAEDecode | Decode to video frames | IMAGE |
+| HunyuanVideoImageEncode | Encode reference image | IMAGE_EMBEDS |
+
+---
+
 ## Qwen Image Workflows
 
 ### Requirements
