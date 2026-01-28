@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "type": "skeleton",
+    "model": "Wan-2.1",
+    "workflow": "text-to-video",
+    "sampler_type": "SamplerCustom",
+    "notes": "Uses WanVideoModelLoader and WanVAEDecode."
+  },
+  "nodes": [
+    {"id": "1", "type": "WanVideoModelLoader", "outputs": ["MODEL", "VAE"]},
+    {"id": "2", "type": "CLIPLoader", "outputs": ["CLIP"]},
+    {"id": "3", "type": "CLIPTextEncode", "role": "positive", "outputs": ["CONDITIONING"]},
+    {"id": "4", "type": "CLIPTextEncode", "role": "negative", "outputs": ["CONDITIONING"]},
+    {"id": "5", "type": "EmptyWanLatentVideo", "outputs": ["LATENT"]},
+    {"id": "6", "type": "BasicScheduler", "outputs": ["SIGMAS"]},
+    {"id": "7", "type": "KSamplerSelect", "outputs": ["SAMPLER"]},
+    {"id": "8", "type": "SamplerCustom", "outputs": ["LATENT", "LATENT_DENOISED"]},
+    {"id": "9", "type": "WanVAEDecode", "outputs": ["IMAGE"]},
+    {"id": "10", "type": "VHS_VideoCombine", "outputs": ["VHS_FILENAMES"]}
+  ],
+  "connections": [
+    {"from": "1.MODEL", "to": "6.model"},
+    {"from": "1.MODEL", "to": "8.model"},
+    {"from": "1.VAE", "to": "9.vae"},
+    {"from": "2.CLIP", "to": "3.clip"},
+    {"from": "2.CLIP", "to": "4.clip"},
+    {"from": "3.CONDITIONING", "to": "8.positive"},
+    {"from": "4.CONDITIONING", "to": "8.negative"},
+    {"from": "5.LATENT", "to": "8.latent_image"},
+    {"from": "6.SIGMAS", "to": "8.sigmas"},
+    {"from": "7.SAMPLER", "to": "8.sampler"},
+    {"from": "8.LATENT", "to": "9.samples"},
+    {"from": "9.IMAGE", "to": "10.images"}
+  ],
+  "defaults": {
+    "1.model_name": "wan_2.1_vae_bf16.safetensors",
+    "2.clip_name": "umt5_xxl_fp8.safetensors",
+    "5.width": 832,
+    "5.height": 480,
+    "5.frames": 81,
+    "6.scheduler": "normal",
+    "6.steps": 30,
+    "6.denoise": 1.0,
+    "7.sampler_name": "euler",
+    "8.cfg": 5.0,
+    "10.frame_rate": 24
+  }
+}

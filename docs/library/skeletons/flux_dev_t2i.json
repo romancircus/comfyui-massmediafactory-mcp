@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "type": "skeleton",
+    "model": "FLUX-Dev",
+    "workflow": "text-to-image",
+    "sampler_type": "SamplerCustom",
+    "notes": "Uses DualCLIPLoader and FluxGuidance. Resolution must be divisible by 16."
+  },
+  "nodes": [
+    {"id": "1", "type": "UNETLoader", "outputs": ["MODEL"]},
+    {"id": "2", "type": "DualCLIPLoader", "outputs": ["CLIP"]},
+    {"id": "3", "type": "VAELoader", "outputs": ["VAE"]},
+    {"id": "4", "type": "CLIPTextEncode", "outputs": ["CONDITIONING"]},
+    {"id": "5", "type": "FluxGuidance", "outputs": ["CONDITIONING"]},
+    {"id": "6", "type": "ModelSamplingFlux", "outputs": ["MODEL"]},
+    {"id": "7", "type": "EmptySD3LatentImage", "outputs": ["LATENT"]},
+    {"id": "8", "type": "BasicScheduler", "outputs": ["SIGMAS"]},
+    {"id": "9", "type": "KSamplerSelect", "outputs": ["SAMPLER"]},
+    {"id": "10", "type": "SamplerCustom", "outputs": ["LATENT", "LATENT_DENOISED"]},
+    {"id": "11", "type": "VAEDecode", "outputs": ["IMAGE"]},
+    {"id": "12", "type": "SaveImage", "outputs": []}
+  ],
+  "connections": [
+    {"from": "1.MODEL", "to": "6.model"},
+    {"from": "2.CLIP", "to": "4.clip"},
+    {"from": "3.VAE", "to": "11.vae"},
+    {"from": "4.CONDITIONING", "to": "5.conditioning"},
+    {"from": "5.CONDITIONING", "to": "10.positive"},
+    {"from": "6.MODEL", "to": "8.model"},
+    {"from": "6.MODEL", "to": "10.model"},
+    {"from": "7.LATENT", "to": "10.latent_image"},
+    {"from": "8.SIGMAS", "to": "10.sigmas"},
+    {"from": "9.SAMPLER", "to": "10.sampler"},
+    {"from": "10.LATENT", "to": "11.samples"},
+    {"from": "11.IMAGE", "to": "12.images"}
+  ],
+  "defaults": {
+    "1.unet_name": "flux1-dev.safetensors",
+    "1.weight_dtype": "default",
+    "2.clip_name1": "clip_l.safetensors",
+    "2.clip_name2": "t5xxl_fp16.safetensors",
+    "2.type": "flux",
+    "3.vae_name": "ae.safetensors",
+    "5.guidance": 3.5,
+    "6.width": 1024,
+    "6.height": 1024,
+    "7.width": 1024,
+    "7.height": 1024,
+    "8.scheduler": "simple",
+    "8.steps": 20,
+    "8.denoise": 1.0,
+    "9.sampler_name": "euler"
+  }
+}

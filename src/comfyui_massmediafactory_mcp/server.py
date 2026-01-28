@@ -32,6 +32,10 @@ from . import analysis
 from . import style_learning
 from . import schemas
 from . import annotations
+from . import node_specs
+from . import reference_docs
+from . import topology_validator
+from . import workflow_generator
 from .mcp_utils import (
     mcp_error,
     mcp_success,
@@ -2301,6 +2305,484 @@ def list_tools_by_category(category: str) -> dict:
             "batch", "pipeline", "models", "analysis", "qa", "style_learning"
         ]}
     )
+
+
+# =============================================================================
+# LLM Reference Documentation Tools
+# =============================================================================
+
+@mcp.tool()
+def get_node_spec(node_class_name: str) -> dict:
+    """
+    Get exact input/output specification for a ComfyUI node.
+
+    Solves the LLM hallucination problem by providing exact node definitions.
+    Use this before connecting nodes to verify input/output types.
+
+    Args:
+        node_class_name: The node class name (e.g., "LTXVConditioning", "SamplerCustom")
+
+    Returns:
+        {
+            "class": "LTXVConditioning",
+            "inputs": {
+                "positive": "CONDITIONING",
+                "negative": "CONDITIONING",
+                "frame_rate": "FLOAT (default: 24)"
+            },
+            "outputs": ["CONDITIONING (positive)", "CONDITIONING (negative)"],
+            "notes": "Required wrapper for LTX conditioning."
+        }
+
+    Example:
+        # Before creating a connection, verify the node spec
+        spec = get_node_spec("LTXVConditioning")
+        # Now you know: inputs need CONDITIONING, outputs are CONDITIONING
+    """
+    return node_specs.get_node_spec(node_class_name)
+
+
+@mcp.tool()
+def list_node_specs(category: str = None) -> dict:
+    """
+    List all node specifications, optionally filtered by category.
+
+    Args:
+        category: Filter by category (loaders, conditioning, ltx, wan, flux, qwen, sampling, vae, output, input)
+
+    Returns:
+        List of node specifications with inputs/outputs.
+
+    Example:
+        # Get all LTX-specific nodes
+        nodes = list_node_specs("ltx")
+    """
+    specs = node_specs.list_node_specs(category)
+    return {
+        "nodes": specs,
+        "count": len(specs),
+        "category": category,
+        "available_categories": node_specs.get_node_categories()
+    }
+
+
+@mcp.tool()
+def get_model_pattern(model: str) -> dict:
+    """
+    Get workflow pattern documentation for a specific model.
+
+    Returns the recommended node topology, configuration tables,
+    and critical warnings for the specified model.
+
+    Args:
+        model: Model identifier (ltx, ltx2, flux, wan, qwen)
+
+    Returns:
+        Pattern documentation with node configuration tables.
+
+    Example:
+        # Get the LTX video pattern before building a workflow
+        pattern = get_model_pattern("ltx")
+        # Returns: Node topology, configuration tables, critical warnings
+    """
+    return reference_docs.get_model_pattern(model)
+
+
+@mcp.tool()
+def get_workflow_skeleton_json(model: str, task: str = None) -> dict:
+    """
+    Get a token-optimized workflow skeleton for a model.
+
+    Skeletons define the exact node topology without values,
+    with connection patterns and default configurations.
+
+    Args:
+        model: Model identifier (ltx, flux, wan, qwen)
+        task: Task type (t2v, i2v, t2i) - optional
+
+    Returns:
+        Skeleton JSON with nodes, connections, and defaults.
+
+    Example:
+        skeleton = get_workflow_skeleton_json("ltx", "t2v")
+        # Use skeleton["defaults"] to see recommended parameter values
+    """
+    return reference_docs.get_skeleton(model, task)
+
+
+@mcp.tool()
+def get_parameter_rules() -> dict:
+    """
+    Get all parameter validation rules for workflow generation.
+
+    Returns rules for:
+    - Resolution divisibility (16 for FLUX, 8 for others)
+    - Frame count formulas (8n+1 for LTX)
+    - CFG ranges by model
+    - Sampler compatibility
+    - Type safety rules
+
+    Returns:
+        Complete parameter rules documentation.
+
+    Example:
+        rules = get_parameter_rules()
+        # Check before generating: Is my resolution valid?
+    """
+    return reference_docs.get_parameter_rules()
+
+
+@mcp.tool()
+def search_patterns(query: str) -> dict:
+    """
+    Search pattern documentation for a query.
+
+    Semantic search over the MODEL_PATTERNS.md documentation
+    to find relevant patterns for a task.
+
+    Args:
+        query: Natural language query (e.g., "How to do image to video with LTX")
+
+    Returns:
+        Matching sections from documentation ranked by relevance.
+
+    Example:
+        result = search_patterns("image to video LTX")
+        # Returns I2V section from LTX patterns
+    """
+    return reference_docs.search_patterns(query)
+
+
+@mcp.tool()
+def get_llm_system_prompt() -> dict:
+    """
+    Get the system prompt guide for LLM workflow generation.
+
+    Returns the complete system prompt with:
+    - Role definition
+    - Constraints
+    - Few-shot examples
+    - Common mistakes to avoid
+
+    Use this to configure an LLM for workflow generation.
+
+    Returns:
+        System prompt content ready for use.
+    """
+    return reference_docs.get_system_prompt()
+
+
+@mcp.tool()
+def list_workflow_skeletons() -> dict:
+    """
+    List all available workflow skeletons.
+
+    Returns:
+        List of skeletons with model and task information.
+    """
+    return reference_docs.list_available_skeletons()
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def validate_topology(workflow_json: str, model: str = None) -> dict:
+    """
+    Validate a workflow JSON against parameter rules.
+
+    Static analysis tool that checks generated workflows before execution.
+    Catches common LLM mistakes like wrong frame counts, resolution issues,
+    and incorrect sampler usage.
+
+    Checks:
+    - Resolution divisibility (16 for FLUX, 8 for others)
+    - Frame count formula (8n+1 for LTX)
+    - CFG appropriate for model
+    - Using SamplerCustom for video models (not KSampler)
+    - Required nodes present
+    - Forbidden nodes absent
+    - Video-safe samplers (no euler_ancestral for video)
+
+    Args:
+        workflow_json: The workflow JSON as a string
+        model: Optional model type override (auto-detected if not provided)
+
+    Returns:
+        {
+            "valid": True/False,
+            "errors": ["Error 1", "Error 2"],
+            "warnings": ["Warning 1"],
+            "suggestions": ["Suggestion 1"],
+            "model_detected": "ltx"
+        }
+
+    Example:
+        result = validate_topology(my_workflow_json)
+        if not result["valid"]:
+            for error in result["errors"]:
+                print(f"ERROR: {error}")
+    """
+    return _to_mcp_response(topology_validator.validate_topology(workflow_json, model))
+
+
+@mcp.tool()
+def auto_correct_workflow(workflow: dict, model: str = None) -> dict:
+    """
+    Auto-correct invalid parameters in a workflow.
+
+    Fixes common issues rather than just failing:
+    - Rounds resolution to nearest valid divisor
+    - Rounds LTX frames to nearest 8n+1
+    - Clamps CFG to model-appropriate range
+
+    Args:
+        workflow: The workflow dict to correct
+        model: Optional model type override
+
+    Returns:
+        {
+            "workflow": corrected_workflow,
+            "corrections": [
+                {"field": "3.width", "from": 1000, "to": 1024, "reason": "..."}
+            ]
+        }
+
+    Example:
+        result = auto_correct_workflow(my_workflow)
+        if result["corrections"]:
+            print(f"Made {len(result['corrections'])} corrections")
+        execute_workflow(result["workflow"])
+    """
+    return topology_validator.auto_correct_parameters(workflow, model)
+
+
+@mcp.tool()
+def generate_workflow(
+    model: str,
+    workflow_type: str,
+    prompt: str,
+    negative_prompt: str = "",
+    width: int = None,
+    height: int = None,
+    frames: int = None,
+    seed: int = None,
+    steps: int = None,
+    cfg: float = None,
+    guidance: float = None,
+) -> dict:
+    """
+    Generate a complete, validated workflow from high-level parameters.
+
+    This is the primary tool for LLMs to create workflows. It:
+    1. Loads a pre-validated skeleton template
+    2. Injects parameters into placeholders
+    3. Auto-corrects invalid values
+    4. Validates before returning
+
+    Args:
+        model: Model identifier ("ltx", "flux", "wan", "qwen")
+        workflow_type: Type ("t2v", "i2v", "t2i")
+        prompt: Generation prompt
+        negative_prompt: Negative prompt (optional)
+        width: Width in pixels (optional, uses model default)
+        height: Height in pixels (optional, uses model default)
+        frames: Frame count for video (optional)
+        seed: Random seed (optional, generates random)
+        steps: Sampling steps (optional)
+        cfg: CFG scale (optional)
+        guidance: FluxGuidance value for FLUX (optional)
+
+    Returns:
+        {
+            "workflow": {...},
+            "parameters_used": {...},
+            "auto_corrections": [...],
+            "validation": {...},
+            "skeleton_used": "..."
+        }
+
+    Example:
+        # Generate LTX video
+        result = generate_workflow(
+            model="ltx",
+            workflow_type="t2v",
+            prompt="A cat walking on a beach"
+        )
+        execute_workflow(result["workflow"])
+
+        # Generate FLUX image
+        result = generate_workflow(
+            model="flux",
+            workflow_type="t2i",
+            prompt="A detailed portrait",
+            width=1024,
+            height=1536
+        )
+    """
+    return workflow_generator.generate_workflow(
+        model=model,
+        workflow_type=workflow_type,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        width=width,
+        height=height,
+        frames=frames,
+        seed=seed,
+        steps=steps,
+        cfg=cfg,
+        guidance=guidance,
+    )
+
+
+@mcp.tool()
+def list_supported_workflows() -> dict:
+    """
+    List all supported model/workflow_type combinations.
+
+    Returns:
+        {
+            "workflows": [
+                {"model": "ltx", "workflow_type": "t2v", "skeleton": "...", "defaults": {...}}
+            ],
+            "count": N
+        }
+    """
+    return workflow_generator.list_supported_workflows()
+
+
+# =============================================================================
+# LLM Reference Documentation Resources
+# =============================================================================
+
+@mcp.resource(
+    "comfy://docs/patterns/ltx",
+    name="LTX Video Pattern",
+    description="LLM reference pattern for LTX-Video workflow generation",
+    mime_type="text/markdown"
+)
+def resource_pattern_ltx() -> str:
+    """LTX Video pattern documentation."""
+    result = reference_docs.get_model_pattern("ltx")
+    return result.get("pattern", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/patterns/flux",
+    name="FLUX Pattern",
+    description="LLM reference pattern for FLUX workflow generation",
+    mime_type="text/markdown"
+)
+def resource_pattern_flux() -> str:
+    """FLUX pattern documentation."""
+    result = reference_docs.get_model_pattern("flux")
+    return result.get("pattern", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/patterns/wan",
+    name="Wan 2.1 Pattern",
+    description="LLM reference pattern for Wan 2.1 workflow generation",
+    mime_type="text/markdown"
+)
+def resource_pattern_wan() -> str:
+    """Wan 2.1 pattern documentation."""
+    result = reference_docs.get_model_pattern("wan")
+    return result.get("pattern", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/patterns/qwen",
+    name="Qwen Pattern",
+    description="LLM reference pattern for Qwen workflow generation",
+    mime_type="text/markdown"
+)
+def resource_pattern_qwen() -> str:
+    """Qwen pattern documentation."""
+    result = reference_docs.get_model_pattern("qwen")
+    return result.get("pattern", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/rules",
+    name="Parameter Rules",
+    description="Validation constraints for LLM-generated workflows",
+    mime_type="text/markdown"
+)
+def resource_parameter_rules() -> str:
+    """Parameter validation rules."""
+    result = reference_docs.get_parameter_rules()
+    return result.get("rules", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/system-prompt",
+    name="LLM System Prompt",
+    description="System prompt guide for LLM workflow generation",
+    mime_type="text/markdown"
+)
+def resource_system_prompt() -> str:
+    """System prompt for LLM workflow generation."""
+    result = reference_docs.get_system_prompt()
+    return result.get("system_prompt", json.dumps(result))
+
+
+@mcp.resource(
+    "comfy://docs/skeletons/ltx-t2v",
+    name="LTX T2V Skeleton",
+    description="Token-optimized skeleton for LTX text-to-video",
+    mime_type="application/json"
+)
+def resource_skeleton_ltx_t2v() -> str:
+    """LTX text-to-video skeleton."""
+    result = reference_docs.get_skeleton("ltx", "t2v")
+    return json.dumps(result.get("skeleton", result), indent=2)
+
+
+@mcp.resource(
+    "comfy://docs/skeletons/ltx-i2v",
+    name="LTX I2V Skeleton",
+    description="Token-optimized skeleton for LTX image-to-video",
+    mime_type="application/json"
+)
+def resource_skeleton_ltx_i2v() -> str:
+    """LTX image-to-video skeleton."""
+    result = reference_docs.get_skeleton("ltx", "i2v")
+    return json.dumps(result.get("skeleton", result), indent=2)
+
+
+@mcp.resource(
+    "comfy://docs/skeletons/flux-t2i",
+    name="FLUX T2I Skeleton",
+    description="Token-optimized skeleton for FLUX text-to-image",
+    mime_type="application/json"
+)
+def resource_skeleton_flux_t2i() -> str:
+    """FLUX text-to-image skeleton."""
+    result = reference_docs.get_skeleton("flux", "t2i")
+    return json.dumps(result.get("skeleton", result), indent=2)
+
+
+@mcp.resource(
+    "comfy://docs/skeletons/wan-t2v",
+    name="Wan T2V Skeleton",
+    description="Token-optimized skeleton for Wan text-to-video",
+    mime_type="application/json"
+)
+def resource_skeleton_wan_t2v() -> str:
+    """Wan text-to-video skeleton."""
+    result = reference_docs.get_skeleton("wan", "t2v")
+    return json.dumps(result.get("skeleton", result), indent=2)
+
+
+@mcp.resource(
+    "comfy://docs/skeletons/qwen-t2i",
+    name="Qwen T2I Skeleton",
+    description="Token-optimized skeleton for Qwen text-to-image",
+    mime_type="application/json"
+)
+def resource_skeleton_qwen_t2i() -> str:
+    """Qwen text-to-image skeleton."""
+    result = reference_docs.get_skeleton("qwen", "t2i")
+    return json.dumps(result.get("skeleton", result), indent=2)
 
 
 def main():
