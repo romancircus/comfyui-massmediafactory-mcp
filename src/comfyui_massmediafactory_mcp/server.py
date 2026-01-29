@@ -120,9 +120,11 @@ def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dic
 
 
 @mcp.tool()
-def get_workflow_status(prompt_id: str) -> dict:
-    """Check workflow status. Returns queued/running/completed/error."""
-    return execution.get_workflow_status(prompt_id)
+def get_workflow_status(prompt_id: str = None) -> dict:
+    """Check workflow/queue status. With prompt_id: single job. Without: all jobs."""
+    if prompt_id:
+        return execution.get_workflow_status(prompt_id)
+    return execution.get_queue_status()
 
 
 @mcp.tool()
@@ -145,15 +147,9 @@ def free_memory(unload_models: bool = False) -> dict:
 
 
 @mcp.tool()
-def interrupt_execution() -> dict:
+def interrupt() -> dict:
     """Stop currently running workflow."""
     return execution.interrupt_execution()
-
-
-@mcp.tool()
-def get_queue_status() -> dict:
-    """Get queue status (running/pending jobs)."""
-    return execution.get_queue_status()
 
 
 # =============================================================================
@@ -207,7 +203,7 @@ def view_output(asset_id: str, mode: str = "thumb") -> dict:
 
 
 @mcp.tool()
-def cleanup_expired_assets() -> dict:
+def cleanup_assets() -> dict:
     """Remove expired assets (default 24h TTL)."""
     return execution.cleanup_expired_assets()
 
@@ -278,7 +274,7 @@ def workflow_library(
     limit: int = 20,
     cursor: str = None,
 ) -> dict:
-    """Workflow library. action: save|load|list|delete|duplicate"""
+    """Workflow library. action: save|load|list|delete|duplicate|export|import"""
     if action == "save":
         if not name or not workflow:
             return mcp_error("name and workflow required for action='save'", "INVALID_PARAMS")
@@ -302,20 +298,16 @@ def workflow_library(
         if not source_name or not new_name:
             return mcp_error("source_name and new_name required for action='duplicate'", "INVALID_PARAMS")
         return persistence.duplicate_workflow(source_name, new_name)
+    elif action == "export":
+        if not name:
+            return mcp_error("name required for action='export'", "INVALID_PARAMS")
+        return persistence.export_workflow(name)
+    elif action == "import":
+        if not name or not workflow:
+            return mcp_error("name and workflow required for action='import'", "INVALID_PARAMS")
+        return persistence.import_workflow(name, workflow, description, tags)
     else:
-        return mcp_error(f"Invalid action: {action}. Use: save|load|list|delete|duplicate", "INVALID_PARAMS")
-
-
-@mcp.tool()
-def export_workflow(name: str) -> dict:
-    """Export workflow as raw JSON."""
-    return persistence.export_workflow(name)
-
-
-@mcp.tool()
-def import_workflow(name: str, workflow_json: dict, description: str = "", tags: list = None) -> dict:
-    """Import raw workflow JSON."""
-    return persistence.import_workflow(name, workflow_json, description, tags)
+        return mcp_error(f"Invalid action: {action}. Use: save|load|list|delete|duplicate|export|import", "INVALID_PARAMS")
 
 
 # =============================================================================
@@ -401,7 +393,7 @@ def validate_workflow(
     }
 
 
-@mcp.tool()
+# Internal helper - not exposed as MCP tool (too specialized)
 def check_connection(source_type: str, source_slot: int, target_type: str, target_input: str) -> dict:
     """Check if node connection is type-compatible."""
     return validation.check_node_compatibility(source_type, source_slot, target_type, target_input)
@@ -502,10 +494,7 @@ def get_node_chain(model: str, task: str) -> dict:
     return {"nodes": result, "model": model, "task": task, "count": len(result)}
 
 
-@mcp.tool()
-def list_available_patterns() -> dict:
-    """List all workflow patterns and supported models."""
-    return patterns.list_available_patterns()
+# Converted to MCP resource - see comfyui://patterns/available
 
 
 # NOTE: Workflow Builder Tools (explain_workflow, get_required_nodes, get_connection_pattern,
@@ -768,10 +757,7 @@ def generate_workflow(
     )
 
 
-@mcp.tool()
-def list_supported_workflows() -> dict:
-    """List supported model+workflow_type combinations."""
-    return workflow_generator.list_supported_workflows()
+# Converted to MCP resource - see comfyui://workflows/supported
 
 
 # =============================================================================
@@ -908,6 +894,30 @@ def resource_skeleton_qwen_t2i() -> str:
     """Qwen text-to-image skeleton."""
     result = reference_docs.get_skeleton("qwen", "t2i")
     return json.dumps(result.get("skeleton", result), indent=2)
+
+
+@mcp.resource(
+    "comfyui://patterns/available",
+    name="Available Patterns",
+    description="List of all workflow patterns and supported models",
+    mime_type="application/json"
+)
+def resource_available_patterns() -> str:
+    """All available workflow patterns."""
+    result = patterns.list_available_patterns()
+    return json.dumps(result, indent=2)
+
+
+@mcp.resource(
+    "comfyui://workflows/supported",
+    name="Supported Workflows",
+    description="List of supported model+workflow_type combinations",
+    mime_type="application/json"
+)
+def resource_supported_workflows() -> str:
+    """Supported workflow types."""
+    result = workflow_generator.list_supported_workflows()
+    return json.dumps(result, indent=2)
 
 
 def main():
