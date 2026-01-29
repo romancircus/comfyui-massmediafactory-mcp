@@ -22,7 +22,7 @@ class ToolAnnotation:
 
 
 # =============================================================================
-# Tool Annotation Definitions (Updated for token-reduced tool set)
+# Tool Annotation Definitions (Updated for consolidated tool set)
 # =============================================================================
 
 TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
@@ -135,31 +135,12 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         category="publishing"
     ),
 
-    # Workflow Library
-    "save_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.6,
-        category="library"
-    ),
-    "load_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.7,
-        category="library"
-    ),
-    "list_saved_workflows": ToolAnnotation(
+    # Workflow Library (consolidated: workflow_library replaces 5 tools)
+    "workflow_library": ToolAnnotation(
         audience=["user", "assistant"],
-        priority=0.6,
-        category="library"
-    ),
-    "delete_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="library"
-    ),
-    "duplicate_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.4,
-        category="library"
+        priority=0.7,
+        category="library",
+        description="save|load|list|delete|duplicate workflows"
     ),
     "export_workflow": ToolAnnotation(
         audience=["user", "assistant"],
@@ -184,48 +165,25 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         category="vram"
     ),
 
-    # Validation
+    # Validation (consolidated: validate_workflow replaces 4 tools)
     "validate_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
-        category="validation"
+        category="validation",
+        description="Unified validation with auto_fix and check_pattern options"
     ),
-    "validate_and_fix_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.7,
-        category="validation"
-    ),
-    "check_connection_compatibility": ToolAnnotation(
+    "check_connection": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
         category="validation"
     ),
 
-    # SOTA Recommendations
-    "get_sota_models": ToolAnnotation(
-        audience=["assistant", "user"],
-        priority=0.7,
-        category="sota"
-    ),
-    "recommend_model": ToolAnnotation(
+    # SOTA Recommendations (consolidated: sota_query replaces 5 tools)
+    "sota_query": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.8,
-        category="sota"
-    ),
-    "check_model_freshness": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="sota"
-    ),
-    "get_model_settings": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.6,
-        category="sota"
-    ),
-    "check_installed_sota": ToolAnnotation(
-        audience=["assistant", "user"],
-        priority=0.5,
-        category="sota"
+        category="sota",
+        description="category|recommend|check|settings|installed"
     ),
 
     # Templates
@@ -261,32 +219,18 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         priority=0.6,
         category="patterns"
     ),
-    "validate_against_pattern": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.7,
-        category="patterns"
-    ),
     "list_available_patterns": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
         category="patterns"
     ),
 
-    # Batch Execution
-    "execute_batch_workflows": ToolAnnotation(
+    # Batch Execution (consolidated: batch_execute replaces 3 tools)
+    "batch_execute": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.7,
-        category="batch"
-    ),
-    "execute_parameter_sweep": ToolAnnotation(
-        audience=["assistant", "user"],
-        priority=0.6,
-        category="batch"
-    ),
-    "generate_seed_variations": ToolAnnotation(
-        audience=["user", "assistant"],
-        priority=0.7,
-        category="batch"
+        category="batch",
+        description="batch|sweep|seeds execution modes"
     ),
 
     # Pipelines
@@ -381,17 +325,7 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         description="CRUD for style presets"
     ),
 
-    # Workflow Generation & Validation
-    "validate_topology": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.7,
-        category="generation"
-    ),
-    "auto_correct_workflow": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.7,
-        category="generation"
-    ),
+    # Workflow Generation
     "generate_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.9,

@@ -265,39 +265,45 @@ def set_publish_dir(publish_dir: str) -> dict:
 # =============================================================================
 
 @mcp.tool()
-def save_workflow(name: str, workflow: dict, description: str = "", tags: list = None) -> dict:
-    """Save workflow to library."""
-    return persistence.save_workflow(name, workflow, description, tags or [])
-
-
-@mcp.tool()
-def load_workflow(name: str) -> dict:
-    """Load workflow from library."""
-    return persistence.load_workflow(name)
-
-
-@mcp.tool()
 @mcp_tool_wrapper
-def list_saved_workflows(tag: str = None, limit: int = 20, cursor: str = None) -> dict:
-    """List saved workflows. Paginated."""
-    result = persistence.list_workflows(tag)
-    if "error" in result:
-        return _to_mcp_response(result)
-    workflows = result.get("workflows", [])
-    paginated = paginate(workflows, cursor=cursor, limit=limit)
-    return {"workflows": paginated["items"], "nextCursor": paginated["nextCursor"], "total": paginated["total"]}
-
-
-@mcp.tool()
-def delete_workflow(name: str) -> dict:
-    """Delete workflow from library."""
-    return persistence.delete_workflow(name)
-
-
-@mcp.tool()
-def duplicate_workflow(source_name: str, new_name: str) -> dict:
-    """Duplicate workflow with new name."""
-    return persistence.duplicate_workflow(source_name, new_name)
+def workflow_library(
+    action: str,
+    name: str = None,
+    workflow: dict = None,
+    description: str = "",
+    tags: list = None,
+    source_name: str = None,
+    new_name: str = None,
+    tag_filter: str = None,
+    limit: int = 20,
+    cursor: str = None,
+) -> dict:
+    """Workflow library. action: save|load|list|delete|duplicate"""
+    if action == "save":
+        if not name or not workflow:
+            return mcp_error("name and workflow required for action='save'", "INVALID_PARAMS")
+        return persistence.save_workflow(name, workflow, description, tags or [])
+    elif action == "load":
+        if not name:
+            return mcp_error("name required for action='load'", "INVALID_PARAMS")
+        return persistence.load_workflow(name)
+    elif action == "list":
+        result = persistence.list_workflows(tag_filter)
+        if "error" in result:
+            return _to_mcp_response(result)
+        workflows = result.get("workflows", [])
+        paginated = paginate(workflows, cursor=cursor, limit=limit)
+        return {"workflows": paginated["items"], "nextCursor": paginated["nextCursor"], "total": paginated["total"]}
+    elif action == "delete":
+        if not name:
+            return mcp_error("name required for action='delete'", "INVALID_PARAMS")
+        return persistence.delete_workflow(name)
+    elif action == "duplicate":
+        if not source_name or not new_name:
+            return mcp_error("source_name and new_name required for action='duplicate'", "INVALID_PARAMS")
+        return persistence.duplicate_workflow(source_name, new_name)
+    else:
+        return mcp_error(f"Invalid action: {action}. Use: save|load|list|delete|duplicate", "INVALID_PARAMS")
 
 
 @mcp.tool()
@@ -329,24 +335,74 @@ def check_model_fits(model_name: str, precision: str = "default") -> dict:
 
 
 # =============================================================================
-# Validation Tools
+# Validation Tools (consolidated from 6 tools → 2)
 # =============================================================================
 
 @mcp.tool()
 @mcp_tool_wrapper
-def validate_workflow(workflow: dict) -> dict:
-    """Validate workflow for errors before execution."""
-    return _to_mcp_response(validation.validate_workflow(workflow))
+def validate_workflow(
+    workflow: dict,
+    model: str = None,
+    auto_fix: bool = False,
+    check_pattern: bool = False,
+) -> dict:
+    """Validate workflow. auto_fix=True to correct params. check_pattern=True for drift detection."""
+    import json
+    errors = []
+    warnings = []
+    corrections = []
+    result_workflow = workflow
+
+    # 1. Basic validation (node types, connections)
+    basic_result = validation.validate_workflow(workflow)
+    if "error" in basic_result:
+        return _to_mcp_response(basic_result)
+    if basic_result.get("errors"):
+        errors.extend(basic_result["errors"])
+    if basic_result.get("warnings"):
+        warnings.extend(basic_result["warnings"])
+
+    # 2. Topology validation (resolution, frames, CFG, model constraints)
+    workflow_json = json.dumps(workflow)
+    topo_result = topology_validator.validate_topology(workflow_json, model)
+    if topo_result.get("errors"):
+        errors.extend(topo_result["errors"])
+    if topo_result.get("warnings"):
+        warnings.extend(topo_result["warnings"])
+    detected_model = topo_result.get("model_detected", model)
+
+    # 3. Pattern validation (drift detection)
+    if check_pattern and detected_model:
+        pattern_result = patterns.validate_against_pattern(workflow, detected_model)
+        if pattern_result.get("errors"):
+            errors.extend(pattern_result["errors"])
+        if pattern_result.get("warnings"):
+            warnings.extend(pattern_result["warnings"])
+
+    # 4. Auto-fix if requested
+    if auto_fix and errors:
+        fix_result = topology_validator.auto_correct_parameters(workflow, detected_model)
+        if fix_result.get("corrections"):
+            corrections = fix_result["corrections"]
+            result_workflow = fix_result.get("workflow", workflow)
+            # Re-validate after fixing
+            errors = []  # Clear errors, re-check
+            recheck = topology_validator.validate_topology(json.dumps(result_workflow), detected_model)
+            if recheck.get("errors"):
+                errors = recheck["errors"]
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "corrections": corrections if auto_fix else [],
+        "workflow": result_workflow if auto_fix else None,
+        "model_detected": detected_model,
+    }
 
 
 @mcp.tool()
-def validate_and_fix_workflow(workflow: dict) -> dict:
-    """Validate and auto-fix common workflow issues."""
-    return validation.validate_and_fix(workflow)
-
-
-@mcp.tool()
-def check_connection_compatibility(source_type: str, source_slot: int, target_type: str, target_input: str) -> dict:
+def check_connection(source_type: str, source_slot: int, target_type: str, target_input: str) -> dict:
     """Check if node connection is type-compatible."""
     return validation.check_node_compatibility(source_type, source_slot, target_type, target_input)
 
@@ -356,33 +412,34 @@ def check_connection_compatibility(source_type: str, source_slot: int, target_ty
 # =============================================================================
 
 @mcp.tool()
-def get_sota_models(category: str) -> dict:
-    """Get SOTA models. category: image_gen|video_gen|controlnet"""
-    return sota.get_sota_for_category(category)
-
-
-@mcp.tool()
-def recommend_model(task: str, available_vram_gb: float = None) -> dict:
-    """Recommend model for task. task: portrait|text_in_image|fast_iteration|etc."""
-    return sota.recommend_model_for_task(task, available_vram_gb)
-
-
-@mcp.tool()
-def check_model_freshness(model_name: str) -> dict:
-    """Check if model is current SOTA or deprecated."""
-    return sota.check_model_is_sota(model_name)
-
-
-@mcp.tool()
-def get_model_settings(model_name: str) -> dict:
-    """Get optimal CFG/steps/sampler settings for model."""
-    return sota.get_optimal_settings(model_name)
-
-
-@mcp.tool()
-def check_installed_sota() -> dict:
-    """List installed SOTA models and missing ones."""
-    return sota.get_available_sota_models()
+def sota_query(
+    mode: str,
+    category: str = None,
+    task: str = None,
+    model_name: str = None,
+    available_vram_gb: float = None,
+) -> dict:
+    """SOTA queries. mode: category|recommend|check|settings|installed"""
+    if mode == "category":
+        if not category:
+            return mcp_error("category required for mode='category'", "INVALID_PARAMS")
+        return sota.get_sota_for_category(category)
+    elif mode == "recommend":
+        if not task:
+            return mcp_error("task required for mode='recommend'", "INVALID_PARAMS")
+        return sota.recommend_model_for_task(task, available_vram_gb)
+    elif mode == "check":
+        if not model_name:
+            return mcp_error("model_name required for mode='check'", "INVALID_PARAMS")
+        return sota.check_model_is_sota(model_name)
+    elif mode == "settings":
+        if not model_name:
+            return mcp_error("model_name required for mode='settings'", "INVALID_PARAMS")
+        return sota.get_optimal_settings(model_name)
+    elif mode == "installed":
+        return sota.get_available_sota_models()
+    else:
+        return mcp_error(f"Invalid mode: {mode}. Use: category|recommend|check|settings|installed", "INVALID_PARAMS")
 
 
 # =============================================================================
@@ -446,12 +503,6 @@ def get_node_chain(model: str, task: str) -> dict:
 
 
 @mcp.tool()
-def validate_against_pattern(workflow: dict, model: str) -> dict:
-    """Validate workflow against known working patterns."""
-    return patterns.validate_against_pattern(workflow, model)
-
-
-@mcp.tool()
 def list_available_patterns() -> dict:
     """List all workflow patterns and supported models."""
     return patterns.list_available_patterns()
@@ -470,21 +521,31 @@ def list_available_patterns() -> dict:
 # =============================================================================
 
 @mcp.tool()
-def execute_batch_workflows(workflow: dict, parameter_sets: list, parallel: int = 1, timeout_per_job: int = 600) -> dict:
-    """Run workflow with multiple parameter sets."""
-    return batch.execute_batch(workflow, parameter_sets, parallel, timeout_per_job)
-
-
-@mcp.tool()
-def execute_parameter_sweep(workflow: dict, sweep_params: dict, fixed_params: dict = None, parallel: int = 1) -> dict:
-    """Grid search over parameter values."""
-    return batch.execute_sweep(workflow, sweep_params, fixed_params, parallel)
-
-
-@mcp.tool()
-def generate_seed_variations(workflow: dict, parameters: dict, num_variations: int = 4, start_seed: int = 42, parallel: int = 2) -> dict:
-    """Generate multiple outputs with different seeds."""
-    return batch.execute_seed_variations(workflow, parameters, num_variations, start_seed, parallel)
+def batch_execute(
+    workflow: dict,
+    mode: str,
+    parameter_sets: list = None,
+    sweep_params: dict = None,
+    fixed_params: dict = None,
+    num_variations: int = 4,
+    start_seed: int = 42,
+    parallel: int = 1,
+    timeout_per_job: int = 600,
+) -> dict:
+    """Batch execution. mode: batch|sweep|seeds"""
+    if mode == "batch":
+        if not parameter_sets:
+            return mcp_error("parameter_sets required for mode='batch'", "INVALID_PARAMS")
+        return batch.execute_batch(workflow, parameter_sets, parallel, timeout_per_job)
+    elif mode == "sweep":
+        if not sweep_params:
+            return mcp_error("sweep_params required for mode='sweep'", "INVALID_PARAMS")
+        return batch.execute_sweep(workflow, sweep_params, fixed_params, parallel)
+    elif mode == "seeds":
+        base_params = parameter_sets[0] if parameter_sets else {}
+        return batch.execute_seed_variations(workflow, base_params, num_variations, start_seed, parallel)
+    else:
+        return mcp_error(f"Invalid mode: {mode}. Use: batch|sweep|seeds", "INVALID_PARAMS")
 
 
 # =============================================================================
@@ -511,114 +572,6 @@ def run_upscale_pipeline(base_workflow: dict, upscale_workflow: dict, prompt: st
 
 # =============================================================================
 # Templates as MCP Resources
-# =============================================================================
-
-# Define template resources with proper MCP-compliant URIs
-# Format: comfyui://templates/{template_name}
-
-@mcp.resource(
-    "comfyui://templates/flux2_txt2img",
-    name="FLUX.2 Text-to-Image",
-    description="FLUX.2 text-to-image workflow with {{PROMPT}}, {{SEED}}, {{WIDTH}}, {{HEIGHT}} placeholders",
-    mime_type="application/json"
-)
-def resource_flux2_txt2img() -> str:
-    """FLUX.2 text-to-image workflow template."""
-    template = templates.load_template("flux2_txt2img")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/qwen_txt2img",
-    name="Qwen Text-to-Image",
-    description="Qwen image generation workflow optimized for text rendering",
-    mime_type="application/json"
-)
-def resource_qwen_txt2img() -> str:
-    """Qwen text-to-image workflow template."""
-    template = templates.load_template("qwen_txt2img")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/ltx2_txt2vid",
-    name="LTX-2 Text-to-Video",
-    description="LTX-2 text-to-video workflow with audio sync support",
-    mime_type="application/json"
-)
-def resource_ltx2_txt2vid() -> str:
-    """LTX-2 text-to-video workflow template."""
-    template = templates.load_template("ltx2_txt2vid")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/wan26_img2vid",
-    name="Wan 2.6 Image-to-Video",
-    description="Wan 2.6 image-to-video workflow for animating still images",
-    mime_type="application/json"
-)
-def resource_wan26_img2vid() -> str:
-    """Wan 2.6 image-to-video workflow template."""
-    template = templates.load_template("wan26_img2vid")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/flux2_ultimate_upscale",
-    name="FLUX.2 Ultimate Upscale",
-    description="4K/8K upscaling with neural network enhancement",
-    mime_type="application/json"
-)
-def resource_flux2_ultimate_upscale() -> str:
-    """FLUX.2 upscaling workflow template."""
-    template = templates.load_template("flux2_ultimate_upscale")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/flux2_face_id",
-    name="FLUX.2 Face ID",
-    description="Generate images with consistent face identity (--cref replacement)",
-    mime_type="application/json"
-)
-def resource_flux2_face_id() -> str:
-    """FLUX.2 Face ID workflow template."""
-    template = templates.load_template("flux2_face_id")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/qwen3_tts_custom_voice",
-    name="Qwen3-TTS Custom Voice",
-    description="Text-to-speech with 9 premium preset voices",
-    mime_type="application/json"
-)
-def resource_qwen3_tts_custom_voice() -> str:
-    """Qwen3-TTS custom voice workflow template."""
-    template = templates.load_template("qwen3_tts_custom_voice")
-    return json.dumps(template, indent=2)
-
-
-@mcp.resource(
-    "comfyui://templates/chatterbox_tts",
-    name="Chatterbox TTS",
-    description="Expressive TTS with emotion tags ([laugh], [sigh], etc.)",
-    mime_type="application/json"
-)
-def resource_chatterbox_tts() -> str:
-    """Chatterbox TTS workflow template."""
-    template = templates.load_template("chatterbox_tts")
-    return json.dumps(template, indent=2)
-
-
-# Legacy resource for backwards compatibility
-@mcp.resource("template://flux-txt2img")
-def flux_txt2img_template_legacy() -> str:
-    """[DEPRECATED] Use comfyui://templates/flux2_txt2img instead."""
-    return resource_flux2_txt2img()
-
-
 # =============================================================================
 # Model Management Tools
 # =============================================================================
@@ -724,7 +677,6 @@ def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
 def style_suggest(
     mode: str,
     prompt: str = None,
-    style: str = None,
     model: str = None,
     tags: list = None,
     min_rating: float = 0.7,
@@ -767,7 +719,7 @@ def manage_presets(
         if not name:
             return mcp_error("name required for action=get")
         preset = style_learning.get_style_preset(name)
-        return preset if preset else {"error": f"Preset '{name}' not found"}
+        return preset if preset else mcp_error(f"Preset '{name}' not found", "NOT_FOUND")
     elif action == "save":
         if not name or not description or not prompt_additions:
             return mcp_error("name, description, prompt_additions required for action=save")
@@ -794,7 +746,7 @@ def manage_presets(
 
 
 # NOTE: LLM Reference Documentation Tools removed in token reduction.
-# Use MCP Resources instead: comfy://docs/patterns/{model}, comfy://docs/rules, etc.
+# Use MCP Resources instead: comfyui://docs/patterns/{model}, comfyui://docs/rules, etc.
 # Tools removed: get_node_spec, list_node_specs, get_model_pattern, get_workflow_skeleton_json,
 # get_parameter_rules, search_patterns, get_llm_system_prompt, list_workflow_skeletons
 
@@ -802,19 +754,6 @@ def manage_presets(
 # =============================================================================
 # Workflow Generation & Validation Tools
 # =============================================================================
-
-@mcp.tool()
-@mcp_tool_wrapper
-def validate_topology(workflow_json: str, model: str = None) -> dict:
-    """Validate workflow against model constraints (resolution, frames, CFG)."""
-    return _to_mcp_response(topology_validator.validate_topology(workflow_json, model))
-
-
-@mcp.tool()
-def auto_correct_workflow(workflow: dict, model: str = None) -> dict:
-    """Auto-fix invalid params (resolution, frames, CFG)."""
-    return topology_validator.auto_correct_parameters(workflow, model)
-
 
 @mcp.tool()
 def generate_workflow(
@@ -840,7 +779,7 @@ def list_supported_workflows() -> dict:
 # =============================================================================
 
 @mcp.resource(
-    "comfy://docs/patterns/ltx",
+    "comfyui://docs/patterns/ltx",
     name="LTX Video Pattern",
     description="LLM reference pattern for LTX-Video workflow generation",
     mime_type="text/markdown"
@@ -852,7 +791,7 @@ def resource_pattern_ltx() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/patterns/flux",
+    "comfyui://docs/patterns/flux",
     name="FLUX Pattern",
     description="LLM reference pattern for FLUX workflow generation",
     mime_type="text/markdown"
@@ -864,7 +803,7 @@ def resource_pattern_flux() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/patterns/wan",
+    "comfyui://docs/patterns/wan",
     name="Wan 2.1 Pattern",
     description="LLM reference pattern for Wan 2.1 workflow generation",
     mime_type="text/markdown"
@@ -876,7 +815,7 @@ def resource_pattern_wan() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/patterns/qwen",
+    "comfyui://docs/patterns/qwen",
     name="Qwen Pattern",
     description="LLM reference pattern for Qwen workflow generation",
     mime_type="text/markdown"
@@ -888,7 +827,7 @@ def resource_pattern_qwen() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/rules",
+    "comfyui://docs/rules",
     name="Parameter Rules",
     description="Validation constraints for LLM-generated workflows",
     mime_type="text/markdown"
@@ -900,7 +839,7 @@ def resource_parameter_rules() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/system-prompt",
+    "comfyui://docs/system-prompt",
     name="LLM System Prompt",
     description="System prompt guide for LLM workflow generation",
     mime_type="text/markdown"
@@ -912,7 +851,7 @@ def resource_system_prompt() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/skeletons/ltx-t2v",
+    "comfyui://docs/skeletons/ltx-t2v",
     name="LTX T2V Skeleton",
     description="Token-optimized skeleton for LTX text-to-video",
     mime_type="application/json"
@@ -924,7 +863,7 @@ def resource_skeleton_ltx_t2v() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/skeletons/ltx-i2v",
+    "comfyui://docs/skeletons/ltx-i2v",
     name="LTX I2V Skeleton",
     description="Token-optimized skeleton for LTX image-to-video",
     mime_type="application/json"
@@ -936,7 +875,7 @@ def resource_skeleton_ltx_i2v() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/skeletons/flux-t2i",
+    "comfyui://docs/skeletons/flux-t2i",
     name="FLUX T2I Skeleton",
     description="Token-optimized skeleton for FLUX text-to-image",
     mime_type="application/json"
@@ -948,7 +887,7 @@ def resource_skeleton_flux_t2i() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/skeletons/wan-t2v",
+    "comfyui://docs/skeletons/wan-t2v",
     name="Wan T2V Skeleton",
     description="Token-optimized skeleton for Wan text-to-video",
     mime_type="application/json"
@@ -960,7 +899,7 @@ def resource_skeleton_wan_t2v() -> str:
 
 
 @mcp.resource(
-    "comfy://docs/skeletons/qwen-t2i",
+    "comfyui://docs/skeletons/qwen-t2i",
     name="Qwen T2I Skeleton",
     description="Token-optimized skeleton for Qwen text-to-image",
     mime_type="application/json"

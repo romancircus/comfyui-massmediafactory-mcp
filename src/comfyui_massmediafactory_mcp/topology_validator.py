@@ -4,7 +4,7 @@ Workflow Topology Validator
 Validates LLM-generated workflow JSON against PARAMETER_RULES constraints.
 Catches common mistakes before execution.
 
-NOTE: This module contains validation-focused constraints.
+NOTE: Validation constraints are derived from patterns.py MODEL_CONSTRAINTS.
 For workflow patterns and LLM-facing constraints, see patterns.py.
 For default parameter values, see workflow_generator.py MODEL_DEFAULTS.
 """
@@ -12,119 +12,68 @@ For default parameter values, see workflow_generator.py MODEL_DEFAULTS.
 import json
 from typing import Dict, List, Tuple, Any, Optional
 
-# Model-specific validation constraints
-# These focus on resolution, CFG ranges, required/forbidden nodes
-# See patterns.py MODEL_CONSTRAINTS for workflow-focused constraints
-MODEL_CONSTRAINTS = {
-    "flux": {
-        "resolution_divisor": 16,
-        "resolution_min": 512,
-        "resolution_max": 2048,
-        "cfg_range": None,  # Uses FluxGuidance instead
-        "requires_flux_guidance": True,
-        "sampler_type": "SamplerCustom",
-        "required_nodes": ["DualCLIPLoader", "FluxGuidance", "ModelSamplingFlux"],
-        "forbidden_nodes": [],
-        "scheduler_node": "BasicScheduler",
-    },
-    "ltx": {
-        "resolution_divisor": 8,
-        "resolution_min": 256,
-        "resolution_max": 2048,
-        "cfg_range": (2.0, 5.0),
-        "cfg_default": 3.0,
-        "frame_formula": "8n+1",
-        "sampler_type": "SamplerCustom",
-        "required_nodes": ["LTXVScheduler", "LTXVConditioning"],
-        "forbidden_nodes": ["KSampler"],
-        "scheduler_node": "LTXVScheduler",
-        "latent_node": "EmptyLTXVLatentVideo",
-    },
-    "ltx_distilled": {
-        "resolution_divisor": 64,
-        "resolution_min": 512,
-        "resolution_max": 1920,
-        "cfg_range": (2.0, 4.0),
-        "cfg_default": 2.5,
-        "frame_formula": "8n+1",
-        "sampler_type": "SamplerCustom",
-        "required_nodes": ["LTXVScheduler", "LTXVConditioning"],
-        "forbidden_nodes": ["KSampler"],
-        "scheduler_node": "LTXVScheduler",
-    },
-    "wan": {
-        "resolution_divisor": 8,
-        "resolution_min": 256,
-        "resolution_max": 1280,
-        "cfg_range": (4.0, 7.0),
-        "cfg_default": 5.0,
-        "sampler_type": "SamplerCustom",
-        "required_nodes": ["WanVideoModelLoader"],
-        "forbidden_nodes": ["KSampler"],
-        "scheduler_node": "BasicScheduler",
-        "vae_decode_node": "WanVAEDecode",
-    },
-    "qwen": {
-        "resolution_divisor": 8,
-        "resolution_min": 512,
-        "resolution_max": 2048,
-        "cfg_range": (2.0, 5.0),
-        "cfg_default": 3.0,
-        "sampler_type": "KSampler",  # KSampler OK for images
-        "required_nodes": ["ModelSamplingAuraFlow"],
-        "forbidden_nodes": [],
-        "scheduler_node": None,
-    },
-    "sdxl": {
-        "resolution_divisor": 8,
-        "resolution_min": 512,
-        "resolution_max": 2048,
-        "cfg_range": (5.0, 12.0),
-        "cfg_default": 7.0,
-        "sampler_type": "KSampler",
-        "required_nodes": [],
-        "forbidden_nodes": [],
-    },
-    "sd15": {
-        "resolution_divisor": 8,
-        "resolution_min": 256,
-        "resolution_max": 1024,
-        "cfg_range": (5.0, 15.0),
-        "cfg_default": 7.5,
-        "sampler_type": "KSampler",
-        "required_nodes": [],
-        "forbidden_nodes": [],
-    },
-    "hunyuan": {
-        "resolution_divisor": 16,
-        "resolution_min": 256,
-        "resolution_max": 1920,
-        "cfg_range": (4.0, 8.0),
-        "cfg_default": 6.0,
-        "sampler_type": "HunyuanVideoSampler",
-        "required_nodes": ["HunyuanVideoModelLoader"],
-        "forbidden_nodes": ["KSampler", "SamplerCustom"],
-        "scheduler_node": None,  # Built into HunyuanVideoSampler
-        "vae_decode_node": "HunyuanVideoVAEDecode",
-    },
-    "hunyuan15": {
-        "resolution_divisor": 16,
-        "resolution_min": 256,
-        "resolution_max": 1920,
-        "cfg_range": (4.0, 8.0),
-        "cfg_default": 6.0,
-        "sampler_type": "HunyuanVideoSampler",
-        "required_nodes": ["HunyuanVideoModelLoader"],
-        "forbidden_nodes": ["KSampler", "SamplerCustom"],
-        "scheduler_node": None,  # Built into HunyuanVideoSampler
-        "vae_decode_node": "HunyuanVideoVAEDecode",
-    },
-}
+from . import patterns
 
-# Aliases for consistent naming (maps modern names to constraint keys)
-MODEL_CONSTRAINTS["ltx2"] = MODEL_CONSTRAINTS["ltx"]
-MODEL_CONSTRAINTS["flux2"] = MODEL_CONSTRAINTS["flux"]
-MODEL_CONSTRAINTS["wan26"] = MODEL_CONSTRAINTS["wan"]
+
+def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
+    """Build validation-friendly constraints from patterns.py MODEL_CONSTRAINTS."""
+    result = {}
+
+    for model_key, pattern in patterns.MODEL_CONSTRAINTS.items():
+        cfg = pattern.get("cfg", {})
+        resolution = pattern.get("resolution", {})
+        frames = pattern.get("frames", {})
+        required = pattern.get("required_nodes", {})
+        forbidden = pattern.get("forbidden_nodes", {})
+
+        constraint = {
+            "resolution_divisor": resolution.get("divisible_by", 8),
+            "resolution_min": 256,  # Default minimum
+            "resolution_max": max(resolution.get("max", [2048, 2048])) if isinstance(resolution.get("max"), list) else resolution.get("max", 2048),
+            "cfg_range": (cfg.get("min", 1.0), cfg.get("max", 15.0)) if cfg.get("min") else None,
+            "cfg_default": cfg.get("default"),
+            "requires_flux_guidance": cfg.get("via") == "FluxGuidance",
+            "frame_formula": frames.get("formula"),
+            "sampler_type": required.get("sampler", "KSampler"),
+            "required_nodes": list(required.values()) if isinstance(required, dict) else required,
+            "forbidden_nodes": list(forbidden.keys()) if isinstance(forbidden, dict) else forbidden,
+            "scheduler_node": required.get("scheduler"),
+        }
+        result[model_key] = constraint
+
+        # Create aliases (ltx -> ltx2, flux -> flux2, wan -> wan26)
+        base_name = model_key.rstrip("0123456789")
+        if base_name != model_key:
+            result[base_name] = constraint
+
+    # Add legacy models not in patterns.py (sdxl, sd15, hunyuan)
+    legacy_models = {
+        "sdxl": {
+            "resolution_divisor": 8, "resolution_min": 512, "resolution_max": 2048,
+            "cfg_range": (5.0, 12.0), "cfg_default": 7.0, "sampler_type": "KSampler",
+            "required_nodes": [], "forbidden_nodes": [],
+        },
+        "sd15": {
+            "resolution_divisor": 8, "resolution_min": 256, "resolution_max": 1024,
+            "cfg_range": (5.0, 15.0), "cfg_default": 7.5, "sampler_type": "KSampler",
+            "required_nodes": [], "forbidden_nodes": [],
+        },
+        "hunyuan": {
+            "resolution_divisor": 16, "resolution_min": 256, "resolution_max": 1920,
+            "cfg_range": (4.0, 8.0), "cfg_default": 6.0, "sampler_type": "HunyuanVideoSampler",
+            "required_nodes": ["HunyuanVideoModelLoader"],
+            "forbidden_nodes": ["KSampler", "SamplerCustom"],
+            "vae_decode_node": "HunyuanVideoVAEDecode",
+        },
+    }
+    legacy_models["hunyuan15"] = legacy_models["hunyuan"]
+    result.update(legacy_models)
+
+    return result
+
+
+# Build validation constraints from patterns.py (single source of truth)
+MODEL_CONSTRAINTS = _build_validation_constraints()
 
 # Video-unsafe samplers
 VIDEO_UNSAFE_SAMPLERS = ["euler_ancestral", "dpmpp_2m_sde", "dpmpp_sde"]
