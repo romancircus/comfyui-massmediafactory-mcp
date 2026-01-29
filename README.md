@@ -4,10 +4,12 @@ A Model Context Protocol (MCP) server for ComfyUI workflow orchestration. Enable
 
 ## Features
 
-- **Discovery**: Find installed models (checkpoints, LoRAs, VAEs, ControlNets)
+- **Workflow Generation**: Generate validated workflows for FLUX, LTX-Video, Wan, Qwen
 - **Execution**: Run workflows, monitor status, retrieve outputs
+- **Iteration**: Regenerate with parameter tweaks (prompt, CFG, seed)
+- **Batch Processing**: Seed variations, parameter sweeps, pipelines
 - **Memory Management**: Check VRAM, free memory, interrupt jobs
-- **Templates**: Pre-built workflow templates for SOTA models
+- **Quality Assurance**: VLM-based output validation via Ollama
 
 ## Installation
 
@@ -31,163 +33,184 @@ Set your ComfyUI URL via environment variable:
 export COMFYUI_URL="http://localhost:8188"
 ```
 
-Or for remote ComfyUI:
-
-```bash
-export COMFYUI_URL="http://your-server:8188"
-```
-
 ## Usage with Claude Code
-
-Add to Claude Code:
 
 ```bash
 claude mcp add --transport stdio --scope user comfyui-massmediafactory \
     -- comfyui-massmediafactory-mcp
 ```
 
-Or if running from source:
+Or from source:
 
 ```bash
 claude mcp add --transport stdio --scope user comfyui-massmediafactory \
     -- python -m comfyui_massmediafactory_mcp.server
 ```
 
-## Available Tools
+## Quick Start
+
+```python
+# Generate an image with FLUX
+workflow = generate_workflow(model="flux", workflow_type="t2i",
+    prompt="a dragon in the clouds", width=1024, height=1024)
+result = execute_workflow(workflow["workflow"])
+output = wait_for_completion(result["prompt_id"])
+
+# Iterate with higher CFG
+new_result = regenerate(output["outputs"][0]["asset_id"], cfg=4.5)
+```
+
+## Available Tools (48)
 
 ### Discovery
 
 | Tool | Description |
 |------|-------------|
-| `list_checkpoints()` | List available checkpoint models |
-| `list_unets()` | List UNET models (Flux, SD3) |
-| `list_loras()` | List LoRA models |
-| `list_vaes()` | List VAE models |
-| `list_controlnets()` | List ControlNet models |
-| `get_node_info(node_type)` | Get node schema (inputs/outputs) |
+| `list_models(type)` | List models. type: checkpoint\|unet\|lora\|vae\|controlnet\|all |
+| `get_node_info(node_type)` | Get node schema by class name |
 | `search_nodes(query)` | Search nodes by name/category |
-| `get_all_models()` | Summary of all installed models |
 
 ### Execution
 
 | Tool | Description |
 |------|-------------|
-| `execute_workflow(workflow)` | Queue workflow, get prompt_id |
-| `get_workflow_status(prompt_id)` | Check status (queued/running/completed) |
+| `execute_workflow(workflow)` | Queue workflow, returns prompt_id |
+| `get_workflow_status(prompt_id)` | With ID: single job status. Without: queue status |
 | `wait_for_completion(prompt_id)` | Wait and return outputs |
-| `get_queue_status()` | Get running/pending job counts |
-
-### Management
-
-| Tool | Description |
-|------|-------------|
-| `get_system_stats()` | GPU VRAM usage and system info |
+| `get_system_stats()` | GPU VRAM and system info |
 | `free_memory(unload_models)` | Free GPU memory |
-| `interrupt_execution()` | Stop current workflow |
+| `interrupt()` | Stop current workflow |
 
-### Asset Iteration
+### Assets
 
 | Tool | Description |
 |------|-------------|
 | `regenerate(asset_id, ...)` | Re-run with parameter tweaks (prompt, cfg, seed) |
-| `list_assets(session_id, limit)` | Browse recent generations |
-| `get_asset_metadata(asset_id)` | Full provenance including workflow |
-| `view_output(asset_id)` | Get asset URL and preview info |
-| `cleanup_expired_assets()` | Remove expired assets (24h TTL) |
-| `upload_image(image_path, ...)` | Upload reference images for ControlNet/IP-Adapter |
-| `download_output(asset_id, path)` | Download generated files to local disk |
+| `list_assets(type, limit)` | Browse outputs. type: images\|video\|audio |
+| `get_asset_metadata(asset_id)` | Full metadata including workflow |
+| `view_output(asset_id, mode)` | View asset. mode: thumb\|metadata |
+| `cleanup_assets()` | Remove expired assets (24h TTL) |
+| `upload_image(path, ...)` | Upload for ControlNet/I2V workflows |
+| `download_output(asset_id, path)` | Save to local disk |
 
-### Publishing
+### Workflow Generation
 
 | Tool | Description |
 |------|-------------|
-| `publish_asset(asset_id, ...)` | Export to web directory with compression |
-| `get_publish_info()` | Show publish configuration |
-| `set_publish_dir(path)` | Configure publish directory |
+| `generate_workflow(model, type, prompt, ...)` | Generate validated workflow |
+| `validate_workflow(workflow, auto_fix)` | Validate with optional auto-fix |
+| `get_workflow_skeleton(model, task)` | Get base workflow structure |
+| `get_model_constraints(model)` | CFG, resolution, frame limits |
+| `get_node_chain(model, task)` | Node order with connections |
+
+### Workflow Library
+
+| Tool | Description |
+|------|-------------|
+| `workflow_library(action, ...)` | action: save\|load\|list\|delete\|duplicate\|export\|import |
+
+### Templates
+
+| Tool | Description |
+|------|-------------|
+| `list_workflow_templates()` | List available templates |
+| `get_template(name)` | Get template JSON |
+| `create_workflow_from_template(name, params)` | Create from template |
+
+### Batch & Pipelines
+
+| Tool | Description |
+|------|-------------|
+| `batch_execute(workflow, mode, ...)` | mode: batch\|sweep\|seeds |
+| `execute_pipeline_stages(stages, params)` | Multi-stage pipelines |
+| `run_image_to_video_pipeline(...)` | Image-to-video pipeline |
+| `run_upscale_pipeline(...)` | Generate + upscale pipeline |
 
 ### Quality Assurance
 
 | Tool | Description |
 |------|-------------|
-| `qa_output(asset_id, prompt, checks)` | VLM-based quality check on generated images |
-| `check_vlm_available(model)` | Check if Ollama VLM is available |
+| `qa_output(asset_id, prompt, checks)` | VLM-based quality check |
+| `check_vlm_available(model)` | Check Ollama VLM status |
 
-**QA Checks:**
-- `prompt_match` - Does image match the original prompt?
-- `artifacts` - Visual artifacts, distortions, blur?
-- `faces` - Face/hand issues (extra fingers, asymmetry)?
-- `text` - Text rendering issues?
-- `composition` - Overall composition quality?
+**QA Checks:** prompt_match, artifacts, faces, text, composition
 
-**Requirements:** Ollama with a VLM model (default: `qwen2.5-vl:7b`)
-```bash
-ollama pull qwen2.5-vl:7b
-```
+### VRAM & Models
 
-## Example: Generate Image with Flux
+| Tool | Description |
+|------|-------------|
+| `estimate_vram(workflow)` | Estimate VRAM usage |
+| `check_model_fits(model, precision)` | Check if model fits |
+| `search_civitai(query, type)` | Search Civitai |
+| `download_model(url, type)` | Download from Civitai/HF |
+| `list_installed_models(type)` | List installed models |
+| `get_model_info(path)` | Installed model info |
+
+### Style Learning
+
+| Tool | Description |
+|------|-------------|
+| `record_generation(prompt, model, seed)` | Log generation |
+| `rate_generation(record_id, rating)` | Rate 0.0-1.0 |
+| `style_suggest(mode, ...)` | mode: prompt\|seeds\|similar |
+| `manage_presets(action, ...)` | action: list\|get\|save\|delete |
+
+## MCP Resources (13)
+
+Static documentation accessible via MCP resource protocol:
+
+| URI | Content |
+|-----|---------|
+| `comfyui://docs/patterns/{model}` | Workflow patterns (flux, ltx, wan, qwen) |
+| `comfyui://docs/rules` | Parameter validation rules |
+| `comfyui://docs/system-prompt` | LLM generation guide |
+| `comfyui://docs/skeletons/{model}-{type}` | Workflow skeletons |
+| `comfyui://patterns/available` | All available patterns |
+| `comfyui://workflows/supported` | Supported model+type combinations |
+
+## Supported Models
+
+| Model | Types | Notes |
+|-------|-------|-------|
+| FLUX | t2i | Text-to-image, 1024x1024 default |
+| LTX-Video | t2v, i2v | Text/image-to-video, 768x512 default |
+| Wan 2.1 | t2v | Text-to-video |
+| Qwen | t2i | Text-to-image |
+
+## Example: Batch Seed Variations
 
 ```python
-# Claude discovers available models
-models = list_checkpoints()
-# → {"checkpoints": ["flux1-dev.safetensors", ...]}
-
-# Claude builds and executes workflow
-result = execute_workflow({
-    "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux1-dev.safetensors"}},
-    "2": {"class_type": "CLIPTextEncode", "inputs": {"text": "a dragon", "clip": ["1", 1]}},
-    # ... rest of workflow
-})
-# → {"prompt_id": "abc123", "status": "queued"}
-
-# Claude waits for completion
-output = wait_for_completion("abc123")
-# → {"status": "completed", "outputs": [{"filename": "flux_00001.png", "asset_id": "abc-123-def", ...}]}
+# Generate 4 variations with different seeds
+results = batch_execute(
+    workflow=workflow,
+    mode="seeds",
+    num_variations=4,
+    start_seed=42
+)
 ```
 
-## Example: Iterate on Generation
+## Example: Parameter Sweep
 
 ```python
-# Generate initial image
-result = execute_workflow(workflow)
-output = wait_for_completion(result["prompt_id"])
-asset_id = output["outputs"][0]["asset_id"]
-
-# View the result
-info = view_output(asset_id)
-# → {"url": "http://localhost:8188/view?filename=...", "prompt_preview": "a dragon..."}
-
-# Not quite right? Iterate with higher CFG
-result = regenerate(asset_id, cfg=4.5, seed=None)  # None = new random seed
-output = wait_for_completion(result["prompt_id"])
-
-# Browse all generations this session
-assets = list_assets(limit=10)
-# → {"assets": [{"asset_id": "...", "prompt_preview": "...", ...}], "count": 5}
-
-# Publish final image to web directory
-result = publish_asset(asset_id, target_filename="hero_image.png")
-# → {"success": True, "url": "/gen/hero_image.png", "bytes": 245000}
+# Test CFG and steps combinations
+results = batch_execute(
+    workflow=workflow,
+    mode="sweep",
+    sweep_params={"cfg": [2.5, 3.5, 4.5], "steps": [20, 30]}
+)
+# Runs 6 combinations (3 CFG x 2 steps)
 ```
 
-## Roadmap
+## Requirements
 
-- [x] Workflow persistence (save/load)
-- [x] VRAM estimation before execution
-- [x] Workflow validation (with cycle detection, resolution warnings)
-- [x] SOTA tracker integration
-- [x] Batch execution
-- [x] Multi-stage pipelines
-- [x] Asset registry with iteration support
-- [x] Asset publishing to web directories
-- [x] Automated VLM QA for generated outputs
-- [x] Image upload API (ControlNet, IP-Adapter, I2V support)
-- [x] Output download API
-- [x] Workflow format conversion (UI ↔ API)
-- [x] Connection type wildcards (*, COMBO, union types)
-- [x] Structured error codes with retry logic
-- [ ] Inline image preview (base64)
-- [ ] Video QA support
-- [ ] WebSocket real-time progress
+- ComfyUI running and accessible
+- Python 3.10+
+- For QA: Ollama with VLM model (`ollama pull qwen2.5-vl:7b`)
+
+## Documentation
+
+- **[CLAUDE.md](./CLAUDE.md)** - Comprehensive agent guide
+- **[docs/](./docs/)** - Additional documentation
 
 ## License
 
