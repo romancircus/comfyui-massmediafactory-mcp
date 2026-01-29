@@ -29,7 +29,7 @@ NODE_SPECS = {
         "class": "CLIPLoader",
         "inputs": {
             "clip_name": "STRING (filename)",
-            "type": "STRING (sd1|sd2|sdxl|flux|qwen_image)",
+            "type": "STRING (sd1|sd2|sdxl|flux|qwen_image|hunyuan_video)",
             "device": "STRING (default|cpu)"
         },
         "outputs": ["CLIP"],
@@ -209,6 +209,67 @@ NODE_SPECS = {
         },
         "outputs": ["IMAGE"],
         "category": "wan"
+    },
+
+    # HunyuanVideo Specific Nodes
+    "HunyuanVideoModelLoader": {
+        "class": "HunyuanVideoModelLoader",
+        "inputs": {
+            "model_name": "STRING (hunyuanvideo_t2v_720p_bf16.safetensors)",
+            "precision": "STRING (bf16|fp16|fp8)"
+        },
+        "outputs": ["MODEL", "VAE"],
+        "category": "hunyuan",
+        "notes": "Load HunyuanVideo model and VAE together."
+    },
+    "EmptyHunyuanLatentVideo": {
+        "class": "EmptyHunyuanLatentVideo",
+        "inputs": {
+            "width": "INT (divisible by 16, default: 1280)",
+            "height": "INT (divisible by 16, default: 720)",
+            "length": "INT (frames 81-129, default: 81)",
+            "batch_size": "INT (default: 1)"
+        },
+        "outputs": ["LATENT"],
+        "category": "hunyuan",
+        "notes": "Create empty latent for HunyuanVideo. Resolution must be divisible by 16."
+    },
+    "HunyuanVideoSampler": {
+        "class": "HunyuanVideoSampler",
+        "inputs": {
+            "model": "MODEL",
+            "positive": "CONDITIONING",
+            "negative": "CONDITIONING",
+            "latent": "LATENT",
+            "seed": "INT",
+            "steps": "INT (20-50, default: 30)",
+            "cfg": "FLOAT (4.0-8.0, default: 6.0)",
+            "sampler": "STRING (euler|dpmpp_2m)",
+            "scheduler": "STRING (normal|karras)"
+        },
+        "outputs": ["LATENT"],
+        "category": "hunyuan",
+        "notes": "Main sampler for HunyuanVideo. Uses standard CFG (not FluxGuidance)."
+    },
+    "HunyuanVideoVAEDecode": {
+        "class": "HunyuanVideoVAEDecode",
+        "inputs": {
+            "samples": "LATENT",
+            "vae": "VAE"
+        },
+        "outputs": ["IMAGE"],
+        "category": "hunyuan",
+        "notes": "Decode HunyuanVideo latent to video frames."
+    },
+    "HunyuanVideoImageEncode": {
+        "class": "HunyuanVideoImageEncode",
+        "inputs": {
+            "image": "IMAGE",
+            "vae": "VAE"
+        },
+        "outputs": ["IMAGE_EMBEDS"],
+        "category": "hunyuan",
+        "notes": "Encode reference image for I2V workflows."
     },
 
     # FLUX Specific Nodes
