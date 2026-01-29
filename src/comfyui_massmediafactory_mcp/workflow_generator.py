@@ -13,33 +13,67 @@ from typing import Dict, List, Optional, Any, Tuple
 
 from . import topology_validator
 from . import reference_docs
+from . import patterns
 
 # Module paths
 MODULE_DIR = Path(__file__).parent
 SKELETONS_DIR = MODULE_DIR.parent.parent / "docs" / "library" / "skeletons"
 
-# Model to skeleton mapping
+# Skeleton cache for performance (avoids repeated deepcopy)
+_SKELETON_CACHE: Dict[str, dict] = {}
+
+# Model to skeleton mapping - maps aliases to canonical (model, task) keys in patterns.py
 MODEL_SKELETON_MAP = {
-    ("ltx", "t2v"): "ltx_video_t2v.json",
-    ("ltx", "txt2vid"): "ltx_video_t2v.json",
-    ("ltx", "text-to-video"): "ltx_video_t2v.json",
-    ("ltx", "i2v"): "ltx_video_i2v.json",
-    ("ltx", "img2vid"): "ltx_video_i2v.json",
-    ("ltx", "image-to-video"): "ltx_video_i2v.json",
-    ("ltx2", "t2v"): "ltx_video_t2v.json",
-    ("ltx2", "i2v"): "ltx_video_i2v.json",
-    ("flux", "t2i"): "flux_dev_t2i.json",
-    ("flux", "txt2img"): "flux_dev_t2i.json",
-    ("flux", "text-to-image"): "flux_dev_t2i.json",
-    ("flux2", "t2i"): "flux_dev_t2i.json",
-    ("wan", "t2v"): "wan_t2v.json",
-    ("wan", "txt2vid"): "wan_t2v.json",
-    ("wan26", "t2v"): "wan_t2v.json",
-    ("qwen", "t2i"): "qwen_t2i.json",
-    ("qwen", "txt2img"): "qwen_t2i.json",
+    # LTX-2 Text-to-Video
+    ("ltx", "t2v"): ("ltx2", "txt2vid"),
+    ("ltx", "txt2vid"): ("ltx2", "txt2vid"),
+    ("ltx", "text-to-video"): ("ltx2", "txt2vid"),
+    ("ltx2", "t2v"): ("ltx2", "txt2vid"),
+    ("ltx2", "txt2vid"): ("ltx2", "txt2vid"),
+    # LTX-2 Image-to-Video
+    ("ltx", "i2v"): ("ltx2", "img2vid"),
+    ("ltx", "img2vid"): ("ltx2", "img2vid"),
+    ("ltx", "image-to-video"): ("ltx2", "img2vid"),
+    ("ltx2", "i2v"): ("ltx2", "img2vid"),
+    ("ltx2", "img2vid"): ("ltx2", "img2vid"),
+    # FLUX.2 Text-to-Image
+    ("flux", "t2i"): ("flux2", "txt2img"),
+    ("flux", "txt2img"): ("flux2", "txt2img"),
+    ("flux", "text-to-image"): ("flux2", "txt2img"),
+    ("flux2", "t2i"): ("flux2", "txt2img"),
+    ("flux2", "txt2img"): ("flux2", "txt2img"),
+    # Wan 2.6 Text-to-Video
+    ("wan", "t2v"): ("wan26", "txt2vid"),
+    ("wan", "txt2vid"): ("wan26", "txt2vid"),
+    ("wan26", "t2v"): ("wan26", "txt2vid"),
+    ("wan26", "txt2vid"): ("wan26", "txt2vid"),
+    # Wan 2.6 Image-to-Video
+    ("wan", "i2v"): ("wan26", "img2vid"),
+    ("wan", "img2vid"): ("wan26", "img2vid"),
+    ("wan26", "i2v"): ("wan26", "img2vid"),
+    ("wan26", "img2vid"): ("wan26", "img2vid"),
+    # Qwen Text-to-Image
+    ("qwen", "t2i"): ("qwen", "txt2img"),
+    ("qwen", "txt2img"): ("qwen", "txt2img"),
+    # SDXL Text-to-Image
+    ("sdxl", "t2i"): ("sdxl", "txt2img"),
+    ("sdxl", "txt2img"): ("sdxl", "txt2img"),
+    # HunyuanVideo 1.5 Text-to-Video
+    ("hunyuan", "t2v"): ("hunyuan15", "txt2vid"),
+    ("hunyuan", "txt2vid"): ("hunyuan15", "txt2vid"),
+    ("hunyuan15", "t2v"): ("hunyuan15", "txt2vid"),
+    ("hunyuan15", "txt2vid"): ("hunyuan15", "txt2vid"),
+    # HunyuanVideo 1.5 Image-to-Video
+    ("hunyuan", "i2v"): ("hunyuan15", "img2vid"),
+    ("hunyuan", "img2vid"): ("hunyuan15", "img2vid"),
+    ("hunyuan15", "i2v"): ("hunyuan15", "img2vid"),
+    ("hunyuan15", "img2vid"): ("hunyuan15", "img2vid"),
 }
 
 # Default parameters by model
+# These are default values for workflow generation.
+# For validation constraints, see topology_validator.py MODEL_CONSTRAINTS.
+# For workflow patterns, see patterns.py WORKFLOW_SKELETONS.
 MODEL_DEFAULTS = {
     "ltx": {
         "width": 768,
@@ -85,7 +119,27 @@ MODEL_DEFAULTS = {
         "width": 1296,
         "height": 1296,
         "steps": 25,
-        "cfg": 3.0,
+        "cfg": 7.0,
+    },
+    "sdxl": {
+        "width": 1024,
+        "height": 1024,
+        "steps": 25,
+        "cfg": 7.0,
+    },
+    "hunyuan": {
+        "width": 1280,
+        "height": 720,
+        "frames": 81,
+        "steps": 30,
+        "cfg": 6.0,
+    },
+    "hunyuan15": {
+        "width": 1280,
+        "height": 720,
+        "frames": 81,
+        "steps": 30,
+        "cfg": 6.0,
     },
 }
 
@@ -94,25 +148,46 @@ def load_skeleton(model: str, workflow_type: str) -> Tuple[Optional[dict], Optio
     """
     Load a skeleton template for the given model and workflow type.
 
+    Uses patterns.py as the canonical source of workflow skeletons.
+    Results are cached for performance.
+
     Returns:
         (skeleton_dict, skeleton_name) or (None, error_message)
     """
     key = (model.lower(), workflow_type.lower())
-    skeleton_name = MODEL_SKELETON_MAP.get(key)
+    canonical_key = MODEL_SKELETON_MAP.get(key)
 
-    if not skeleton_name:
+    if not canonical_key:
+        # List available patterns
         available = list(set(MODEL_SKELETON_MAP.values()))
-        return None, f"No skeleton for model={model}, type={workflow_type}. Available: {available}"
+        available_str = [f"{m}/{t}" for m, t in available]
+        return None, f"No skeleton for model={model}, type={workflow_type}. Available: {available_str}"
 
-    skeleton_path = SKELETONS_DIR / skeleton_name
-    if not skeleton_path.exists():
-        return None, f"Skeleton file not found: {skeleton_path}"
+    cache_key = f"{canonical_key[0]}:{canonical_key[1]}"
+    skeleton_name = f"{canonical_key[0]}_{canonical_key[1]}"
 
-    try:
-        skeleton = json.loads(skeleton_path.read_text())
-        return skeleton, skeleton_name
-    except json.JSONDecodeError as e:
-        return None, f"Invalid skeleton JSON: {e}"
+    # Check cache first
+    if cache_key in _SKELETON_CACHE:
+        # Return a copy to prevent mutation
+        return copy.deepcopy(_SKELETON_CACHE[cache_key]), skeleton_name
+
+    # Load from patterns.py
+    skeleton = patterns.get_workflow_skeleton(canonical_key[0], canonical_key[1])
+
+    if "error" in skeleton:
+        return None, skeleton["error"]
+
+    # Cache the skeleton
+    _SKELETON_CACHE[cache_key] = skeleton
+
+    # Return a copy to prevent mutation
+    return copy.deepcopy(skeleton), skeleton_name
+
+
+def clear_skeleton_cache() -> None:
+    """Clear the skeleton cache. Useful for testing or after updating patterns."""
+    global _SKELETON_CACHE
+    _SKELETON_CACHE = {}
 
 
 def resolve_parameters(
@@ -193,80 +268,95 @@ def expand_skeleton_to_workflow(skeleton: dict, params: Dict[str, Any]) -> dict:
     """
     Convert skeleton format to ComfyUI API format with parameter injection.
 
-    Skeleton format:
-    {
-        "nodes": [{"id": "1", "type": "UNETLoader", ...}],
-        "connections": [{"from": "1.MODEL", "to": "2.model"}],
-        "defaults": {"1.unet_name": "model.safetensors"}
-    }
+    Supports two formats:
+    1. New patterns.py format (ComfyUI API format with _meta):
+       {
+           "_meta": {...},
+           "1": {"class_type": "LTXVLoader", "inputs": {...}},
+           "2": {"class_type": "CLIPTextEncode", "inputs": {...}}
+       }
 
-    API format:
-    {
-        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "..."}}
-    }
+    2. Legacy skeleton format:
+       {
+           "nodes": [{"id": "1", "type": "UNETLoader", ...}],
+           "connections": [{"from": "1.MODEL", "to": "2.model"}],
+           "defaults": {"1.unet_name": "model.safetensors"}
+       }
     """
-    workflow = {}
-    nodes = skeleton.get("nodes", [])
-    connections = skeleton.get("connections", [])
-    defaults = skeleton.get("defaults", {})
+    # Check if this is the new patterns.py format (has _meta and numbered nodes)
+    if "_meta" in skeleton and any(k.isdigit() for k in skeleton.keys()):
+        # New format - already in ComfyUI API format, just need parameter injection
+        workflow = {}
+        for node_id, node_data in skeleton.items():
+            if node_id.startswith("_"):
+                continue  # Skip metadata
+            workflow[node_id] = copy.deepcopy(node_data)
+            # Remove _meta from individual nodes if present
+            if "_meta" in workflow[node_id]:
+                del workflow[node_id]["_meta"]
+    else:
+        # Legacy format - convert from nodes/connections/defaults
+        workflow = {}
+        nodes = skeleton.get("nodes", [])
+        connections = skeleton.get("connections", [])
+        defaults = skeleton.get("defaults", {})
 
-    # Build connection lookup: "to" -> ("from_node", from_slot)
-    connection_map = {}
-    for conn in connections:
-        from_part = conn.get("from", "")
-        to_part = conn.get("to", "")
+        # Build connection lookup: "to" -> ("from_node", from_slot)
+        connection_map = {}
+        for conn in connections:
+            from_part = conn.get("from", "")
+            to_part = conn.get("to", "")
 
-        # Parse from: "1.MODEL" -> node_id="1", output="MODEL"
-        if "." in from_part:
-            from_node, from_output = from_part.split(".", 1)
-        else:
-            from_node, from_output = from_part, "0"
+            # Parse from: "1.MODEL" -> node_id="1", output="MODEL"
+            if "." in from_part:
+                from_node, from_output = from_part.split(".", 1)
+            else:
+                from_node, from_output = from_part, "0"
 
-        # Parse to: "2.model" -> node_id="2", input="model"
-        if "." in to_part:
-            to_node, to_input = to_part.split(".", 1)
-        else:
-            to_node, to_input = to_part, "input"
+            # Parse to: "2.model" -> node_id="2", input="model"
+            if "." in to_part:
+                to_node, to_input = to_part.split(".", 1)
+            else:
+                to_node, to_input = to_part, "input"
 
-        # Determine output slot index
-        output_slot = 0
-        # Common output mappings
-        output_mappings = {
-            "MODEL": 0, "CLIP": 1, "VAE": 2,
-            "CONDITIONING": 0, "CONDITIONING+": 0, "CONDITIONING-": 1,
-            "LATENT": 0, "LATENT_DENOISED": 1,
-            "IMAGE": 0, "MASK": 1,
-            "SIGMAS": 0, "SAMPLER": 0,
-        }
-        if from_output.upper() in output_mappings:
-            output_slot = output_mappings[from_output.upper()]
-        elif from_output.isdigit():
-            output_slot = int(from_output)
+            # Determine output slot index
+            output_slot = 0
+            output_mappings = {
+                "MODEL": 0, "CLIP": 1, "VAE": 2,
+                "CONDITIONING": 0, "CONDITIONING+": 0, "CONDITIONING-": 1,
+                "LATENT": 0, "LATENT_DENOISED": 1,
+                "IMAGE": 0, "MASK": 1,
+                "SIGMAS": 0, "SAMPLER": 0,
+            }
+            if from_output.upper() in output_mappings:
+                output_slot = output_mappings[from_output.upper()]
+            elif from_output.isdigit():
+                output_slot = int(from_output)
 
-        connection_map[(to_node, to_input.lower())] = (from_node, output_slot)
+            connection_map[(to_node, to_input.lower())] = (from_node, output_slot)
 
-    # Build workflow nodes
-    for node in nodes:
-        node_id = str(node.get("id"))
-        class_type = node.get("type")
+        # Build workflow nodes
+        for node in nodes:
+            node_id = str(node.get("id"))
+            class_type = node.get("type")
 
-        inputs = {}
+            inputs = {}
 
-        # Add connections as inputs
-        for (target_node, target_input), (source_node, source_slot) in connection_map.items():
-            if target_node == node_id:
-                inputs[target_input] = [str(source_node), source_slot]
+            # Add connections as inputs
+            for (target_node, target_input), (source_node, source_slot) in connection_map.items():
+                if target_node == node_id:
+                    inputs[target_input] = [str(source_node), source_slot]
 
-        # Add defaults for this node
-        for key, value in defaults.items():
-            if key.startswith(f"{node_id}."):
-                input_name = key.split(".", 1)[1]
-                inputs[input_name] = value
+            # Add defaults for this node
+            for key, value in defaults.items():
+                if key.startswith(f"{node_id}."):
+                    input_name = key.split(".", 1)[1]
+                    inputs[input_name] = value
 
-        workflow[node_id] = {
-            "class_type": class_type,
-            "inputs": inputs
-        }
+            workflow[node_id] = {
+                "class_type": class_type,
+                "inputs": inputs
+            }
 
     # Inject parameters (replace {{PLACEHOLDER}} values)
     workflow_str = json.dumps(workflow)
@@ -368,8 +458,8 @@ def generate_workflow(
     Generate a complete, validated ComfyUI workflow from high-level parameters.
 
     Args:
-        model: Model identifier ("ltx", "flux", "wan", "qwen")
-        workflow_type: Type ("t2v", "i2v", "t2i")
+        model: Model identifier ("ltx", "flux", "wan", "qwen", "sdxl", "hunyuan")
+        workflow_type: Type ("t2v", "i2v", "t2i", "txt2vid", "img2vid", "txt2img")
         prompt: Generation prompt
         negative_prompt: Negative prompt (optional)
         width: Width in pixels (optional, uses model default)
@@ -392,6 +482,32 @@ def generate_workflow(
             "skeleton_used": "..."
         }
     """
+    # Edge case validation
+    if not prompt or not prompt.strip():
+        return {"error": "Prompt is required and cannot be empty"}
+
+    if width is not None and width <= 0:
+        return {"error": f"Width must be positive, got {width}"}
+
+    if height is not None and height <= 0:
+        return {"error": f"Height must be positive, got {height}"}
+
+    if frames is not None and frames < 1:
+        return {"error": f"Frame count must be at least 1, got {frames}"}
+
+    if steps is not None and steps < 1:
+        return {"error": f"Steps must be at least 1, got {steps}"}
+
+    if cfg is not None and cfg <= 0:
+        return {"error": f"CFG must be positive, got {cfg}"}
+
+    if guidance is not None and guidance <= 0:
+        return {"error": f"Guidance must be positive, got {guidance}"}
+
+    # Normalize negative seed values (except -1 which means random)
+    if seed is not None and seed < -1:
+        seed = abs(seed)
+
     # Load skeleton
     skeleton, skeleton_name = load_skeleton(model, workflow_type)
     if skeleton is None:
@@ -447,15 +563,17 @@ def list_supported_workflows() -> dict:
     workflows = []
     seen = set()
 
-    for (model, wf_type), skeleton_name in MODEL_SKELETON_MAP.items():
+    for (model, wf_type), canonical_key in MODEL_SKELETON_MAP.items():
         key = f"{model}:{wf_type}"
         if key not in seen:
             seen.add(key)
+            canonical_model, canonical_type = canonical_key
             workflows.append({
                 "model": model,
                 "workflow_type": wf_type,
-                "skeleton": skeleton_name,
-                "defaults": MODEL_DEFAULTS.get(model, {})
+                "canonical_model": canonical_model,
+                "canonical_type": canonical_type,
+                "defaults": MODEL_DEFAULTS.get(model, MODEL_DEFAULTS.get(canonical_model, {}))
             })
 
     return {"workflows": workflows, "count": len(workflows)}

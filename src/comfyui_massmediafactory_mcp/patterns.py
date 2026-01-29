@@ -769,6 +769,139 @@ WORKFLOW_SKELETONS = {
             "_meta": {"title": "Save Image"},
             "inputs": {"images": ["6", 0], "filename_prefix": "sdxl_output"}
         }
+    },
+
+    ("hunyuan15", "txt2vid"): {
+        "_meta": {
+            "description": "HunyuanVideo 1.5 text-to-video",
+            "model": "HunyuanVideo 1.5",
+            "type": "txt2vid",
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
+            "defaults": {
+                "WIDTH": 1280, "HEIGHT": 720, "SEED": 42, "FRAMES": 81, "STEPS": 30, "CFG": 6.0,
+                "NEGATIVE": "worst quality, blurry, distorted, low resolution"
+            }
+        },
+        "1": {
+            "class_type": "HunyuanVideoModelLoader",
+            "_meta": {"title": "Load HunyuanVideo Model"},
+            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"}
+        },
+        "2": {
+            "class_type": "CLIPLoader",
+            "_meta": {"title": "Load CLIP Text Encoder"},
+            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"}
+        },
+        "3": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+        },
+        "4": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+        },
+        "5": {
+            "class_type": "EmptyHunyuanLatentVideo",
+            "_meta": {"title": "Create Empty Video Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+        },
+        "6": {
+            "class_type": "HunyuanVideoSampler",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0],
+                "latent": ["5", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}", "sampler": "euler", "scheduler": "normal"
+            }
+        },
+        "7": {
+            "class_type": "HunyuanVideoVAEDecode",
+            "_meta": {"title": "Decode Latent to Video"},
+            "inputs": {"samples": ["6", 0], "vae": ["1", 1]}
+        },
+        "8": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["7", 0], "frame_rate": 24, "loop_count": 0,
+                "filename_prefix": "hunyuan_output", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
+    },
+
+    ("hunyuan15", "img2vid"): {
+        "_meta": {
+            "description": "HunyuanVideo 1.5 image-to-video",
+            "model": "HunyuanVideo 1.5",
+            "type": "img2vid",
+            "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
+            "defaults": {
+                "WIDTH": 1280, "HEIGHT": 720, "SEED": 42, "FRAMES": 81, "STEPS": 30, "CFG": 6.0,
+                "NEGATIVE": "worst quality, blurry, distorted, low resolution"
+            }
+        },
+        "1": {
+            "class_type": "HunyuanVideoModelLoader",
+            "_meta": {"title": "Load HunyuanVideo Model"},
+            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"}
+        },
+        "2": {
+            "class_type": "CLIPLoader",
+            "_meta": {"title": "Load CLIP Text Encoder"},
+            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"}
+        },
+        "3": {
+            "class_type": "LoadImage",
+            "_meta": {"title": "Load Input Image"},
+            "inputs": {"image": "{{IMAGE_PATH}}"}
+        },
+        "4": {
+            "class_type": "HunyuanVideoImageEncode",
+            "_meta": {"title": "Encode Reference Image"},
+            "inputs": {"image": ["3", 0], "vae": ["1", 1]}
+        },
+        "5": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+        },
+        "6": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+        },
+        "7": {
+            "class_type": "EmptyHunyuanLatentVideo",
+            "_meta": {"title": "Create Empty Video Latent"},
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+        },
+        "8": {
+            "class_type": "HunyuanVideoSampler",
+            "_meta": {"title": "Sample Video"},
+            "inputs": {
+                "model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0],
+                "latent": ["7", 0], "image_embeds": ["4", 0],
+                "seed": "{{SEED}}", "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}", "sampler": "euler", "scheduler": "normal"
+            }
+        },
+        "9": {
+            "class_type": "HunyuanVideoVAEDecode",
+            "_meta": {"title": "Decode Latent to Video"},
+            "inputs": {"samples": ["8", 0], "vae": ["1", 1]}
+        },
+        "10": {
+            "class_type": "VHS_VideoCombine",
+            "_meta": {"title": "Save Video"},
+            "inputs": {
+                "images": ["9", 0], "frame_rate": 24, "loop_count": 0,
+                "filename_prefix": "hunyuan_i2v", "format": "video/h264-mp4",
+                "pingpong": False, "save_output": True
+            }
+        }
     }
 }
 
@@ -814,6 +947,57 @@ NODE_CHAINS = {
         {"id": "4", "class_type": "WanSampler", "inputs": {"wan_model": ["3", 0], "image_embeds": ["3", 1]}, "outputs": {"LATENT": 0}},
         {"id": "5", "class_type": "WanVAEDecode", "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]}, "outputs": {"IMAGE": 0}},
         {"id": "6", "class_type": "VHS_VideoCombine", "inputs": {"images": ["5", 0]}, "outputs": {"FILENAMES": 0}}
+    ],
+
+    ("wan26", "txt2vid"): [
+        {"id": "1", "class_type": "DownloadAndLoadWanModel", "outputs": {"WANMODEL": 0}},
+        {"id": "2", "class_type": "WanSampler", "inputs": {"wan_model": ["1", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "3", "class_type": "WanVAEDecode", "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]}, "outputs": {"IMAGE": 0}},
+        {"id": "4", "class_type": "VHS_VideoCombine", "inputs": {"images": ["3", 0]}, "outputs": {"FILENAMES": 0}}
+    ],
+
+    ("sdxl", "txt2img"): [
+        {"id": "1", "class_type": "CheckpointLoaderSimple", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
+        {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "4", "class_type": "EmptyLatentImage", "outputs": {"LATENT": 0}},
+        {"id": "5", "class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "6", "class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
+        {"id": "7", "class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "outputs": {}}
+    ],
+
+    ("qwen", "txt2img"): [
+        {"id": "1", "class_type": "CheckpointLoaderSimple", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
+        {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "4", "class_type": "EmptyLatentImage", "outputs": {"LATENT": 0}},
+        {"id": "5", "class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "6", "class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
+        {"id": "7", "class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "outputs": {}}
+    ],
+
+    ("hunyuan15", "txt2vid"): [
+        {"id": "1", "class_type": "HunyuanVideoModelLoader", "outputs": {"MODEL": 0, "VAE": 1}},
+        {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
+        {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "4", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "5", "class_type": "EmptyHunyuanLatentVideo", "outputs": {"LATENT": 0}},
+        {"id": "6", "class_type": "HunyuanVideoSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent": ["5", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "7", "class_type": "HunyuanVideoVAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 1]}, "outputs": {"IMAGE": 0}},
+        {"id": "8", "class_type": "VHS_VideoCombine", "inputs": {"images": ["7", 0]}, "outputs": {"FILENAMES": 0}}
+    ],
+
+    ("hunyuan15", "img2vid"): [
+        {"id": "1", "class_type": "HunyuanVideoModelLoader", "outputs": {"MODEL": 0, "VAE": 1}},
+        {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
+        {"id": "3", "class_type": "LoadImage", "outputs": {"IMAGE": 0, "MASK": 1}},
+        {"id": "4", "class_type": "HunyuanVideoImageEncode", "inputs": {"image": ["3", 0], "vae": ["1", 1]}, "outputs": {"IMAGE_EMBEDS": 0}},
+        {"id": "5", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "6", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "7", "class_type": "EmptyHunyuanLatentVideo", "outputs": {"LATENT": 0}},
+        {"id": "8", "class_type": "HunyuanVideoSampler", "inputs": {"model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0], "latent": ["7", 0], "image_embeds": ["4", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "9", "class_type": "HunyuanVideoVAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 1]}, "outputs": {"IMAGE": 0}},
+        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}}
     ]
 }
 

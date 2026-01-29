@@ -3,12 +3,18 @@ Workflow Topology Validator
 
 Validates LLM-generated workflow JSON against PARAMETER_RULES constraints.
 Catches common mistakes before execution.
+
+NOTE: This module contains validation-focused constraints.
+For workflow patterns and LLM-facing constraints, see patterns.py.
+For default parameter values, see workflow_generator.py MODEL_DEFAULTS.
 """
 
 import json
 from typing import Dict, List, Tuple, Any, Optional
 
-# Model-specific constraints from 03_PARAMETER_RULES.md
+# Model-specific validation constraints
+# These focus on resolution, CFG ranges, required/forbidden nodes
+# See patterns.py MODEL_CONSTRAINTS for workflow-focused constraints
 MODEL_CONSTRAINTS = {
     "flux": {
         "resolution_divisor": 16,
@@ -89,12 +95,41 @@ MODEL_CONSTRAINTS = {
         "required_nodes": [],
         "forbidden_nodes": [],
     },
+    "hunyuan": {
+        "resolution_divisor": 16,
+        "resolution_min": 256,
+        "resolution_max": 1920,
+        "cfg_range": (4.0, 8.0),
+        "cfg_default": 6.0,
+        "sampler_type": "HunyuanVideoSampler",
+        "required_nodes": ["HunyuanVideoModelLoader"],
+        "forbidden_nodes": ["KSampler", "SamplerCustom"],
+        "scheduler_node": None,  # Built into HunyuanVideoSampler
+        "vae_decode_node": "HunyuanVideoVAEDecode",
+    },
+    "hunyuan15": {
+        "resolution_divisor": 16,
+        "resolution_min": 256,
+        "resolution_max": 1920,
+        "cfg_range": (4.0, 8.0),
+        "cfg_default": 6.0,
+        "sampler_type": "HunyuanVideoSampler",
+        "required_nodes": ["HunyuanVideoModelLoader"],
+        "forbidden_nodes": ["KSampler", "SamplerCustom"],
+        "scheduler_node": None,  # Built into HunyuanVideoSampler
+        "vae_decode_node": "HunyuanVideoVAEDecode",
+    },
 }
+
+# Aliases for consistent naming (maps modern names to constraint keys)
+MODEL_CONSTRAINTS["ltx2"] = MODEL_CONSTRAINTS["ltx"]
+MODEL_CONSTRAINTS["flux2"] = MODEL_CONSTRAINTS["flux"]
+MODEL_CONSTRAINTS["wan26"] = MODEL_CONSTRAINTS["wan"]
 
 # Video-unsafe samplers
 VIDEO_UNSAFE_SAMPLERS = ["euler_ancestral", "dpmpp_2m_sde", "dpmpp_sde"]
 
-# Type compatibility matrix
+# Type compatibility matrix - maps output types to compatible input names
 TYPE_COMPATIBILITY = {
     "MODEL": ["model", "unet"],
     "CLIP": ["clip"],
@@ -103,9 +138,142 @@ TYPE_COMPATIBILITY = {
     "LATENT": ["latent_image", "samples", "latent"],
     "IMAGE": ["image", "images", "pixels"],
     "SIGMAS": ["sigmas"],
+    "SIGMAS": ["sigmas"],
     "SAMPLER": ["sampler"],
     "MASK": ["mask"],
+    "NOISE": ["noise"],
+    "GUIDER": ["guider"],
+    "WANMODEL": ["wan_model"],
+    "IMAGEEMBEDS": ["image_embeds"],
+    "GEMMA_MODEL": ["gemma_model", "clip"],
 }
+
+# Node output types - maps node class to their output slot types
+NODE_OUTPUT_TYPES = {
+    # Loaders
+    "CheckpointLoaderSimple": ["MODEL", "CLIP", "VAE"],
+    "UNETLoader": ["MODEL"],
+    "CLIPLoader": ["CLIP"],
+    "DualCLIPLoader": ["CLIP"],
+    "VAELoader": ["VAE"],
+    "LoraLoader": ["MODEL", "CLIP"],
+    "LoraLoaderModelOnly": ["MODEL"],
+    "LTXVLoader": ["MODEL", "CLIP", "VAE"],
+    "HunyuanVideoModelLoader": ["MODEL", "VAE"],
+    "DownloadAndLoadWanModel": ["WANMODEL"],
+    "LTXVGemmaCLIPModelLoader": ["GEMMA_MODEL"],
+    # Encoding
+    "CLIPTextEncode": ["CONDITIONING"],
+    "FluxGuidance": ["CONDITIONING"],
+    "LTXVConditioning": ["CONDITIONING", "CONDITIONING"],
+    "LTXVGemmaEnhancePrompt": ["STRING"],
+    # Latent
+    "EmptyLatentImage": ["LATENT"],
+    "EmptySD3LatentImage": ["LATENT"],
+    "EmptyLTXVLatentVideo": ["LATENT"],
+    "EmptyHunyuanLatentVideo": ["LATENT"],
+    "EmptyWanLatentVideo": ["LATENT"],
+    "LTXVImgToVideo": ["CONDITIONING", "CONDITIONING", "LATENT"],
+    # Samplers
+    "KSampler": ["LATENT"],
+    "SamplerCustom": ["LATENT", "LATENT"],
+    "SamplerCustomAdvanced": ["LATENT", "LATENT"],
+    "HunyuanVideoSampler": ["LATENT"],
+    "WanSampler": ["LATENT"],
+    "KSamplerSelect": ["SAMPLER"],
+    "BasicScheduler": ["SIGMAS"],
+    "LTXVScheduler": ["SIGMAS"],
+    "RandomNoise": ["NOISE"],
+    "BasicGuider": ["GUIDER"],
+    # Decode/Encode
+    "VAEDecode": ["IMAGE"],
+    "VAEEncode": ["LATENT"],
+    "HunyuanVideoVAEDecode": ["IMAGE"],
+    "WanVAEDecode": ["IMAGE"],
+    "WanImageEncode": ["WANMODEL", "IMAGEEMBEDS"],
+    "HunyuanVideoImageEncode": ["IMAGE_EMBEDS"],
+    # Image
+    "LoadImage": ["IMAGE", "MASK"],
+    "ImageScale": ["IMAGE"],
+    "LTXVPreprocess": ["IMAGE"],
+    # Output
+    "SaveImage": [],
+    "SaveAnimatedWEBP": [],
+    "VHS_VideoCombine": ["VHS_FILENAMES"],
+}
+
+
+def validate_connection_types(workflow: dict) -> List[str]:
+    """
+    Validate that all connections in the workflow are type-compatible.
+
+    Checks that output types match expected input types.
+
+    Args:
+        workflow: The workflow JSON
+
+    Returns:
+        List of error messages (empty if all connections valid)
+    """
+    errors = []
+
+    for node_id, node_data in workflow.items():
+        if node_id.startswith("_"):
+            continue
+        if not isinstance(node_data, dict) or "class_type" not in node_data:
+            continue
+
+        class_type = node_data.get("class_type")
+        inputs = node_data.get("inputs", {})
+
+        for input_name, input_value in inputs.items():
+            # Check if this is a connection (list of [node_id, slot])
+            if isinstance(input_value, list) and len(input_value) == 2:
+                source_node_id, source_slot = input_value
+                source_node_id = str(source_node_id)
+
+                # Find source node
+                source_node = workflow.get(source_node_id)
+                if not source_node:
+                    errors.append(f"Node {node_id}: Input '{input_name}' references non-existent node {source_node_id}")
+                    continue
+
+                source_class = source_node.get("class_type")
+                if not source_class:
+                    continue
+
+                # Get output types for source node
+                output_types = NODE_OUTPUT_TYPES.get(source_class, [])
+                if not output_types:
+                    # Unknown node type, skip validation
+                    continue
+
+                # Check slot index
+                if source_slot >= len(output_types):
+                    errors.append(f"Node {node_id}: Input '{input_name}' references slot {source_slot} of {source_class}, but it only has {len(output_types)} outputs")
+                    continue
+
+                # Get the output type
+                output_type = output_types[source_slot]
+
+                # Check if input name is compatible with output type
+                compatible_inputs = TYPE_COMPATIBILITY.get(output_type, [])
+                input_name_lower = input_name.lower()
+
+                # Check if input name matches any compatible input
+                if compatible_inputs and input_name_lower not in compatible_inputs:
+                    # Check if it's a known mismatch (not just an unknown input)
+                    known_input = False
+                    for type_name, type_inputs in TYPE_COMPATIBILITY.items():
+                        if input_name_lower in type_inputs:
+                            known_input = True
+                            if type_name != output_type:
+                                errors.append(
+                                    f"Node {node_id}: Input '{input_name}' expects {type_name} but receives {output_type} from {source_class}[{source_slot}]"
+                                )
+                            break
+
+    return errors
 
 
 def detect_model_type(workflow: dict) -> Optional[str]:
@@ -126,6 +294,8 @@ def detect_model_type(workflow: dict) -> Optional[str]:
             nodes.add(node_data["class_type"])
 
     # Check for model-specific nodes
+    if "HunyuanVideoModelLoader" in nodes or "HunyuanVideoSampler" in nodes:
+        return "hunyuan"
     if "LTXVScheduler" in nodes or "LTXVConditioning" in nodes:
         if "LTXVGemmaEnhancePrompt" in nodes:
             return "ltx_distilled"
@@ -366,6 +536,10 @@ def validate_topology(workflow_json: str, model: str = None) -> dict:
     if constraints.get("requires_flux_guidance"):
         if "FluxGuidance" not in nodes_present:
             errors.append("FLUX requires FluxGuidance node for guidance control")
+
+    # Validate connection types
+    connection_errors = validate_connection_types(workflow)
+    errors.extend(connection_errors)
 
     # Generate suggestions
     if errors:
