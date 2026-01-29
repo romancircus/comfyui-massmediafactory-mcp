@@ -461,6 +461,13 @@ class StyleLearningDB:
             for r in results
         ]
 
+    def delete_style_preset(self, name: str) -> bool:
+        """Delete a style preset by name."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("DELETE FROM style_presets WHERE name = ?", (name,))
+            conn.commit()
+            return conn.total_changes > 0
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get overall statistics about stored generations."""
         with sqlite3.connect(self.db_path) as conn:
@@ -533,6 +540,10 @@ def get_style_preset(name: str) -> Optional[Dict]:
 
 def list_style_presets() -> List[Dict]:
     return get_style_db().list_style_presets()
+
+
+def delete_style_preset(name: str) -> bool:
+    return get_style_db().delete_style_preset(name)
 
 
 def get_statistics() -> Dict:

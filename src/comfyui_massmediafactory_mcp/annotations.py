@@ -22,79 +22,48 @@ class ToolAnnotation:
 
 
 # =============================================================================
-# Tool Annotation Definitions
+# Tool Annotation Definitions (Updated for token-reduced tool set)
 # =============================================================================
 
 TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
-    # Discovery Tools - primarily for assistant
-    "list_checkpoints": ToolAnnotation(
+    # Discovery Tools (consolidated: list_models replaces 5 tools)
+    "list_models": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
         category="discovery",
-        description="List available models - assistant uses to build workflows"
-    ),
-    "list_unets": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.6,
-        category="discovery"
-    ),
-    "list_loras": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.6,
-        category="discovery"
-    ),
-    "list_vaes": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="discovery"
-    ),
-    "list_controlnets": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="discovery"
+        description="List models by type"
     ),
     "get_node_info": ToolAnnotation(
         audience=["assistant"],
         priority=0.6,
-        category="discovery",
-        description="Get node details for workflow building"
+        category="discovery"
     ),
     "search_nodes": ToolAnnotation(
         audience=["assistant"],
         priority=0.6,
         category="discovery"
     ),
-    "get_all_models": ToolAnnotation(
-        audience=["assistant", "user"],
-        priority=0.7,
-        category="discovery",
-        description="Summary of all models - useful for user to see capabilities"
-    ),
 
-    # Execution Tools - results for both user and assistant
+    # Execution Tools
     "execute_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.9,
-        category="execution",
-        description="Core workflow execution - assistant orchestrates"
+        category="execution"
     ),
     "get_workflow_status": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.8,
-        category="execution",
-        description="Status updates shown to user during generation"
+        category="execution"
     ),
     "wait_for_completion": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.9,
-        category="execution",
-        description="Final results shown to user"
+        category="execution"
     ),
     "get_system_stats": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
-        category="execution",
-        description="VRAM check before running workflows"
+        category="execution"
     ),
     "free_memory": ToolAnnotation(
         audience=["assistant"],
@@ -104,34 +73,39 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "interrupt_execution": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.8,
-        category="execution",
-        description="User may want to cancel generation"
+        category="execution"
+    ),
+    "get_queue_status": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="execution"
     ),
 
-    # Asset Tools - results often shown to user
+    # Asset Tools
     "regenerate": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.8,
-        category="assets",
-        description="Iteration results shown to user"
+        category="assets"
     ),
     "list_assets": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.7,
-        category="assets",
-        description="User browses generated assets"
+        category="assets"
     ),
     "get_asset_metadata": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
-        category="assets",
-        description="Internal use for debugging/iteration"
+        category="assets"
     ),
     "view_output": ToolAnnotation(
         audience=["user"],
         priority=0.9,
-        category="assets",
-        description="User views generated content"
+        category="assets"
+    ),
+    "cleanup_expired_assets": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.3,
+        category="assets"
     ),
     "upload_image": ToolAnnotation(
         audience=["assistant"],
@@ -141,24 +115,27 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "download_output": ToolAnnotation(
         audience=["user"],
         priority=0.8,
-        category="assets",
-        description="User downloads final assets"
+        category="assets"
     ),
 
-    # Publishing Tools - results for user
+    # Publishing Tools
     "publish_asset": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.8,
-        category="publishing",
-        description="Published URL shown to user"
+        category="publishing"
     ),
     "get_publish_info": ToolAnnotation(
         audience=["assistant"],
         priority=0.4,
         category="publishing"
     ),
+    "set_publish_dir": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.4,
+        category="publishing"
+    ),
 
-    # Workflow Library - both audiences
+    # Workflow Library
     "save_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.6,
@@ -174,13 +151,32 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         priority=0.6,
         category="library"
     ),
+    "delete_workflow": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="library"
+    ),
+    "duplicate_workflow": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.4,
+        category="library"
+    ),
+    "export_workflow": ToolAnnotation(
+        audience=["user", "assistant"],
+        priority=0.5,
+        category="library"
+    ),
+    "import_workflow": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="library"
+    ),
 
-    # VRAM Tools - assistant use
+    # VRAM Tools
     "estimate_vram": ToolAnnotation(
         audience=["assistant"],
         priority=0.6,
-        category="vram",
-        description="Check before running expensive workflows"
+        category="vram"
     ),
     "check_model_fits": ToolAnnotation(
         audience=["assistant"],
@@ -188,39 +184,51 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         category="vram"
     ),
 
-    # Validation - assistant use
+    # Validation
     "validate_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
-        category="validation",
-        description="Catch errors before execution"
+        category="validation"
     ),
     "validate_and_fix_workflow": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
         category="validation"
     ),
+    "check_connection_compatibility": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="validation"
+    ),
 
-    # SOTA Recommendations - both audiences
+    # SOTA Recommendations
     "get_sota_models": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.7,
-        category="sota",
-        description="Best models for user's task"
+        category="sota"
     ),
     "recommend_model": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.8,
-        category="sota",
-        description="Model recommendation shown to user"
+        category="sota"
     ),
     "check_model_freshness": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
         category="sota"
     ),
+    "get_model_settings": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.6,
+        category="sota"
+    ),
+    "check_installed_sota": ToolAnnotation(
+        audience=["assistant", "user"],
+        priority=0.5,
+        category="sota"
+    ),
 
-    # Templates - assistant use
+    # Templates
     "list_workflow_templates": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
@@ -234,16 +242,41 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "create_workflow_from_template": ToolAnnotation(
         audience=["assistant"],
         priority=0.9,
-        category="templates",
-        description="Primary way to create workflows"
+        category="templates"
     ),
 
-    # Batch Execution - results for user
+    # Workflow Patterns
+    "get_workflow_skeleton": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.8,
+        category="patterns"
+    ),
+    "get_model_constraints": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.7,
+        category="patterns"
+    ),
+    "get_node_chain": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.6,
+        category="patterns"
+    ),
+    "validate_against_pattern": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.7,
+        category="patterns"
+    ),
+    "list_available_patterns": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="patterns"
+    ),
+
+    # Batch Execution
     "execute_batch_workflows": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.7,
-        category="batch",
-        description="Batch results shown to user"
+        category="batch"
     ),
     "execute_parameter_sweep": ToolAnnotation(
         audience=["assistant", "user"],
@@ -253,11 +286,10 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "generate_seed_variations": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.7,
-        category="batch",
-        description="Variations shown to user for selection"
+        category="batch"
     ),
 
-    # Pipelines - results for user
+    # Pipelines
     "execute_pipeline_stages": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.8,
@@ -266,25 +298,37 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "run_image_to_video_pipeline": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.8,
-        category="pipeline",
-        description="Final video shown to user"
+        category="pipeline"
+    ),
+    "run_upscale_pipeline": ToolAnnotation(
+        audience=["user", "assistant"],
+        priority=0.7,
+        category="pipeline"
     ),
 
-    # Model Management - assistant use
+    # Model Management
     "search_civitai": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.6,
-        category="models",
-        description="Search results may be shown to user"
+        category="models"
     ),
     "download_model": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
-        category="models",
-        description="Self-healing when models missing"
+        category="models"
+    ),
+    "get_model_info": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="models"
+    ),
+    "list_installed_models": ToolAnnotation(
+        audience=["assistant", "user"],
+        priority=0.5,
+        category="models"
     ),
 
-    # Analysis Tools - mixed use
+    # Analysis
     "get_image_dimensions": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
@@ -293,8 +337,7 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "detect_objects": ToolAnnotation(
         audience=["assistant"],
         priority=0.6,
-        category="analysis",
-        description="Validation before expensive operations"
+        category="analysis"
     ),
     "get_video_info": ToolAnnotation(
         audience=["assistant"],
@@ -302,12 +345,11 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         category="analysis"
     ),
 
-    # QA Tools - assistant use primarily
+    # QA
     "qa_output": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
-        category="qa",
-        description="Auto-check quality before showing to user"
+        category="qa"
     ),
     "check_vlm_available": ToolAnnotation(
         audience=["assistant"],
@@ -315,7 +357,7 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
         category="qa"
     ),
 
-    # Style Learning - both audiences
+    # Style Learning (consolidated: style_suggest replaces 3, manage_presets replaces 4)
     "record_generation": ToolAnnotation(
         audience=["assistant"],
         priority=0.5,
@@ -324,45 +366,42 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "rate_generation": ToolAnnotation(
         audience=["user"],
         priority=0.6,
-        category="style_learning",
-        description="User provides ratings"
+        category="style_learning"
     ),
-    "suggest_prompt_enhancement": ToolAnnotation(
+    "style_suggest": ToolAnnotation(
         audience=["assistant", "user"],
         priority=0.7,
         category="style_learning",
-        description="Suggestions shown to user"
+        description="Prompt enhancement and similar prompts"
     ),
-    "find_similar_prompts": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="style_learning"
-    ),
-    "get_best_seeds_for_style": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="style_learning"
-    ),
-    "save_style_preset": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="style_learning"
-    ),
-    "get_style_preset": ToolAnnotation(
-        audience=["assistant"],
-        priority=0.5,
-        category="style_learning"
-    ),
-    "list_style_presets": ToolAnnotation(
+    "manage_presets": ToolAnnotation(
         audience=["user", "assistant"],
         priority=0.5,
-        category="style_learning"
-    ),
-    "get_style_learning_stats": ToolAnnotation(
-        audience=["user"],
-        priority=0.4,
         category="style_learning",
-        description="Stats shown to user"
+        description="CRUD for style presets"
+    ),
+
+    # Workflow Generation & Validation
+    "validate_topology": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.7,
+        category="generation"
+    ),
+    "auto_correct_workflow": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.7,
+        category="generation"
+    ),
+    "generate_workflow": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.9,
+        category="generation",
+        description="Primary workflow generation"
+    ),
+    "list_supported_workflows": ToolAnnotation(
+        audience=["assistant"],
+        priority=0.5,
+        category="generation"
     ),
 }
 
