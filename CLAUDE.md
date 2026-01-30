@@ -189,6 +189,7 @@ Access via `ReadMcpResourceTool`:
 | `ltx` | t2v (text-to-video), i2v (image-to-video) |
 | `wan` | t2v (text-to-video) |
 | `qwen` | t2i (text-to-image) |
+| `qwen_edit` | edit (image editing, background replacement) |
 
 ## Common Patterns
 
@@ -246,6 +247,29 @@ results = batch_execute(
 )
 # Tests all combinations: 6 total runs
 ```
+
+### Background Replacement (Qwen Edit)
+
+```python
+# Use the template for Qwen Edit background replacement
+template = get_template("qwen_edit_background")
+wf = create_workflow_from_template("qwen_edit_background", {
+    "IMAGE_PATH": "uploaded_image.png",
+    "EDIT_PROMPT": "Change the background to an outdoor playground with green grass and blue sky. Keep the child exactly the same.",
+    "SEED": 42,
+    "CFG": 2.0,  # CRITICAL: Keep low (2.0-2.5). Higher causes color distortion.
+    "STEPS": 20
+})
+result = execute_workflow(wf)
+output = wait_for_completion(result["prompt_id"])
+```
+
+**Qwen Edit Critical Settings:**
+| Setting | Value | Why |
+|---------|-------|-----|
+| CFG | **2.0-2.5** | PRIMARY color control. >4 causes oversaturation |
+| Denoise | **1.0** | Must be 1.0 for background changes. Lower preserves original including background |
+| Latent | EmptyQwenImageLayeredLatentImage | NOT VAEEncode. VAEEncode fails for background replacement |
 
 ## Error Handling
 

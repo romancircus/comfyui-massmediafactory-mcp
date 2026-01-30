@@ -1,0 +1,98 @@
+{
+  "_meta": {
+    "description": "Qwen Image Edit 2511 background replacement workflow",
+    "model": "qwen_image_edit_2511",
+    "type": "edit",
+    "parameters": ["IMAGE_PATH", "EDIT_PROMPT", "SEED", "CFG", "STEPS"],
+    "defaults": {
+      "SEED": 42,
+      "CFG": 2.0,
+      "STEPS": 20
+    },
+    "agent_notes": {
+      "cfg": "MUST be 2.0-2.5. Higher (>4) causes color oversaturation. CFG is the PRIMARY control for color intensity.",
+      "denoise": "Fixed at 1.0. Lower values preserve original including background you want to change.",
+      "latent": "Uses EmptyQwenImageLayeredLatentImage, NOT VAEEncode. VAEEncode approach fails for background replacement.",
+      "workflow": "Image passed to TextEncodeQwenImageEditPlus as visual reference. Model regenerates while matching reference."
+    }
+  },
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "2": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "qwen_image_edit_2511_fp8mixed.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "inputs": {
+      "clip": ["3", 0],
+      "prompt": "{{EDIT_PROMPT}}",
+      "vae": ["4", 0],
+      "image1": ["1", 0]
+    }
+  },
+  "6": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "EmptyQwenImageLayeredLatentImage",
+    "inputs": {
+      "width": 720,
+      "height": 1280,
+      "layers": 0,
+      "batch_size": 1
+    }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["2", 0],
+      "seed": "{{SEED}}",
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "positive": ["5", 0],
+      "negative": ["6", 0],
+      "latent_image": ["7", 0],
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["8", 0],
+      "vae": ["4", 0]
+    }
+  },
+  "10": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["9", 0],
+      "filename_prefix": "qwen_edit_output"
+    }
+  }
+}
