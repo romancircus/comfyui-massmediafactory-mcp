@@ -4,7 +4,7 @@
     "model": "Qwen-Image-2512",
     "workflow": "text-to-image",
     "sampler_type": "KSampler",
-    "notes": "Uses ModelSamplingAuraFlow. KSampler is appropriate for images."
+    "notes": "Uses ModelSamplingAuraFlow. CRITICAL: shift=7.0 for sharp output (default 3.1 is BLURRY). Use 12-13 for maximum sharpness."
   },
   "nodes": [
     {"id": "1", "type": "UNETLoader", "outputs": ["MODEL"]},
@@ -12,7 +12,7 @@
     {"id": "3", "type": "VAELoader", "outputs": ["VAE"]},
     {"id": "4", "type": "CLIPTextEncode", "role": "positive", "outputs": ["CONDITIONING"]},
     {"id": "5", "type": "CLIPTextEncode", "role": "negative", "outputs": ["CONDITIONING"]},
-    {"id": "6", "type": "ModelSamplingAuraFlow", "outputs": ["MODEL"]},
+    {"id": "6", "type": "ModelSamplingAuraFlow", "outputs": ["MODEL"], "note": "CRITICAL: shift=7.0 for sharp output"},
     {"id": "7", "type": "EmptySD3LatentImage", "outputs": ["LATENT"]},
     {"id": "8", "type": "KSampler", "outputs": ["LATENT"]},
     {"id": "9", "type": "VAEDecode", "outputs": ["IMAGE"]},
@@ -36,11 +36,11 @@
     "2.clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
     "2.type": "qwen_image",
     "3.vae_name": "qwen_image_vae.safetensors",
-    "6.shift": 3.1,
+    "6.shift": 7.0,
     "7.width": 1296,
     "7.height": 1296,
-    "8.steps": 25,
-    "8.cfg": 3.0,
+    "8.steps": 50,
+    "8.cfg": 3.5,
     "8.sampler_name": "euler",
     "8.scheduler": "simple",
     "8.denoise": 1.0

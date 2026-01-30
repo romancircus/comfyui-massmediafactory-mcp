@@ -1,15 +1,17 @@
 {
   "_meta": {
-    "description": "Qwen-Image-2512 text-to-image workflow",
+    "description": "Qwen-Image-2512 text-to-image workflow (SOTA settings for sharp output)",
     "model": "Qwen-Image-2512",
     "type": "txt2img",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT"],
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "SHIFT"],
     "defaults": {
       "WIDTH": 1296,
       "HEIGHT": 1296,
       "SEED": 42,
+      "SHIFT": 7.0,
       "NEGATIVE": "blurry, low quality, distorted, watermark"
-    }
+    },
+    "notes": "CRITICAL: shift=7.0 for sharp output. Default 3.1 causes blurry images. Use 12-13 for maximum sharpness."
   },
   "1": {
     "class_type": "UNETLoader",
@@ -48,9 +50,10 @@
   },
   "6": {
     "class_type": "ModelSamplingAuraFlow",
+    "_meta": {"title": "Shift Control (CRITICAL: 7.0 for sharp, 12-13 for max sharpness)"},
     "inputs": {
       "model": ["1", 0],
-      "shift": 3.1
+      "shift": "{{SHIFT}}"
     }
   },
   "7": {
@@ -69,8 +72,8 @@
       "negative": ["5", 0],
       "latent_image": ["7", 0],
       "seed": "{{SEED}}",
-      "steps": 25,
-      "cfg": 3.0,
+      "steps": 50,
+      "cfg": 3.5,
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1.0

@@ -161,9 +161,9 @@ MODEL_CONSTRAINTS = {
         "type": "image",
         "cfg": {
             "min": 3.0,
-            "max": 8.0,
-            "default": 7.0,
-            "note": "Qwen works well with standard CFG values"
+            "max": 5.0,
+            "default": 3.5,
+            "note": "Qwen works best with low CFG (3.0-4.0)"
         },
         "resolution": {
             "divisible_by": 8,
@@ -171,21 +171,35 @@ MODEL_CONSTRAINTS = {
             "note": "1296x1296 is native, good for text rendering"
         },
         "steps": {
-            "default": 25,
-            "min": 20,
-            "max": 40
+            "default": 50,
+            "min": 35,
+            "max": 60
+        },
+        "shift": {
+            "min": 7.0,
+            "max": 13.0,
+            "default": 7.0,
+            "note": "CRITICAL: shift=3.1 causes blurry output. Use 7.0 for sharp, 12-13 for maximum sharpness"
+        },
+        "scheduler": {
+            "default": "simple",
+            "note": "Use 'simple' scheduler, not 'normal'"
         },
         "required_nodes": {
-            "loader": "CheckpointLoaderSimple",
+            "loader": "UNETLoader",
+            "clip": "CLIPLoader",
+            "vae": "VAELoader",
+            "shift_node": "ModelSamplingAuraFlow",
             "sampler": "KSampler",
-            "latent": "EmptyLatentImage",
+            "latent": "EmptySD3LatentImage",
             "output": "SaveImage"
         },
         "strengths": [
             "Text rendering",
             "Posters and logos",
             "Complex layouts",
-            "UI design mockups"
+            "UI design mockups",
+            "Photorealistic portraits"
         ]
     },
 
@@ -244,6 +258,46 @@ MODEL_CONSTRAINTS = {
             "loader": "HunyuanVideoModelLoader",
             "sampler": "HunyuanVideoSampler",
             "output": "VHS_VideoCombine"
+        }
+    },
+
+    "qwen_edit": {
+        "display_name": "Qwen Image Edit 2511",
+        "type": "edit",
+        "cfg": {
+            "min": 1.5,
+            "max": 3.0,
+            "default": 2.0,
+            "note": "CFG is PRIMARY color control. >4 causes oversaturation/color distortion. Keep low (2.0-2.5)."
+        },
+        "resolution": {
+            "divisible_by": 8,
+            "native": [720, 1280],
+            "note": "Supports arbitrary resolutions divisible by 8"
+        },
+        "steps": {
+            "default": 20,
+            "min": 15,
+            "max": 30
+        },
+        "denoise": {
+            "default": 1.0,
+            "note": "MUST be 1.0 for background replacement. Lower values preserve original latent including background."
+        },
+        "required_nodes": {
+            "loader": ["UNETLoader", "CLIPLoader", "VAELoader"],
+            "text_encoder": "TextEncodeQwenImageEditPlus",
+            "latent": "EmptyQwenImageLayeredLatentImage",
+            "sampler": "KSampler",
+            "output": "SaveImage"
+        },
+        "forbidden_nodes": {
+            "VAEEncode": "Do NOT use VAEEncode for background replacement. Use EmptyQwenImageLayeredLatentImage instead.",
+            "TextEncodeQwenImageEdit": "Use TextEncodeQwenImageEditPlus for better instruction following"
+        },
+        "workflow_notes": {
+            "background_replacement": "Pass original image to TextEncodeQwenImageEditPlus image1 input. Model regenerates while matching reference.",
+            "layers": "Use layers=0 in EmptyQwenImageLayeredLatentImage for better character preservation."
         }
     }
 }
@@ -669,53 +723,68 @@ WORKFLOW_SKELETONS = {
 
     ("qwen", "txt2img"): {
         "_meta": {
-            "description": "Qwen text-to-image (best for text rendering)",
+            "description": "Qwen text-to-image (best for text rendering and photorealistic portraits)",
             "model": "Qwen Image 2512",
             "type": "txt2img",
-            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
+            "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG", "SHIFT"],
             "defaults": {
-                "WIDTH": 1296, "HEIGHT": 1296, "SEED": 42, "STEPS": 25, "CFG": 7.0,
+                "WIDTH": 1296, "HEIGHT": 1296, "SEED": 42, "STEPS": 50, "CFG": 3.5, "SHIFT": 7.0,
                 "NEGATIVE": "worst quality, blurry, distorted"
             }
         },
         "1": {
-            "class_type": "CheckpointLoaderSimple",
-            "_meta": {"title": "Load Qwen Model"},
-            "inputs": {"ckpt_name": "qwen_image_2512.safetensors"}
+            "class_type": "UNETLoader",
+            "_meta": {"title": "Load Qwen UNET"},
+            "inputs": {"unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors", "weight_dtype": "default"}
         },
         "2": {
-            "class_type": "CLIPTextEncode",
-            "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+            "class_type": "CLIPLoader",
+            "_meta": {"title": "Load Qwen CLIP"},
+            "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default"}
         },
         "3": {
-            "class_type": "CLIPTextEncode",
-            "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+            "class_type": "VAELoader",
+            "_meta": {"title": "Load Qwen VAE"},
+            "inputs": {"vae_name": "qwen_image_vae.safetensors"}
         },
         "4": {
-            "class_type": "EmptyLatentImage",
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Positive Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+        },
+        "5": {
+            "class_type": "CLIPTextEncode",
+            "_meta": {"title": "Encode Negative Prompt"},
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+        },
+        "6": {
+            "class_type": "ModelSamplingAuraFlow",
+            "_meta": {"title": "Apply Shift (CRITICAL: 7.0 for sharp output)"},
+            "inputs": {"model": ["1", 0], "shift": "{{SHIFT}}"}
+        },
+        "7": {
+            "class_type": "EmptySD3LatentImage",
             "_meta": {"title": "Create Empty Latent"},
             "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
         },
-        "5": {
+        "8": {
             "class_type": "KSampler",
             "_meta": {"title": "Sample Image"},
             "inputs": {
-                "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
-                "latent_image": ["4", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0
+                "model": ["6", 0], "positive": ["4", 0], "negative": ["5", 0],
+                "latent_image": ["7", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0
             }
         },
-        "6": {
+        "9": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent"},
-            "inputs": {"samples": ["5", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["8", 0], "vae": ["3", 0]}
         },
-        "7": {
+        "10": {
             "class_type": "SaveImage",
             "_meta": {"title": "Save Image"},
-            "inputs": {"images": ["6", 0], "filename_prefix": "qwen_output"}
+            "inputs": {"images": ["9", 0], "filename_prefix": "qwen_output"}
         }
     },
 
@@ -967,13 +1036,16 @@ NODE_CHAINS = {
     ],
 
     ("qwen", "txt2img"): [
-        {"id": "1", "class_type": "CheckpointLoaderSimple", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
-        {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
-        {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
-        {"id": "4", "class_type": "EmptyLatentImage", "outputs": {"LATENT": 0}},
-        {"id": "5", "class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "6", "class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
-        {"id": "7", "class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "outputs": {}}
+        {"id": "1", "class_type": "UNETLoader", "outputs": {"MODEL": 0}},
+        {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
+        {"id": "3", "class_type": "VAELoader", "outputs": {"VAE": 0}},
+        {"id": "4", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "5", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
+        {"id": "6", "class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["1", 0]}, "outputs": {"MODEL": 0}, "note": "CRITICAL: shift=7.0 for sharp output"},
+        {"id": "7", "class_type": "EmptySD3LatentImage", "outputs": {"LATENT": 0}},
+        {"id": "8", "class_type": "KSampler", "inputs": {"model": ["6", 0], "positive": ["4", 0], "negative": ["5", 0], "latent_image": ["7", 0]}, "outputs": {"LATENT": 0}},
+        {"id": "9", "class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["3", 0]}, "outputs": {"IMAGE": 0}},
+        {"id": "10", "class_type": "SaveImage", "inputs": {"images": ["9", 0]}, "outputs": {}}
     ],
 
     ("hunyuan15", "txt2vid"): [

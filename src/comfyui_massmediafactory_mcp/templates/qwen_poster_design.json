@@ -3,16 +3,18 @@
     "description": "Qwen-Image-2512 optimized for poster design with precise text placement",
     "model": "Qwen-Image-2512",
     "type": "txt2img",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT"],
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "SHIFT"],
     "defaults": {
       "WIDTH": 1296,
       "HEIGHT": 1728,
       "SEED": 42,
+      "SHIFT": 7.0,
       "NEGATIVE": "blurry, low quality, distorted text, misspelled, watermark, ugly"
     },
     "rtx5090_precision": "fp16",
     "estimated_vram_gb": 18,
     "prompt_style": "instructional",
+    "notes": "CRITICAL: shift=7.0 for sharp output. Default 3.1 causes blurry images.",
     "prompt_tips": [
       "Be explicit about text placement: 'Text at top center'",
       "Specify font style: 'bold font, red color'",
@@ -57,9 +59,10 @@
   },
   "6": {
     "class_type": "ModelSamplingAuraFlow",
+    "_meta": {"title": "Shift Control (CRITICAL: 7.0 for sharp, 12-13 for max sharpness)"},
     "inputs": {
       "model": ["1", 0],
-      "shift": 3.1
+      "shift": "{{SHIFT}}"
     }
   },
   "7": {
@@ -78,8 +81,8 @@
       "negative": ["5", 0],
       "latent_image": ["7", 0],
       "seed": "{{SEED}}",
-      "steps": 30,
-      "cfg": 3.0,
+      "steps": 50,
+      "cfg": 3.5,
       "sampler_name": "euler",
       "scheduler": "simple",
       "denoise": 1.0
