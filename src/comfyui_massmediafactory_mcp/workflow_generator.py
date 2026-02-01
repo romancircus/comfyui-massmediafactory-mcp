@@ -3,6 +3,9 @@ Workflow Generator - Meta-Template System
 
 Generates complete, validated ComfyUI workflow JSONs from high-level parameters.
 Uses pre-validated skeleton templates with parameter injection and auto-correction.
+
+NOTE: Model constraints and defaults are centralized in model_registry.py.
+This module imports from there for workflow generation.
 """
 
 import json
@@ -14,6 +17,13 @@ from typing import Dict, List, Optional, Any, Tuple
 from . import topology_validator
 from . import reference_docs
 from . import patterns
+from .model_registry import (
+    MODEL_SKELETON_MAP,
+    MODEL_DEFAULTS,
+    get_model_defaults,
+    get_canonical_model_key,
+    resolve_model_name,
+)
 
 # Module paths
 MODULE_DIR = Path(__file__).parent
@@ -21,127 +31,6 @@ SKELETONS_DIR = MODULE_DIR.parent.parent / "docs" / "library" / "skeletons"
 
 # Skeleton cache for performance (avoids repeated deepcopy)
 _SKELETON_CACHE: Dict[str, dict] = {}
-
-# Model to skeleton mapping - maps aliases to canonical (model, task) keys in patterns.py
-MODEL_SKELETON_MAP = {
-    # LTX-2 Text-to-Video
-    ("ltx", "t2v"): ("ltx2", "txt2vid"),
-    ("ltx", "txt2vid"): ("ltx2", "txt2vid"),
-    ("ltx", "text-to-video"): ("ltx2", "txt2vid"),
-    ("ltx2", "t2v"): ("ltx2", "txt2vid"),
-    ("ltx2", "txt2vid"): ("ltx2", "txt2vid"),
-    # LTX-2 Image-to-Video
-    ("ltx", "i2v"): ("ltx2", "img2vid"),
-    ("ltx", "img2vid"): ("ltx2", "img2vid"),
-    ("ltx", "image-to-video"): ("ltx2", "img2vid"),
-    ("ltx2", "i2v"): ("ltx2", "img2vid"),
-    ("ltx2", "img2vid"): ("ltx2", "img2vid"),
-    # FLUX.2 Text-to-Image
-    ("flux", "t2i"): ("flux2", "txt2img"),
-    ("flux", "txt2img"): ("flux2", "txt2img"),
-    ("flux", "text-to-image"): ("flux2", "txt2img"),
-    ("flux2", "t2i"): ("flux2", "txt2img"),
-    ("flux2", "txt2img"): ("flux2", "txt2img"),
-    # Wan 2.6 Text-to-Video
-    ("wan", "t2v"): ("wan26", "txt2vid"),
-    ("wan", "txt2vid"): ("wan26", "txt2vid"),
-    ("wan26", "t2v"): ("wan26", "txt2vid"),
-    ("wan26", "txt2vid"): ("wan26", "txt2vid"),
-    # Wan 2.6 Image-to-Video
-    ("wan", "i2v"): ("wan26", "img2vid"),
-    ("wan", "img2vid"): ("wan26", "img2vid"),
-    ("wan26", "i2v"): ("wan26", "img2vid"),
-    ("wan26", "img2vid"): ("wan26", "img2vid"),
-    # Qwen Text-to-Image
-    ("qwen", "t2i"): ("qwen", "txt2img"),
-    ("qwen", "txt2img"): ("qwen", "txt2img"),
-    # SDXL Text-to-Image
-    ("sdxl", "t2i"): ("sdxl", "txt2img"),
-    ("sdxl", "txt2img"): ("sdxl", "txt2img"),
-    # HunyuanVideo 1.5 Text-to-Video
-    ("hunyuan", "t2v"): ("hunyuan15", "txt2vid"),
-    ("hunyuan", "txt2vid"): ("hunyuan15", "txt2vid"),
-    ("hunyuan15", "t2v"): ("hunyuan15", "txt2vid"),
-    ("hunyuan15", "txt2vid"): ("hunyuan15", "txt2vid"),
-    # HunyuanVideo 1.5 Image-to-Video
-    ("hunyuan", "i2v"): ("hunyuan15", "img2vid"),
-    ("hunyuan", "img2vid"): ("hunyuan15", "img2vid"),
-    ("hunyuan15", "i2v"): ("hunyuan15", "img2vid"),
-    ("hunyuan15", "img2vid"): ("hunyuan15", "img2vid"),
-}
-
-# Default parameters by model
-# These are default values for workflow generation.
-# For validation constraints, see topology_validator.py MODEL_CONSTRAINTS.
-# For workflow patterns, see patterns.py WORKFLOW_SKELETONS.
-MODEL_DEFAULTS = {
-    "ltx": {
-        "width": 768,
-        "height": 512,
-        "frames": 97,
-        "steps": 30,
-        "cfg": 3.0,
-    },
-    "ltx2": {
-        "width": 768,
-        "height": 512,
-        "frames": 97,
-        "steps": 30,
-        "cfg": 3.0,
-    },
-    "flux": {
-        "width": 1024,
-        "height": 1024,
-        "steps": 20,
-        "guidance": 3.5,
-    },
-    "flux2": {
-        "width": 1024,
-        "height": 1024,
-        "steps": 20,
-        "guidance": 3.5,
-    },
-    "wan": {
-        "width": 832,
-        "height": 480,
-        "frames": 81,
-        "steps": 30,
-        "cfg": 5.0,
-    },
-    "wan26": {
-        "width": 832,
-        "height": 480,
-        "frames": 81,
-        "steps": 30,
-        "cfg": 5.0,
-    },
-    "qwen": {
-        "width": 1296,
-        "height": 1296,
-        "steps": 25,
-        "cfg": 7.0,
-    },
-    "sdxl": {
-        "width": 1024,
-        "height": 1024,
-        "steps": 25,
-        "cfg": 7.0,
-    },
-    "hunyuan": {
-        "width": 1280,
-        "height": 720,
-        "frames": 81,
-        "steps": 30,
-        "cfg": 6.0,
-    },
-    "hunyuan15": {
-        "width": 1280,
-        "height": 720,
-        "frames": 81,
-        "steps": 30,
-        "cfg": 6.0,
-    },
-}
 
 
 def load_skeleton(model: str, workflow_type: str) -> Tuple[Optional[dict], Optional[str]]:
@@ -154,8 +43,8 @@ def load_skeleton(model: str, workflow_type: str) -> Tuple[Optional[dict], Optio
     Returns:
         (skeleton_dict, skeleton_name) or (None, error_message)
     """
-    key = (model.lower(), workflow_type.lower())
-    canonical_key = MODEL_SKELETON_MAP.get(key)
+    # Use centralized model registry for canonical key lookup
+    canonical_key = get_canonical_model_key(model, workflow_type)
 
     if not canonical_key:
         # List available patterns
@@ -212,8 +101,8 @@ def resolve_parameters(
     2. Skeleton defaults
     3. Model defaults
     """
-    # Get model defaults
-    defaults = MODEL_DEFAULTS.get(model.lower(), {})
+    # Get model defaults from centralized registry
+    defaults = get_model_defaults(model)
 
     # Get skeleton defaults
     skeleton_defaults = skeleton.get("defaults", {})
@@ -573,7 +462,7 @@ def list_supported_workflows() -> dict:
                 "workflow_type": wf_type,
                 "canonical_model": canonical_model,
                 "canonical_type": canonical_type,
-                "defaults": MODEL_DEFAULTS.get(model, MODEL_DEFAULTS.get(canonical_model, {}))
+                "defaults": get_model_defaults(model)
             })
 
     return {"workflows": workflows, "count": len(workflows)}

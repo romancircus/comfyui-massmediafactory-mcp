@@ -4,7 +4,19 @@ Tests for workflow_generator module
 
 import pytest
 import sys
+import types
 from pathlib import Path
+
+# Set up mocks before importing modules
+if 'comfyui_massmediafactory_mcp.client' not in sys.modules:
+    client_mock = types.ModuleType('comfyui_massmediafactory_mcp.client')
+    client_mock.get_client = lambda: None
+    sys.modules['comfyui_massmediafactory_mcp.client'] = client_mock
+
+if 'comfyui_massmediafactory_mcp' not in sys.modules:
+    pkg = types.ModuleType('comfyui_massmediafactory_mcp')
+    pkg.__path__ = [str(Path(__file__).parent.parent / "src" / "comfyui_massmediafactory_mcp")]
+    sys.modules['comfyui_massmediafactory_mcp'] = pkg
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

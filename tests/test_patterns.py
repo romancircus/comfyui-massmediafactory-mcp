@@ -4,7 +4,19 @@ Tests for patterns module
 
 import pytest
 import sys
+import types
 from pathlib import Path
+
+# Set up mocks before importing modules
+if 'comfyui_massmediafactory_mcp.client' not in sys.modules:
+    client_mock = types.ModuleType('comfyui_massmediafactory_mcp.client')
+    client_mock.get_client = lambda: None
+    sys.modules['comfyui_massmediafactory_mcp.client'] = client_mock
+
+if 'comfyui_massmediafactory_mcp' not in sys.modules:
+    pkg = types.ModuleType('comfyui_massmediafactory_mcp')
+    pkg.__path__ = [str(Path(__file__).parent.parent / "src" / "comfyui_massmediafactory_mcp")]
+    sys.modules['comfyui_massmediafactory_mcp'] = pkg
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -123,12 +135,14 @@ class TestPatternValidation:
     """Tests for pattern validation"""
 
     def test_validate_valid_workflow(self):
-        """Test validating a valid workflow"""
+        """Test validating a valid workflow with all required nodes"""
         workflow = {
             "1": {"class_type": "LTXVLoader", "inputs": {}},
             "2": {"class_type": "LTXVScheduler", "inputs": {}},
             "3": {"class_type": "LTXVConditioning", "inputs": {}},
-            "4": {"class_type": "SamplerCustom", "inputs": {"cfg": 3.0}}
+            "4": {"class_type": "SamplerCustom", "inputs": {"cfg": 3.0}},
+            "5": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"width": 768, "height": 512, "length": 97}},
+            "6": {"class_type": "VHS_VideoCombine", "inputs": {}}
         }
         result = patterns.validate_against_pattern(workflow, "ltx2")
         assert result["valid"]

@@ -2,24 +2,14 @@
 Workflow Validation
 
 Validate workflows before execution to catch errors early.
+
+NOTE: Model resolution specs are now centralized in model_registry.py.
+This module imports from there for backwards compatibility.
 """
 
 from typing import Dict, List, Optional, Set, Tuple
 from .client import get_client
-
-
-# =============================================================================
-# Model Resolution Specs
-# =============================================================================
-
-MODEL_RESOLUTION_SPECS = {
-    "flux": {"native": 1024, "divisible_by": 16, "min": 256, "max": 2048},
-    "sdxl": {"native": 1024, "divisible_by": 8, "min": 512, "max": 2048},
-    "sd15": {"native": 512, "divisible_by": 8, "min": 256, "max": 1024},
-    "qwen": {"native": 1296, "divisible_by": 8, "min": 512, "max": 2048},
-    "ltx": {"native": 768, "divisible_by": 8, "min": 256, "max": 1280},
-    "wan": {"native": 848, "divisible_by": 16, "min": 480, "max": 1280},
-}
+from .model_registry import MODEL_RESOLUTION_SPECS
 
 
 def validate_workflow(workflow: dict) -> dict:

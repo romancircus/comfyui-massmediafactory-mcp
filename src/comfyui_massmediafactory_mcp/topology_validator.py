@@ -4,22 +4,25 @@ Workflow Topology Validator
 Validates LLM-generated workflow JSON against PARAMETER_RULES constraints.
 Catches common mistakes before execution.
 
-NOTE: Validation constraints are derived from patterns.py MODEL_CONSTRAINTS.
-For workflow patterns and LLM-facing constraints, see patterns.py.
-For default parameter values, see workflow_generator.py MODEL_DEFAULTS.
+NOTE: Validation constraints are now centralized in model_registry.py.
+This module builds validation-specific views from that central registry.
 """
 
 import json
 from typing import Dict, List, Tuple, Any, Optional
 
-from . import patterns
+from .model_registry import (
+    MODEL_CONSTRAINTS as REGISTRY_CONSTRAINTS,
+    resolve_model_name,
+    list_supported_models,
+)
 
 
 def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
-    """Build validation-friendly constraints from patterns.py MODEL_CONSTRAINTS."""
+    """Build validation-friendly constraints from model_registry.MODEL_CONSTRAINTS."""
     result = {}
 
-    for model_key, pattern in patterns.MODEL_CONSTRAINTS.items():
+    for model_key, pattern in REGISTRY_CONSTRAINTS.items():
         cfg = pattern.get("cfg", {})
         resolution = pattern.get("resolution", {})
         frames = pattern.get("frames", {})
@@ -28,51 +31,47 @@ def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
 
         constraint = {
             "resolution_divisor": resolution.get("divisible_by", 8),
-            "resolution_min": 256,  # Default minimum
+            "resolution_min": resolution.get("min", 256),
             "resolution_max": max(resolution.get("max", [2048, 2048])) if isinstance(resolution.get("max"), list) else resolution.get("max", 2048),
             "cfg_range": (cfg.get("min", 1.0), cfg.get("max", 15.0)) if cfg.get("min") else None,
             "cfg_default": cfg.get("default"),
             "requires_flux_guidance": cfg.get("via") == "FluxGuidance",
-            "frame_formula": frames.get("formula"),
-            "sampler_type": required.get("sampler", "KSampler"),
-            "required_nodes": list(required.values()) if isinstance(required, dict) else required,
+            "frame_formula": frames.get("formula") if frames else None,
+            "sampler_type": required.get("sampler", "KSampler") if isinstance(required, dict) else "KSampler",
+            "required_nodes": _flatten_required_nodes(required) if isinstance(required, dict) else required,
             "forbidden_nodes": list(forbidden.keys()) if isinstance(forbidden, dict) else forbidden,
-            "scheduler_node": required.get("scheduler"),
+            "scheduler_node": required.get("scheduler") if isinstance(required, dict) else None,
         }
         result[model_key] = constraint
 
         # Create aliases (ltx -> ltx2, flux -> flux2, wan -> wan26)
-        base_name = model_key.rstrip("0123456789")
-        if base_name != model_key:
+        base_name = model_key.rstrip("0123456789_")
+        if base_name != model_key and base_name not in result:
             result[base_name] = constraint
 
-    # Add legacy models not in patterns.py (sdxl, sd15, hunyuan)
-    legacy_models = {
-        "sdxl": {
-            "resolution_divisor": 8, "resolution_min": 512, "resolution_max": 2048,
-            "cfg_range": (5.0, 12.0), "cfg_default": 7.0, "sampler_type": "KSampler",
-            "required_nodes": [], "forbidden_nodes": [],
-        },
-        "sd15": {
+    # Add sd15 model (not in registry as it's deprecated)
+    if "sd15" not in result:
+        result["sd15"] = {
             "resolution_divisor": 8, "resolution_min": 256, "resolution_max": 1024,
             "cfg_range": (5.0, 15.0), "cfg_default": 7.5, "sampler_type": "KSampler",
             "required_nodes": [], "forbidden_nodes": [],
-        },
-        "hunyuan": {
-            "resolution_divisor": 16, "resolution_min": 256, "resolution_max": 1920,
-            "cfg_range": (4.0, 8.0), "cfg_default": 6.0, "sampler_type": "HunyuanVideoSampler",
-            "required_nodes": ["HunyuanVideoModelLoader"],
-            "forbidden_nodes": ["KSampler", "SamplerCustom"],
-            "vae_decode_node": "HunyuanVideoVAEDecode",
-        },
-    }
-    legacy_models["hunyuan15"] = legacy_models["hunyuan"]
-    result.update(legacy_models)
+        }
 
     return result
 
 
-# Build validation constraints from patterns.py (single source of truth)
+def _flatten_required_nodes(required: Dict[str, Any]) -> List[str]:
+    """Flatten required_nodes dict to list of node class names."""
+    nodes = []
+    for value in required.values():
+        if isinstance(value, list):
+            nodes.extend(value)
+        elif isinstance(value, str):
+            nodes.append(value)
+    return nodes
+
+
+# Build validation constraints from model_registry (single source of truth)
 MODEL_CONSTRAINTS = _build_validation_constraints()
 
 # Video-unsafe samplers
