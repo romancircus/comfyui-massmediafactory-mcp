@@ -1,5 +1,81 @@
 # ComfyUI MassMediaFactory MCP - Agent Guide
 
+---
+
+## Cyrus Execution Tasks
+
+**For multi-phase overnight work, use the centralized orchestration pattern.**
+
+### Quick Start
+
+1. **Copy template:**
+   ```bash
+   cp ~/.cyrus/templates/execution_script_template.py scripts/<task_name>_execute.py
+   ```
+
+2. **Implement phases:**
+   ```python
+   class MyExecutor(OrchestrationScript):
+       def get_phases(self):
+           return {
+               "1": self.phase_1_setup,
+               "2": self.phase_2_process,
+               "3": self.phase_3_verify,
+           }
+   ```
+
+3. **Create Linear issue from template:**
+   ```bash
+   cat ~/.cyrus/templates/linear_execution_issue.md
+   # Replace <REPO_NAME>, <SCRIPT_NAME>, <ISSUE_ID>
+   # Paste into Linear issue description
+   ```
+
+4. **Validate before delegating:**
+   ```bash
+   python ~/.cyrus/scripts/validate_execution_issue.py ROM-XXX
+   ```
+
+5. **Delegate to Cyrus** - execution happens automatically
+
+### Resources
+
+- **Template:** `~/.cyrus/templates/execution_script_template.py` (640 lines - complete base class)
+- **Docs:** `~/.cyrus/docs/EXECUTION_PATTERN.md` (usage guide)
+- **Issue template:** `~/.cyrus/templates/linear_execution_issue.md`
+- **Validation:** `~/.cyrus/scripts/validate_execution_issue.py`
+
+### Why Use This Pattern
+
+- Worktree-aware (auto-setup symlinks)
+- Crash recovery (checkpoint system)
+- Progress tracking (Linear comments)
+- Overnight execution (background-safe)
+- Proven pattern (ROM-121 reference)
+
+**DON'T:** Create multiple Linear issues with `blockedBy` (doesn't auto-trigger)
+**DO:** Single issue, single orchestration script, all phases sequential
+
+---
+
+## Linear Integration
+
+**Check Linear before starting work:**
+```python
+mcp__linear__list_issues(project="Infra: ComfyUI MCP")
+```
+
+**Active issues:**
+- ROM-10: Template System Improvements
+
+**Update status when working:**
+```python
+mcp__linear__update_issue("ROM-10", state="in_progress")
+mcp__linear__update_issue("ROM-10", state="done", comment="Added: [feature]")
+```
+
+---
+
 ## Quick Start
 
 This MCP server lets you generate images and videos via ComfyUI. The fastest path:
