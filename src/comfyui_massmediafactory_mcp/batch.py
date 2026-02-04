@@ -6,9 +6,11 @@ Execute multiple workflows or parameter variations efficiently.
 
 import copy
 import time
+import uuid
 from typing import Dict, List, Any, Optional
 from .client import get_client
 from .execution import wait_for_completion
+from .mcp_utils import log_structured, get_correlation_id
 
 
 def execute_batch(
@@ -29,6 +31,17 @@ def execute_batch(
     Returns:
         Results for each parameter set.
     """
+    cid = get_correlation_id() or str(uuid.uuid4())[:8]
+    batch_id = str(uuid.uuid4())[:8]
+
+    log_structured("info", "batch_started",
+        batch_id=batch_id,
+        correlation_id=cid,
+        total_jobs=len(parameter_sets),
+        mode="batch",
+        parallel=parallel,
+    )
+
     client = get_client()
     results = []
     pending_jobs = []
@@ -72,10 +85,21 @@ def execute_batch(
     # Sort by original index
     results.sort(key=lambda x: x["index"])
 
+    completed_count = sum(1 for r in results if r["status"] == "completed")
+    errored_count = len(parameter_sets) - completed_count
+
+    log_structured("info", "batch_completed",
+        batch_id=batch_id,
+        correlation_id=cid,
+        total_jobs=len(parameter_sets),
+        completed=completed_count,
+        errors=errored_count,
+    )
+
     return {
         "total_jobs": len(parameter_sets),
-        "completed": sum(1 for r in results if r["status"] == "completed"),
-        "errors": sum(1 for r in results if r["status"] == "error"),
+        "completed": completed_count,
+        "errors": errored_count,
         "results": results,
     }
 
@@ -101,16 +125,29 @@ def execute_sweep(
     Returns:
         Results organized by parameter combination.
     """
+    batch_id = str(uuid.uuid4())[:8]
+    cid = get_correlation_id()
+
     # Generate all combinations
     param_combinations = _generate_combinations(sweep_params)
-
+    
     # Add fixed params to each combination
     if fixed_params:
         param_combinations = [
             {**fixed_params, **combo} for combo in param_combinations
         ]
 
-    return execute_batch(workflow, param_combinations, parallel, timeout_per_job)
+    results = execute_batch(workflow, param_combinations, parallel, timeout_per_job)
+
+    log_structured("info", "sweep_completed",
+        batch_id=batch_id,
+        correlation_id=cid,
+        total_jobs=len(param_combinations),
+        completed=results.get("completed", 0),
+        errors=results.get("errors", 0),
+    )
+
+    return results
 
 
 def execute_seed_variations(
@@ -137,12 +174,32 @@ def execute_seed_variations(
     Returns:
         Results for each seed variation.
     """
+    batch_id = str(uuid.uuid4())[:8]
+    cid = get_correlation_id()
+
+    log_structured("info", "seed_variations_started",
+        batch_id=batch_id,
+        correlation_id=cid,
+        num_variations=num_variations,
+        start_seed=start_seed,
+    )
+
     param_sets = []
     for i in range(num_variations):
         params = {**base_params, "SEED": start_seed + i}
         param_sets.append(params)
 
-    return execute_batch(workflow, param_sets, parallel, timeout_per_job)
+    results = execute_batch(workflow, param_sets, parallel, timeout_per_job)
+
+    log_structured("info", "seed_variations_completed",
+        batch_id=batch_id,
+        correlation_id=cid,
+        num_variations=num_variations,
+        completed=results.get("completed", 0),
+        errors=results.get("errors", 0),
+    )
+
+    return results
 
 
 def _substitute_parameters(workflow: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:

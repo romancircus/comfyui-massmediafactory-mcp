@@ -73,3 +73,74 @@ def sample_asset():
         "workflow": {"nodes": []},
         "parameters": {"prompt": "test"}
     }
+
+
+# =============================================================================
+# Structured Logging Fixtures
+# =============================================================================
+
+import json
+import logging
+from io import StringIO
+
+
+class CapturingLogHandler(logging.Handler):
+    """Handler that captures log records for testing."""
+    def __init__(self):
+        super().__init__()
+        self.records = []
+        
+    def emit(self, record):
+        self.records.append(record)
+    
+    def get_json_logs(self):
+        """Return list of parsed JSON log entries."""
+        logs = []
+        for record in self.records:
+            # Format the record using the JSONFormatter
+            from comfyui_massmediafactory_mcp.mcp_utils import JSONFormatter
+            formatter = JSONFormatter()
+            formatted = formatter.format(record)
+            logs.append(json.loads(formatted))
+        return logs
+    
+    def clear(self):
+        self.records = []
+
+
+@pytest.fixture
+def capturing_logger():
+    """Fixture providing a capturing log handler."""
+    # Get the comfyui-mcp logger
+    logger = logging.getLogger("comfyui-mcp")
+    
+    # Create and add capturing handler
+    handler = CapturingLogHandler()
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    
+    # Store original level and set to DEBUG
+    original_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    
+    yield handler
+    
+    # Cleanup
+    logger.removeHandler(handler)
+    logger.setLevel(original_level)
+    handler.clear()
+
+
+@pytest.fixture
+def correlation_context():
+    """Fixture providing correlation ID context management."""
+    from comfyui_massmediafactory_mcp.mcp_utils import set_correlation_id, clear_correlation_id
+    
+    def _set_cid(cid):
+        set_correlation_id(cid)
+        return cid
+    
+    yield _set_cid
+    
+    # Cleanup
+    clear_correlation_id()

@@ -6,11 +6,13 @@ Utilities for MCP-compliant responses, error handling, logging, and rate limitin
 
 import time
 import uuid
+import json
 import logging
 import functools
 from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass, field
 from collections import defaultdict
+from contextvars import ContextVar
 
 # =============================================================================
 # Structured Logging
@@ -28,29 +30,99 @@ if not logger.handlers:
     logger.addHandler(handler)
 
 
+class JSONFormatter(logging.Formatter):
+    """Format log records as JSON for machine parseability."""
+    def format(self, record):
+        # Create ISO 8601 timestamp with microseconds
+        from datetime import datetime
+        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        
+        log_entry = {
+            "timestamp": timestamp,
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "correlation_id"):
+            log_entry["correlation_id"] = record.correlation_id
+        if hasattr(record, "custom_fields"):
+            log_entry.update(record.custom_fields)
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry, separators=(',', ':'))
+
+
+# Replace basic handler with JSON handler
+logger.handlers.clear()
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logger.addHandler(handler)
+
+
+# Correlation ID context variables
+correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default=None)
+invocation_stack_var: ContextVar[list] = ContextVar("invocation_stack", default=[])
+
+
+def set_correlation_id(cid: str):
+    """Set correlation ID for current context."""
+    correlation_id_var.set(cid)
+
+
+def get_correlation_id() -> str:
+    """Get current correlation ID or generate new one."""
+    cid = correlation_id_var.get()
+    if cid is None:
+        cid = str(uuid.uuid4())[:8]
+        correlation_id_var.set(cid)
+    return cid
+
+
+def clear_correlation_id():
+    """Clear correlation ID from context."""
+    correlation_id_var.set(None)
+
+
+def log_structured(level: str, message: str, **kwargs):
+    """Emit structured JSON log with correlation ID and custom fields."""
+    cid = get_correlation_id()
+    extra = {"correlation_id": cid}
+    if kwargs:
+        extra["custom_fields"] = kwargs
+    getattr(logger, level)(message, extra=extra)
+
+
 @dataclass
 class ToolInvocation:
-    """Track a tool invocation for logging."""
+    """Track a tool invocation for logging with correlation support."""
     tool_name: str
     invocation_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    correlation_id: str = field(default_factory=get_correlation_id)
     start_time: float = field(default_factory=time.time)
+    parent_invocation_id: str = None
 
     def complete(self, status: str = "success", error: str = None) -> Dict[str, Any]:
-        """Log completion and return log entry."""
+        """Log completion with structured JSON format."""
         latency_ms = (time.time() - self.start_time) * 1000
         log_entry = {
             "tool": self.tool_name,
             "invocation_id": self.invocation_id,
+            "correlation_id": self.correlation_id,
             "latency_ms": round(latency_ms, 2),
             "status": status,
         }
+        if self.parent_invocation_id:
+            log_entry["parent_invocation_id"] = self.parent_invocation_id
         if error:
             log_entry["error"] = error
 
+        # Use structured logging
         if status == "success":
-            logger.info(f"Tool call: {log_entry}")
+            log_structured("info", "tool_completed", **log_entry)
+        elif status == "rate_limited":
+            log_structured("warning", "tool_rate_limited", **log_entry)
         else:
-            logger.error(f"Tool call: {log_entry}")
+            log_structured("error", "tool_failed", **log_entry)
 
         return log_entry
 

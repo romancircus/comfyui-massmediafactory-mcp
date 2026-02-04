@@ -10,6 +10,7 @@ import random
 from typing import Optional, Dict, Any
 from .client import get_client
 from .assets import get_registry, AssetRecord
+from .mcp_utils import log_structured, get_correlation_id, set_correlation_id
 
 
 def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
@@ -36,6 +37,15 @@ def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dic
 
     if "error" in result:
         return result
+
+    # Structured logging for workflow queued
+    log_structured("info", "workflow_queued",
+        prompt_id=result.get("prompt_id"),
+        client_id=client_id,
+        node_count=len(workflow),
+        queue_position=result.get("number", 0),
+        correlation_id=get_correlation_id(),
+    )
 
     return {
         "prompt_id": result.get("prompt_id"),
@@ -131,23 +141,60 @@ def wait_for_completion(
     Returns:
         Final status and output files with asset_ids.
     """
-    start = time.time()
+    start_time = time.time()
+    cid = get_correlation_id()
+    log_structured("info", "waiting_for_completion",
+        prompt_id=prompt_id,
+        timeout_seconds=timeout_seconds,
+        correlation_id=cid,
+    )
 
-    while time.time() - start < timeout_seconds:
+    while time.time() - start_time < timeout_seconds:
         status = get_workflow_status(prompt_id)
 
         if status["status"] in ["completed", "error"]:
-            status["elapsed_seconds"] = round(time.time() - start, 1)
+            elapsed = time.time() - start_time
+            status["elapsed_seconds"] = round(elapsed, 1)
 
             # Register assets if workflow provided and completed
             if status["status"] == "completed" and workflow:
                 status = _register_outputs_as_assets(
                     status, workflow, parameters, session_id
                 )
+                # Log successful completion with asset info
+                outputs = status.get("outputs", [])
+                asset_ids = [a.get("asset_id") for a in outputs if a.get("asset_id")]
+                log_structured("info", "workflow_completed",
+                    prompt_id=prompt_id,
+                    status="completed",
+                    elapsed_seconds=round(elapsed, 2),
+                    output_count=len(outputs) if outputs else 0,
+                    asset_ids=asset_ids,
+                    correlation_id=cid,
+                )
+            elif status["status"] == "error":
+                # Log workflow error
+                error_details = status.get("error")
+                log_structured("error", "workflow_error",
+                    prompt_id=prompt_id,
+                    status=status["status"],
+                    error=str(error_details) if error_details else None,
+                    elapsed_seconds=round(elapsed, 2),
+                    correlation_id=cid,
+                )
 
             return status
 
         time.sleep(poll_interval)
+
+    # Timeout case
+    elapsed = time.time() - start_time
+    log_structured("warning", "workflow_timeout",
+        prompt_id=prompt_id,
+        timeout_seconds=timeout_seconds,
+        elapsed_seconds=round(elapsed, 2),
+        correlation_id=cid,
+    )
 
     return {
         "status": "timeout",
@@ -165,6 +212,7 @@ def _register_outputs_as_assets(
     """Register completed outputs as assets in the registry."""
     registry = get_registry()
     outputs = status.get("outputs", [])
+    assets = []
 
     for output in outputs:
         asset = registry.register_asset(
@@ -177,6 +225,16 @@ def _register_outputs_as_assets(
             node_id=output.get("node_id"),
         )
         output["asset_id"] = asset.asset_id
+        assets.append(asset)
+
+    # Structured logging for asset registration
+    asset_ids = [asset.asset_id for asset in assets]
+    log_structured("info", "assets_registered",
+        count=len(assets),
+        asset_ids=asset_ids,
+        session_id=session_id,
+        correlation_id=get_correlation_id(),
+    )
 
     return status
 
@@ -231,6 +289,10 @@ def free_memory(unload_models: bool = False) -> dict:
     if "error" in result:
         return result
 
+    log_structured("info", "memory_freed",
+        unload_models=unload_models,
+    )
+
     return {
         "success": True,
         "unloaded_models": unload_models,
@@ -249,6 +311,10 @@ def interrupt_execution() -> dict:
 
     if "error" in result:
         return result
+
+    log_structured("info", "execution_interrupted",
+        prompt_id=None,
+    )
 
     return {"success": True, "message": "Execution interrupted"}
 
@@ -314,6 +380,15 @@ def regenerate(
     workflow = copy.deepcopy(asset.workflow)
     new_params = copy.deepcopy(asset.parameters)
 
+    # Log regeneration start
+    cid = get_correlation_id()
+    override_keys = list(extra_overrides.keys()) if extra_overrides else []
+    log_structured("info", "regeneration_started",
+        asset_id=asset_id,
+        overrides=override_keys,
+        correlation_id=cid,
+    )
+
     # Collect overrides
     overrides = {}
     if prompt is not None:
@@ -350,6 +425,13 @@ def regenerate(
 
     if "error" in result:
         return result
+
+    # Log regeneration completed
+    log_structured("info", "regeneration_completed",
+        asset_id=asset_id,
+        new_prompt_id=result.get("prompt_id"),
+        correlation_id=cid,
+    )
 
     # Return with context for wait_for_completion
     return {
@@ -530,8 +612,13 @@ def cleanup_expired_assets() -> dict:
         Number of assets removed.
     """
     registry = get_registry()
-    removed = registry.cleanup_expired()
-    return {"removed": removed}
+    removed_count = registry.cleanup_expired()
+
+    log_structured("info", "assets_cleanup",
+        removed_count=removed_count,
+    )
+
+    return {"removed": removed_count}
 
 
 # =============================================================================

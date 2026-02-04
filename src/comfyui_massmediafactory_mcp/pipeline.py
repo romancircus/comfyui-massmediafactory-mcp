@@ -6,9 +6,11 @@ become inputs to the next stage.
 """
 
 import time
+import uuid
 from typing import Dict, List, Any, Optional, Callable
 from .client import get_client
 from .execution import wait_for_completion
+from .mcp_utils import log_structured, get_correlation_id
 
 
 class PipelineStage:
@@ -82,6 +84,15 @@ def execute_pipeline(
             initial_params={"PROMPT": "a dragon", "SEED": 42}
         )
     """
+    pipeline_id = str(uuid.uuid4())[:8]
+    cid = get_correlation_id()
+
+    log_structured("info", "pipeline_started",
+        pipeline_id=pipeline_id,
+        correlation_id=cid,
+        total_stages=len(stages),
+    )
+
     client = get_client()
     results = {
         "stages": [],
@@ -97,6 +108,13 @@ def execute_pipeline(
         stage_workflow = stage_def.get("workflow", {})
         output_mapping = stage_def.get("output_mapping", {})
         skip_condition = stage_def.get("skip_if")
+
+        log_structured("info", "stage_started",
+            pipeline_id=pipeline_id,
+            correlation_id=cid,
+            stage_index=i,
+            stage_name=stage_name,
+        )
 
         stage_result = {
             "name": stage_name,
@@ -131,6 +149,16 @@ def execute_pipeline(
             stage_result["error"] = queue_result["error"]
             results["stages"].append(stage_result)
             results["status"] = "error"
+            
+            # Log stage error
+            log_structured("error", "stage_error",
+                pipeline_id=pipeline_id,
+                correlation_id=cid,
+                stage_index=i,
+                stage_name=stage_name,
+                error=queue_result["error"],
+            )
+            
             break
 
         prompt_id = queue_result.get("prompt_id")
@@ -144,6 +172,16 @@ def execute_pipeline(
             stage_result["error"] = completion.get("error")
             results["stages"].append(stage_result)
             results["status"] = "error"
+            
+            # Log stage error from completion
+            log_structured("error", "stage_error",
+                pipeline_id=pipeline_id,
+                correlation_id=cid,
+                stage_index=i,
+                stage_name=stage_name,
+                error=completion.get("error"),
+            )
+            
             break
 
         # Extract outputs
@@ -151,6 +189,18 @@ def execute_pipeline(
         stage_result["status"] = "completed"
         stage_result["outputs"] = outputs
         stage_result["duration"] = time.time() - stage_start
+        
+        # Log stage completion
+        output_count = len(outputs.get("images", [])) if isinstance(outputs, dict) else 0
+        log_structured("info", "stage_completed",
+            pipeline_id=pipeline_id,
+            correlation_id=cid,
+            stage_index=i,
+            stage_name=stage_name,
+            status="completed",
+            output_count=output_count,
+            duration_seconds=round(stage_result["duration"], 2),
+        )
 
         # Map outputs to next stage's parameters
         for output_type, param_name in output_mapping.items():
@@ -164,6 +214,18 @@ def execute_pipeline(
     results["total_duration"] = time.time() - start_time
     if results["status"] == "running":
         results["status"] = "completed"
+    
+    # Log pipeline completion
+    final_status = results["status"]
+    log_structured("info" if final_status == "completed" else "error", "pipeline_completed",
+        pipeline_id=pipeline_id,
+        correlation_id=cid,
+        total_stages=len(stages),
+        stages_completed=sum(1 for s in results["stages"] if s["status"] == "completed"),
+        stages_errored=sum(1 for s in results["stages"] if s["status"] == "error"),
+        total_duration_seconds=round(results["total_duration"], 2),
+        status=final_status,
+    )
 
     # Collect final outputs
     if results["stages"]:
