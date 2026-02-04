@@ -12,6 +12,7 @@ MCP Compliance:
 """
 
 import json
+from typing import List, Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 
 from . import discovery
@@ -267,7 +268,7 @@ def workflow_library(
     name: str = None,
     workflow: dict = None,
     description: str = "",
-    tags: list = None,
+    tags: Optional[List[str]] = None,
     source_name: str = None,
     new_name: str = None,
     tag_filter: str = None,
@@ -513,7 +514,7 @@ def get_node_chain(model: str, task: str) -> dict:
 def batch_execute(
     workflow: dict,
     mode: str,
-    parameter_sets: list = None,
+    parameter_sets: Optional[List[Dict[str, Any]]] = None,
     sweep_params: dict = None,
     fixed_params: dict = None,
     num_variations: int = 4,
@@ -542,7 +543,7 @@ def batch_execute(
 # =============================================================================
 
 @mcp.tool()
-def execute_pipeline_stages(stages: list, initial_params: dict, timeout_per_stage: int = 600) -> dict:
+def execute_pipeline_stages(stages: List[Dict[str, Any]], initial_params: Dict[str, Any], timeout_per_stage: int = 600) -> dict:
     """Run multi-stage pipeline (e.g., image→upscale→video)."""
     return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
 
@@ -602,7 +603,7 @@ def get_image_dimensions(asset_id: str) -> dict:
 
 @mcp.tool()
 @mcp_tool_wrapper
-def detect_objects(asset_id: str, objects: list, vlm_model: str = None) -> dict:
+def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] = None) -> dict:
     """Detect objects in image via VLM."""
     return _to_mcp_response(analysis.detect_objects(asset_id, objects, vlm_model))
 
@@ -619,7 +620,7 @@ def get_video_info(asset_id: str) -> dict:
 
 @mcp.tool()
 @mcp_tool_wrapper
-def qa_output(asset_id: str, prompt: str, checks: list = None, vlm_model: str = None) -> dict:
+def qa_output(asset_id: str, prompt: str, checks: Optional[List[str]] = None, vlm_model: Optional[str] = None) -> dict:
     """QA check via VLM. checks: prompt_match|artifacts|faces|text|composition"""
     return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=prompt, checks=checks, vlm_model=vlm_model))
 
@@ -639,10 +640,10 @@ def record_generation(
     prompt: str,
     model: str,
     seed: int,
-    parameters: dict = None,
+    parameters: Dict[str, Any] = None,
     negative_prompt: str = "",
-    rating: float = None,
-    tags: list = None,
+    rating: Optional[float] = None,
+    tags: Optional[List[str]] = None,
     outcome: str = "success",
     qa_score: float = None,
     notes: str = "",
@@ -665,9 +666,9 @@ def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
 @mcp.tool()
 def style_suggest(
     mode: str,
-    prompt: str = None,
-    model: str = None,
-    tags: list = None,
+    prompt: Optional[str] = None,
+    model: Optional[str] = None,
+    tags: Optional[List[str]] = None,
     min_rating: float = 0.7,
     limit: int = 5,
 ) -> dict:
