@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "description": "CogVideoX-5B text-to-video from Tsinghua",
+    "model": "CogVideoX-5B",
+    "type": "txt2vid",
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
+    "defaults": {
+      "WIDTH": 720,
+      "HEIGHT": 480,
+      "SEED": 42,
+      "FRAMES": 49,
+      "STEPS": 50,
+      "CFG": 6.0,
+      "NEGATIVE": "worst quality, blurry, distorted, low resolution"
+    }
+  },
+  "1": {
+    "class_type": "CogVideoLoader",
+    "inputs": {
+      "model_name": "cogvideox_5b_bf16.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "clip_l.safetensors",
+      "type": "cogvideo"
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{PROMPT}}"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "{{NEGATIVE}}"
+    }
+  },
+  "5": {
+    "class_type": "EmptyCogVideoLatent",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{FRAMES}}",
+      "batch_size": 1
+    }
+  },
+  "6": {
+    "class_type": "CogVideoSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent": ["5", 0],
+      "seed": "{{SEED}}",
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "sampler": "euler",
+      "scheduler": "normal"
+    }
+  },
+  "7": {
+    "class_type": "CogVideoVAEDecode",
+    "inputs": {
+      "samples": ["6", 0],
+      "vae": ["1", 1]
+    }
+  },
+  "8": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["7", 0],
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "cogvideo_output",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

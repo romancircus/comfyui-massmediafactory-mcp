@@ -397,6 +397,64 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "layers": "Use layers=0 in EmptyQwenImageLayeredLatentImage for better character preservation."
         }
     ),
+
+    "z_turbo": ModelConstraints(
+        display_name="Z-Image-Turbo",
+        model_type="image",
+        cfg=CFGSpec(
+            min=2.0, max=5.0, default=3.0,
+            note="Z-Turbo works best with low CFG. Higher values can cause artifacts."
+        ),
+        resolution=ResolutionSpec(
+            divisible_by=8,
+            native=[1024, 1024],
+            max=[2048, 2048],
+            note="Width and height must be divisible by 8"
+        ),
+        steps=StepsSpec(default=4, min=1, max=10),
+        scheduler=SchedulerSpec(default="simple", note="Fast scheduler for turbo mode"),
+        required_nodes={
+            "loader": "CheckpointLoaderSimple",
+            "sampler": "KSampler",
+            "latent": "EmptyLatentImage",
+            "output": "SaveImage"
+        },
+        workflow_notes={
+            "speed": "4-step generation for ultra-fast inference",
+            "quality": "Slightly lower quality than 20-step models but 5x faster"
+        }
+    ),
+
+    "cogvideox_5b": ModelConstraints(
+        display_name="CogVideoX-5B",
+        model_type="video",
+        cfg=CFGSpec(
+            min=4.0, max=8.0, default=6.0,
+            note="CogVideoX works well with standard CFG 5-7"
+        ),
+        resolution=ResolutionSpec(
+            divisible_by=16,
+            native=[720, 480],
+            max=[1280, 720],
+            note="Width and height must be divisible by 16"
+        ),
+        frames=FrameSpec(
+            default=49, max=81,
+            valid_examples=[17, 33, 49, 65, 81],
+            note="49 frames is ~2 seconds at 24fps"
+        ),
+        steps=StepsSpec(default=50, min=30, max=100),
+        required_nodes={
+            "loader": "CogVideoLoader",
+            "sampler": "CogVideoSampler",
+            "latent": "EmptyCogVideoLatent",
+            "output": "VHS_VideoCombine"
+        },
+        workflow_notes={
+            "quality": "High-quality video generation from Tsinghua",
+            "speed": "Requires ~12GB VRAM for 5B model"
+        }
+    ),
 }
 
 
@@ -436,6 +494,16 @@ MODEL_ALIASES: Dict[str, str] = {
     # Qwen Edit aliases
     "qwen-edit": "qwen_edit",
     "qwenedit": "qwen_edit",
+
+    # Z-Image-Turbo aliases
+    "z-turbo": "z_turbo",
+    "zturbo": "z_turbo",
+    "z_image_turbo": "z_turbo",
+
+    # CogVideoX aliases
+    "cogvideo": "cogvideox_5b",
+    "cogvideo-5b": "cogvideox_5b",
+    "cogvideox": "cogvideox_5b",
 }
 
 
@@ -522,6 +590,19 @@ MODEL_SKELETON_MAP: Dict[Tuple[str, str], Tuple[str, str]] = {
     ("hunyuan", "img2vid"): ("hunyuan15", "img2vid"),
     ("hunyuan15", "i2v"): ("hunyuan15", "img2vid"),
     ("hunyuan15", "img2vid"): ("hunyuan15", "img2vid"),
+
+    # Z-Image-Turbo Text-to-Image
+    ("z_turbo", "t2i"): ("z_turbo", "txt2img"),
+    ("z_turbo", "txt2img"): ("z_turbo", "txt2img"),
+    ("z-turbo", "t2i"): ("z_turbo", "txt2img"),
+    ("zturbo", "t2i"): ("z_turbo", "txt2img"),
+
+    # CogVideoX-5B Text-to-Video
+    ("cogvideox_5b", "t2v"): ("cogvideox_5b", "txt2vid"),
+    ("cogvideox_5b", "txt2vid"): ("cogvideox_5b", "txt2vid"),
+    ("cogvideo", "t2v"): ("cogvideox_5b", "txt2vid"),
+    ("cogvideo-5b", "t2v"): ("cogvideox_5b", "txt2vid"),
+    ("cogvideox", "t2v"): ("cogvideox_5b", "txt2vid"),
 }
 
 
@@ -579,6 +660,20 @@ MODEL_DEFAULTS: Dict[str, Dict[str, Any]] = {
         "steps": 20,
         "cfg": 2.0,
         "denoise": 1.0,
+    },
+    "z_turbo": {
+        "width": 1024,
+        "height": 1024,
+        "steps": 4,
+        "cfg": 3.0,
+    },
+    "cogvideox_5b": {
+        "width": 720,
+        "height": 480,
+        "frames": 49,
+        "steps": 50,
+        "cfg": 6.0,
+        "fps": 24,
     },
 }
 

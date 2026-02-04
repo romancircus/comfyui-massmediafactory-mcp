@@ -387,11 +387,29 @@ def generate_workflow(
     if steps is not None and steps < 1:
         return {"error": f"Steps must be at least 1, got {steps}"}
 
-    if cfg is not None and cfg <= 0:
-        return {"error": f"CFG must be positive, got {cfg}"}
+    # Better error message for negative CFG with suggestion
+    if cfg is not None and cfg < 0:
+        return {"error": f"CFG value {cfg} invalid, must be > 0. Use cfg=3.5"}
+
+    if cfg is not None and cfg == 0:
+        return {"error": "CFG must be positive, got 0"}
 
     if guidance is not None and guidance <= 0:
         return {"error": f"Guidance must be positive, got {guidance}"}
+
+    # Resolution limit check
+    MAX_RESOLUTION = 4096
+    if width is not None and width > MAX_RESOLUTION:
+        return {"error": f"Resolution {width}x{height or 'auto'} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"}
+    if height is not None and height > MAX_RESOLUTION:
+        return {"error": f"Resolution {width or 'auto'}x{height} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"}
+
+    # I2V workflow requires IMAGE_PATH
+    workflow_type_lower = workflow_type.lower() if workflow_type else ""
+    if workflow_type_lower in ["i2v", "img2vid", "image2video"]:
+        image_path = extra_params.get("IMAGE_PATH") or extra_params.get("image_path")
+        if not image_path:
+            return {"error": "I2V workflow requires IMAGE_PATH parameter. Provide the path to the source image."}
 
     # Normalize negative seed values (except -1 which means random)
     if seed is not None and seed < -1:

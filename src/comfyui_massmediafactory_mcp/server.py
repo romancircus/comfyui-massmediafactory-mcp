@@ -1,17 +1,8 @@
-"""
-ComfyUI MassMediaFactory MCP Server
-
-Main entry point that exposes all tools via MCP protocol.
-
-MCP Compliance:
-- JSON-RPC 2.0 via FastMCP
-- isError flag for error responses
-- Rate limiting on tool invocations
-- Structured logging with correlation IDs
-- Cursor-based pagination support
-"""
+"""ComfyUI MassMediaFactory MCP Server - Main entry point."""
 
 import json
+import os
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 
@@ -37,6 +28,9 @@ from . import node_specs
 from . import reference_docs
 from . import topology_validator
 from . import workflow_generator
+from . import websocket_client
+from . import visualization
+from . import rate_limiter
 from .mcp_utils import (
     mcp_error,
     mcp_success,
@@ -60,11 +54,7 @@ mcp = FastMCP(
 
 
 def _to_mcp_response(result: dict) -> dict:
-    """
-    Convert a result dict to MCP-compliant format.
-
-    If result contains "error" key without "isError", adds MCP compliance.
-    """
+    """Convert result to MCP format with isError flag."""
     if isinstance(result, dict) and "error" in result and "isError" not in result:
         return {
             **result,
@@ -74,9 +64,35 @@ def _to_mcp_response(result: dict) -> dict:
     return result
 
 
-# =============================================================================
+def _validate_path(path: str, allowed_base: str) -> tuple[bool, str]:
+    """Validate path is within allowed directory. Prevents path traversal."""
+    try:
+        resolved = Path(path).resolve()
+        allowed = Path(allowed_base).resolve()
+        if not str(resolved).startswith(str(allowed)):
+            return False, f"Path '{path}' is outside allowed directory '{allowed_base}'"
+        return True, str(resolved)
+    except Exception as e:
+        return False, f"Invalid path: {e}"
+
+
+def _validate_url(url: str) -> tuple[bool, str]:
+    """Validate URL is from allowed domains. Prevents arbitrary downloads."""
+    import re
+    allowed_domains = [r"civitai\.com", r"huggingface\.co", r"github\.com", r"raw\.githubusercontent\.com"]
+    for domain in allowed_domains:
+        if re.search(rf"https?://[^/]*{domain}", url, re.IGNORECASE):
+            return True, ""
+    return False, f"URL '{url}' is not from allowed domains: civitai.com, huggingface.co"
+
+
+def _escape_user_content(text: str) -> str:
+    """Escape user content for safe inclusion in prompts. Prevents injection."""
+    cleaned = "".join(char for char in text if char.isprintable() or char in "\n\t")
+    return cleaned[:10000]
+
+
 # Discovery Tools
-# =============================================================================
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -109,9 +125,7 @@ def search_nodes(query: str) -> dict:
     return discovery.search_nodes(query)
 
 
-# =============================================================================
 # Execution Tools
-# =============================================================================
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -136,6 +150,31 @@ def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
 
 
 @mcp.tool()
+def get_progress(prompt_id: str) -> dict:
+    """Get current progress for a workflow. Returns stage, percent, eta, nodes.
+    
+    Returns:
+        {
+            "stage": "queued|running|progress|completed|error",
+            "percent": 0.0-100.0,
+            "eta_seconds": float or null,
+            "nodes_completed": int,
+            "nodes_total": int,
+            "message": str or null,
+            "timestamp": ISO datetime
+        }
+    """
+    progress = websocket_client.get_progress_sync(prompt_id)
+    if progress:
+        return {"isError": False, **progress}
+    return {
+        "isError": True,
+        "error": f"No progress found for prompt_id: {prompt_id}",
+        "hint": "Check if prompt_id is valid using get_workflow_status()"
+    }
+
+
+@mcp.tool()
 def get_system_stats() -> dict:
     """Get GPU VRAM and system stats."""
     return execution.get_system_stats()
@@ -153,9 +192,7 @@ def interrupt() -> dict:
     return execution.interrupt_execution()
 
 
-# =============================================================================
-# Asset Iteration Tools
-# =============================================================================
+# Asset Tools
 
 @mcp.tool()
 def regenerate(
@@ -217,18 +254,24 @@ def upload_image(
     overwrite: bool = True,
 ) -> dict:
     """Upload image for ControlNet/I2V workflows."""
-    return execution.upload_image(image_path, filename, subfolder, overwrite)
+    home_dir = os.path.expanduser("~")
+    valid, resolved_path = _validate_path(image_path, home_dir)
+    if not valid:
+        return mcp_error(resolved_path, "VALIDATION_ERROR")
+    return execution.upload_image(resolved_path, filename, subfolder, overwrite)
 
 
 @mcp.tool()
 def download_output(asset_id: str, output_path: str) -> dict:
     """Download asset to local file."""
-    return execution.download_output(asset_id, output_path)
+    home_dir = os.path.expanduser("~")
+    valid, resolved_path = _validate_path(output_path, home_dir)
+    if not valid:
+        return mcp_error(resolved_path, "VALIDATION_ERROR")
+    return execution.download_output(asset_id, resolved_path)
 
 
-# =============================================================================
 # Publishing Tools
-# =============================================================================
 
 @mcp.tool()
 def publish_asset(
@@ -257,9 +300,7 @@ def set_publish_dir(publish_dir: str) -> dict:
     return publish.set_publish_dir(publish_dir)
 
 
-# =============================================================================
-# Persistence Tools (Workflow Library)
-# =============================================================================
+# Workflow Library
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -311,9 +352,7 @@ def workflow_library(
         return mcp_error(f"Invalid action: {action}. Use: save|load|list|delete|duplicate|export|import", "INVALID_PARAMS")
 
 
-# =============================================================================
-# VRAM Estimation Tools
-# =============================================================================
+# VRAM Tools
 
 @mcp.tool()
 def estimate_vram(workflow: dict) -> dict:
@@ -327,9 +366,7 @@ def check_model_fits(model_name: str, precision: str = "default") -> dict:
     return vram.check_model_fits(model_name, precision)
 
 
-# =============================================================================
-# Validation Tools (consolidated from 6 tools → 2)
-# =============================================================================
+# Validation Tools
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -400,9 +437,7 @@ def check_connection(source_type: str, source_slot: int, target_type: str, targe
     return validation.check_node_compatibility(source_type, source_slot, target_type, target_input)
 
 
-# =============================================================================
-# SOTA Model Recommendations
-# =============================================================================
+# SOTA Recommendations
 
 @mcp.tool()
 def sota_query(
@@ -435,9 +470,7 @@ def sota_query(
         return mcp_error(f"Invalid mode: {mode}. Use: category|recommend|check|settings|installed", "INVALID_PARAMS")
 
 
-# =============================================================================
 # Workflow Templates
-# =============================================================================
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -470,9 +503,7 @@ def create_workflow_from_template(template_name: str, parameters: dict) -> dict:
     return {"workflow": workflow, "template": template_name, "parameters_used": final_params}
 
 
-# =============================================================================
-# Workflow Pattern Tools (Prevent Drift)
-# =============================================================================
+# Workflow Patterns
 
 @mcp.tool()
 def get_workflow_skeleton(model: str, task: str) -> dict:
@@ -498,17 +529,7 @@ def get_node_chain(model: str, task: str) -> dict:
 # Converted to MCP resource - see comfyui://patterns/available
 
 
-# NOTE: Workflow Builder Tools (explain_workflow, get_required_nodes, get_connection_pattern,
-# compare_workflows) removed in token reduction. Use MCP Resources instead.
-
-# NOTE: Template Discovery Tools (find_template_for_task, get_templates_by_type,
-# get_templates_by_model, validate_all_templates) removed in token reduction.
-# Use list_templates() and filter client-side.
-
-
-# =============================================================================
 # Batch Execution
-# =============================================================================
 
 @mcp.tool()
 def batch_execute(
@@ -538,9 +559,7 @@ def batch_execute(
         return mcp_error(f"Invalid mode: {mode}. Use: batch|sweep|seeds", "INVALID_PARAMS")
 
 
-# =============================================================================
-# Multi-Stage Pipelines
-# =============================================================================
+# Pipelines
 
 @mcp.tool()
 def execute_pipeline_stages(stages: List[Dict[str, Any]], initial_params: Dict[str, Any], timeout_per_stage: int = 600) -> dict:
@@ -560,11 +579,7 @@ def run_upscale_pipeline(base_workflow: dict, upscale_workflow: dict, prompt: st
     return pipeline.create_upscale_pipeline(base_workflow, upscale_workflow, prompt, upscale_factor, seed)
 
 
-# =============================================================================
-# Templates as MCP Resources
-# =============================================================================
 # Model Management Tools
-# =============================================================================
 
 @mcp.tool()
 def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit: int = 10) -> dict:
@@ -576,6 +591,9 @@ def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit
 @mcp_tool_wrapper
 def download_model(url: str, model_type: str, filename: str = None, overwrite: bool = False) -> dict:
     """Download model from Civitai/HF. type: checkpoint|unet|lora|vae|controlnet|clip"""
+    valid, error_msg = _validate_url(url)
+    if not valid:
+        return mcp_error(error_msg, "VALIDATION_ERROR")
     return _to_mcp_response(models.download_model(url, model_type, filename, overwrite))
 
 
@@ -591,9 +609,7 @@ def list_installed_models(model_type: str = None) -> dict:
     return models.list_installed_models(model_type)
 
 
-# =============================================================================
-# Asset Analysis Tools
-# =============================================================================
+# Asset Analysis
 
 @mcp.tool()
 def get_image_dimensions(asset_id: str) -> dict:
@@ -614,15 +630,14 @@ def get_video_info(asset_id: str) -> dict:
     return analysis.get_video_info(asset_id)
 
 
-# =============================================================================
-# Quality Assurance Tools
-# =============================================================================
+# Quality Assurance
 
 @mcp.tool()
 @mcp_tool_wrapper
 def qa_output(asset_id: str, prompt: str, checks: Optional[List[str]] = None, vlm_model: Optional[str] = None) -> dict:
     """QA check via VLM. checks: prompt_match|artifacts|faces|text|composition"""
-    return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=prompt, checks=checks, vlm_model=vlm_model))
+    safe_prompt = _escape_user_content(prompt)
+    return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=safe_prompt, checks=checks, vlm_model=vlm_model))
 
 
 @mcp.tool()
@@ -631,9 +646,7 @@ def check_vlm_available(vlm_model: str = None) -> dict:
     return qa.check_vlm_available(vlm_model)
 
 
-# =============================================================================
-# Style Learning Tools (consolidated from 10 → 4 tools)
-# =============================================================================
+# Style Learning Tools
 
 @mcp.tool()
 def record_generation(
@@ -728,22 +741,10 @@ def manage_presets(
         return mcp_error(f"Unknown action: {action}. Use: list|get|save|delete")
 
 
-# NOTE: Schema Documentation Tools (get_tool_schema, list_tool_schemas, get_tool_output_schema)
-# removed in token reduction. MCP handles tool schemas natively.
-
-# NOTE: Tool Annotation Tools (get_tool_annotation, list_user_facing_tools, list_tools_by_category)
-# removed in token reduction. Available via annotations module for internal use.
 
 
-# NOTE: LLM Reference Documentation Tools removed in token reduction.
-# Use MCP Resources instead: comfyui://docs/patterns/{model}, comfyui://docs/rules, etc.
-# Tools removed: get_node_spec, list_node_specs, get_model_pattern, get_workflow_skeleton_json,
-# get_parameter_rules, search_patterns, get_llm_system_prompt, list_workflow_skeletons
 
-
-# =============================================================================
-# Workflow Generation & Validation Tools
-# =============================================================================
+# Workflow Generation
 
 @mcp.tool()
 def generate_workflow(
@@ -758,12 +759,48 @@ def generate_workflow(
     )
 
 
+# =============================================================================
+# Workflow Visualization Tools
+# =============================================================================
+
+@mcp.tool()
+def visualize_workflow(workflow: dict) -> dict:
+    """Generate Mermaid diagram from workflow for visualization."""
+    return visualization.visualize_workflow(workflow)
+
+
+@mcp.tool()
+def get_workflow_summary(workflow: dict) -> dict:
+    """Get text summary of workflow structure (node types, parameters)."""
+    return visualization.get_workflow_summary(workflow)
+
+
+# =============================================================================
+# Rate Limiting Dashboard Tools
+# =============================================================================
+
+@mcp.tool()
+def get_rate_limit_status(tool_name: str = None) -> dict:
+    """Get current rate limiting status. Shows requests remaining, reset time, usage."""
+    return rate_limiter.get_rate_limit_status(tool_name)
+
+
+@mcp.tool()
+def get_all_tools_rate_status() -> dict:
+    """Get rate limiting status for all tools."""
+    return rate_limiter.get_all_tools_rate_status()
+
+
+@mcp.tool()
+def get_rate_limit_summary() -> dict:
+    """Get brief summary of rate limit status for dashboard display."""
+    return rate_limiter.get_rate_limit_summary()
+
+
 # Converted to MCP resource - see comfyui://workflows/supported
 
 
-# =============================================================================
-# LLM Reference Documentation Resources
-# =============================================================================
+# MCP Resources
 
 @mcp.resource(
     "comfyui://docs/patterns/ltx",
