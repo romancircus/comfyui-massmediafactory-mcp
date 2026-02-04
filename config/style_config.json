@@ -1,0 +1,17 @@
+{
+  "style_prompt": "Roblox game character style, blocky toy-like proportions, cubic head, rectangular torso, cylindrical limbs, simple geometric shapes, smooth plastic texture, bright saturated colors, soft shadows, 3D rendered, children's game aesthetic, cute stylized",
+  "quality_suffix": "high quality, detailed, professional 3D render, 8k textures",
+  "negative_prompt": "realistic human proportions, photorealistic, realistic skin texture, uncanny valley, creepy, horror, scary, violence, blood, gore, adult content, blurry, low quality, distorted, deformed, ugly, bad anatomy",
+  "loras": [
+    {
+      "name": "roblox_bible",
+      "filename": "roblox_bible_v1.safetensors",
+      "weight": 0.8,
+      "trigger_word": "roblox_bible_style",
+      "required": false
+    }
+  ],
+  "use_emotion_modifiers": true,
+  "use_scene_type_modifiers": true,
+  "style_position": "prefix"
+}

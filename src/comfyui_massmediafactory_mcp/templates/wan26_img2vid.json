@@ -6,6 +6,7 @@
     "parameters": [
       "IMAGE_PATH",
       "PROMPT",
+      "NEGATIVE",
       "SEED",
       "FRAMES",
       "FPS"
@@ -14,7 +15,8 @@
       "SEED": 42,
       "FRAMES": 81,
       "FPS": 16,
-      "PROMPT": "smooth motion, high quality video"
+      "PROMPT": "smooth motion, high quality video",
+      "NEGATIVE": "worst quality, blurry, jittery"
     },
     "vram_min": 16,
     "tags": [
@@ -55,7 +57,7 @@
         0
       ],
       "prompt": "{{PROMPT}}",
-      "negative_prompt": "worst quality, blurry, jittery",
+      "negative_prompt": "{{NEGATIVE}}",
       "width": [
         "3",
         0
