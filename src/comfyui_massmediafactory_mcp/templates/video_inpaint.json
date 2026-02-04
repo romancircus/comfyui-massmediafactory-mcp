@@ -4,7 +4,13 @@
     "type": "video_edit",
     "use_case": "Edit/replace objects in video using first-frame mask propagation",
     "replaces": "Basic video masking workflows",
-    "parameters": ["VIDEO_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "DENOISE", "SEED"],
+    "parameters": [
+      "VIDEO_PATH",
+      "SELECT_TEXT",
+      "REPLACE_PROMPT",
+      "DENOISE",
+      "SEED"
+    ],
     "defaults": {
       "DENOISE": 0.7,
       "SEED": 42
@@ -28,13 +34,21 @@
         "Not suitable for: tracking moving objects, precise temporal consistency"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-VideoHelperSuite", "ComfyUI-CLIPSeg"],
+    "custom_nodes_required": [
+      "ComfyUI-VideoHelperSuite",
+      "ComfyUI-CLIPSeg"
+    ],
     "alternative_solutions": {
       "ProPainter": "Best for moving object removal with temporal consistency",
       "Kling O1": "Cloud API for complex video editing"
     },
     "vram_required_gb": 16,
-    "status": "EXPERIMENTAL - Uses static mask, not true temporal propagation"
+    "status": "EXPERIMENTAL - Uses static mask, not true temporal propagation",
+    "vram_min": 4,
+    "tags": [
+      "type:utility",
+      "capability:inpaint"
+    ]
   },
   "1": {
     "class_type": "VHS_LoadVideo",
@@ -51,7 +65,10 @@
     "class_type": "GetImageFromBatch",
     "_comment": "Get first frame for mask generation (node from ComfyUI-VideoHelperSuite or built-in)",
     "inputs": {
-      "images": ["1", 0],
+      "images": [
+        "1",
+        0
+      ],
       "index": 0
     }
   },
@@ -59,7 +76,10 @@
     "class_type": "CLIPSeg",
     "_comment": "Generate mask from text description on first frame",
     "inputs": {
-      "image": ["2", 0],
+      "image": [
+        "2",
+        0
+      ],
       "text": "{{SELECT_TEXT}}",
       "blur": 7,
       "threshold": 0.4
@@ -69,7 +89,10 @@
     "class_type": "GrowMask",
     "_comment": "Expand mask for better blending",
     "inputs": {
-      "mask": ["3", 0],
+      "mask": [
+        "3",
+        0
+      ],
       "expand": 8,
       "tapered_corners": true
     }
@@ -78,7 +101,10 @@
     "class_type": "RepeatMaskBatch",
     "_comment": "Repeat the same mask for all video frames (static masking)",
     "inputs": {
-      "mask": ["4", 0],
+      "mask": [
+        "4",
+        0
+      ],
       "amount": 120
     }
   },
@@ -106,14 +132,20 @@
   "9": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["7", 0],
+      "clip": [
+        "7",
+        0
+      ],
       "text": "{{REPLACE_PROMPT}}"
     }
   },
   "10": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["9", 0],
+      "conditioning": [
+        "9",
+        0
+      ],
       "guidance": 3.5
     }
   },
@@ -121,9 +153,18 @@
     "class_type": "VAEEncodeForInpaint",
     "_comment": "Encode video frames with mask for inpainting (supports batch)",
     "inputs": {
-      "pixels": ["1", 0],
-      "vae": ["8", 0],
-      "mask": ["5", 0],
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ],
+      "mask": [
+        "5",
+        0
+      ],
       "grow_mask_by": 6
     }
   },
@@ -136,7 +177,10 @@
   "13": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["6", 0],
+      "model": [
+        "6",
+        0
+      ],
       "scheduler": "simple",
       "steps": 15,
       "denoise": "{{DENOISE}}"
@@ -151,35 +195,68 @@
   "15": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["6", 0],
-      "conditioning": ["10", 0]
+      "model": [
+        "6",
+        0
+      ],
+      "conditioning": [
+        "10",
+        0
+      ]
     }
   },
   "16": {
     "class_type": "SamplerCustomAdvanced",
     "_comment": "Process all frames (batched latents, no temporal consistency)",
     "inputs": {
-      "noise": ["14", 0],
-      "guider": ["15", 0],
-      "sampler": ["12", 0],
-      "sigmas": ["13", 0],
-      "latent_image": ["11", 0]
+      "noise": [
+        "14",
+        0
+      ],
+      "guider": [
+        "15",
+        0
+      ],
+      "sampler": [
+        "12",
+        0
+      ],
+      "sigmas": [
+        "13",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
     }
   },
   "17": {
     "class_type": "VAEDecode",
     "_comment": "Decode all frames back to images (supports batch)",
     "inputs": {
-      "samples": ["16", 0],
-      "vae": ["8", 0]
+      "samples": [
+        "16",
+        0
+      ],
+      "vae": [
+        "8",
+        0
+      ]
     }
   },
   "18": {
     "class_type": "VHS_VideoCombine",
     "_comment": "Reconstruct video with original audio",
     "inputs": {
-      "images": ["17", 0],
-      "audio": ["1", 2],
+      "images": [
+        "17",
+        0
+      ],
+      "audio": [
+        "1",
+        2
+      ],
       "frame_rate": 24,
       "loop_count": 0,
       "filename_prefix": "video_inpaint",

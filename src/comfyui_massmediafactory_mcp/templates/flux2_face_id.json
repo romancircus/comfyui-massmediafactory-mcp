@@ -5,7 +5,16 @@
     "type": "txt2img_faceid",
     "use_case": "Generate images with consistent face identity (replaces Midjourney --cref)",
     "replaces": "Midjourney --cref (character reference)",
-    "parameters": ["PROMPT", "FACE_IMAGE", "FACE_STRENGTH", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+    "parameters": [
+      "PROMPT",
+      "FACE_IMAGE",
+      "FACE_STRENGTH",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "STEPS",
+      "GUIDANCE"
+    ],
     "defaults": {
       "WIDTH": 1024,
       "HEIGHT": 1024,
@@ -24,10 +33,21 @@
         "Works best with realistic prompts"
       ]
     },
-    "custom_nodes_required": ["ComfyUI_IPAdapter_plus", "ComfyUI_InstantID"],
-    "models_required": ["ip-adapter.bin", "antelopev2"],
+    "custom_nodes_required": [
+      "ComfyUI_IPAdapter_plus",
+      "ComfyUI_InstantID"
+    ],
+    "models_required": [
+      "ip-adapter.bin",
+      "antelopev2"
+    ],
     "vram_required_gb": 18,
-    "compatibility_note": "This template uses IP-Adapter for face consistency. For FLUX, ensure you have FLUX-compatible IP-Adapter models installed. Alternative: Use PuLID or InstantID custom nodes."
+    "compatibility_note": "This template uses IP-Adapter for face consistency. For FLUX, ensure you have FLUX-compatible IP-Adapter models installed. Alternative: Use PuLID or InstantID custom nodes.",
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "capability:face_id"
+    ]
   },
   "1": {
     "class_type": "UNETLoader",
@@ -75,10 +95,22 @@
     "class_type": "IPAdapterApply",
     "_comment": "Apply face reference to model conditioning",
     "inputs": {
-      "model": ["1", 0],
-      "ipadapter": ["5", 0],
-      "clip_vision": ["6", 0],
-      "image": ["4", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "ipadapter": [
+        "5",
+        0
+      ],
+      "clip_vision": [
+        "6",
+        0
+      ],
+      "image": [
+        "4",
+        0
+      ],
       "weight": "{{FACE_STRENGTH}}",
       "weight_type": "linear",
       "start_at": 0.0,
@@ -88,14 +120,20 @@
   "8": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "9": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["8", 0],
+      "conditioning": [
+        "8",
+        0
+      ],
       "guidance": "{{GUIDANCE}}"
     }
   },
@@ -116,7 +154,10 @@
   "12": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["7", 0],
+      "model": [
+        "7",
+        0
+      ],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": 1.0
@@ -131,31 +172,61 @@
   "14": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["7", 0],
-      "conditioning": ["9", 0]
+      "model": [
+        "7",
+        0
+      ],
+      "conditioning": [
+        "9",
+        0
+      ]
     }
   },
   "15": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["13", 0],
-      "guider": ["14", 0],
-      "sampler": ["11", 0],
-      "sigmas": ["12", 0],
-      "latent_image": ["10", 0]
+      "noise": [
+        "13",
+        0
+      ],
+      "guider": [
+        "14",
+        0
+      ],
+      "sampler": [
+        "11",
+        0
+      ],
+      "sigmas": [
+        "12",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
     }
   },
   "16": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["15", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "17": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["16", 0],
+      "images": [
+        "16",
+        0
+      ],
       "filename_prefix": "faceid_output"
     }
   }

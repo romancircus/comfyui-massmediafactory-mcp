@@ -190,7 +190,24 @@ TOOL_ANNOTATIONS: Dict[str, ToolAnnotation] = {
     "list_workflow_templates": ToolAnnotation(
         audience=["assistant"],
         priority=0.7,
-        category="templates"
+        category="templates",
+        params={
+            "only_installed": {
+                "type": "boolean",
+                "description": "Filter to only templates with installed models",
+                "default": False
+            },
+            "model_type": {
+                "type": "string",
+                "description": "Filter by model type (flux2, ltx2, wan26, qwen, hunyuan15, audio, utility)",
+                "enum": ["flux2", "ltx2", "wan26", "qwen", "hunyuan15", "sdxl", "telestyle", "audio", "utility"]
+            },
+            "tags": {
+                "type": "list",
+                "description": "Filter templates with specific tags (e.g., ['priority:recommended', 'type:audio2vid'])",
+                "default": []
+            }
+        }
     ),
     "get_template": ToolAnnotation(
         audience=["assistant"],

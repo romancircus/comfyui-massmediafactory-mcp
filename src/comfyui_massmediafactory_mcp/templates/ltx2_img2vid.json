@@ -4,7 +4,17 @@
     "model": "LTX-2 19B Dev FP8",
     "type": "img2vid",
     "source": "Based on official ComfyUI LTX-Video I2V examples",
-    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STRENGTH"],
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "FPS",
+      "STRENGTH"
+    ],
     "defaults": {
       "WIDTH": 768,
       "HEIGHT": 512,
@@ -18,11 +28,18 @@
       "vram_gb": 18,
       "steps": 30,
       "quality": "Maximum quality"
-    }
+    },
+    "vram_min": 12,
+    "tags": [
+      "model:ltx",
+      "priority:recommended"
+    ]
   },
   "1": {
     "class_type": "LTXVLoader",
-    "_meta": { "title": "Load LTX-2 Model" },
+    "_meta": {
+      "title": "Load LTX-2 Model"
+    },
     "inputs": {
       "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
       "dtype": "bfloat16"
@@ -30,52 +47,91 @@
   },
   "2": {
     "class_type": "LoadImage",
-    "_meta": { "title": "Load Input Image" },
+    "_meta": {
+      "title": "Load Input Image"
+    },
     "inputs": {
       "image": "{{IMAGE_PATH}}"
     }
   },
   "3": {
     "class_type": "LTXVPreprocess",
-    "_meta": { "title": "Preprocess Image for Video" },
+    "_meta": {
+      "title": "Preprocess Image for Video"
+    },
     "inputs": {
-      "image": ["2", 0],
+      "image": [
+        "2",
+        0
+      ],
       "strength": "{{STRENGTH}}"
     }
   },
   "4": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "5": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "6": {
     "class_type": "LTXVConditioning",
-    "_meta": { "title": "Apply Frame Rate Conditioning" },
+    "_meta": {
+      "title": "Apply Frame Rate Conditioning"
+    },
     "inputs": {
-      "positive": ["4", 0],
-      "negative": ["5", 0],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
       "frame_rate": "{{FPS}}"
     }
   },
   "7": {
     "class_type": "LTXVImgToVideo",
-    "_meta": { "title": "Create I2V Latent" },
+    "_meta": {
+      "title": "Create I2V Latent"
+    },
     "inputs": {
-      "positive": ["6", 0],
-      "negative": ["6", 1],
-      "vae": ["1", 2],
-      "image": ["3", 0],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "6",
+        1
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "image": [
+        "3",
+        0
+      ],
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
       "length": "{{FRAMES}}",
@@ -84,7 +140,9 @@
   },
   "8": {
     "class_type": "LTXVScheduler",
-    "_meta": { "title": "LTX Scheduler" },
+    "_meta": {
+      "title": "LTX Scheduler"
+    },
     "inputs": {
       "steps": 30,
       "max_shift": 2.05,
@@ -94,39 +152,74 @@
   },
   "9": {
     "class_type": "KSamplerSelect",
-    "_meta": { "title": "Select Sampler" },
+    "_meta": {
+      "title": "Select Sampler"
+    },
     "inputs": {
       "sampler_name": "euler"
     }
   },
   "10": {
     "class_type": "SamplerCustom",
-    "_meta": { "title": "Sample Video" },
+    "_meta": {
+      "title": "Sample Video"
+    },
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "add_noise": true,
       "noise_seed": "{{SEED}}",
       "cfg": 3.0,
-      "positive": ["7", 0],
-      "negative": ["7", 1],
-      "sampler": ["9", 0],
-      "sigmas": ["8", 0],
-      "latent_image": ["7", 2]
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        1
+      ],
+      "sampler": [
+        "9",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "7",
+        2
+      ]
     }
   },
   "11": {
     "class_type": "VAEDecode",
-    "_meta": { "title": "Decode Latent to Video" },
+    "_meta": {
+      "title": "Decode Latent to Video"
+    },
     "inputs": {
-      "samples": ["10", 0],
-      "vae": ["1", 2]
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
     }
   },
   "12": {
     "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Save Video" },
+    "_meta": {
+      "title": "Save Video"
+    },
     "inputs": {
-      "images": ["11", 0],
+      "images": [
+        "11",
+        0
+      ],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
       "filename_prefix": "ltx2_i2v",

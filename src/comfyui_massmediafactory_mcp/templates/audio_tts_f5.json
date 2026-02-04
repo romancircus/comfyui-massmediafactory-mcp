@@ -4,7 +4,13 @@
     "type": "audio_tts",
     "use_case": "Generate spoken audio from text (replaces ElevenLabs)",
     "replaces": "ElevenLabs TTS",
-    "parameters": ["TEXT", "REFERENCE_AUDIO", "REFERENCE_TEXT", "SPEED", "SEED"],
+    "parameters": [
+      "TEXT",
+      "REFERENCE_AUDIO",
+      "REFERENCE_TEXT",
+      "SPEED",
+      "SEED"
+    ],
     "defaults": {
       "SPEED": 1.0,
       "SEED": 42
@@ -16,8 +22,16 @@
       "SPEED": "Speech speed multiplier (0.5-2.0)",
       "output_formula": "For video sync: video_frames = (audio_duration_seconds * fps)"
     },
-    "custom_nodes_required": ["ComfyUI-F5-TTS"],
-    "installation": "Install via ComfyUI Manager: search 'F5-TTS'"
+    "custom_nodes_required": [
+      "ComfyUI-F5-TTS"
+    ],
+    "installation": "Install via ComfyUI Manager: search 'F5-TTS'",
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts",
+      "model:f5_tts"
+    ]
   },
   "1": {
     "class_type": "F5TTSModelLoader",
@@ -31,7 +45,10 @@
     "class_type": "F5TTSGenerate",
     "_comment": "Generate speech from text",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "text": "{{TEXT}}",
       "seed": "{{SEED}}",
       "speed": "{{SPEED}}"
@@ -40,7 +57,10 @@
   "3": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["2", 0],
+      "audio": [
+        "2",
+        0
+      ],
       "filename_prefix": "tts_output"
     }
   },
@@ -48,7 +68,10 @@
     "class_type": "GetAudioDuration",
     "_comment": "Output duration for video sync calculations",
     "inputs": {
-      "audio": ["2", 0]
+      "audio": [
+        "2",
+        0
+      ]
     }
   }
 }

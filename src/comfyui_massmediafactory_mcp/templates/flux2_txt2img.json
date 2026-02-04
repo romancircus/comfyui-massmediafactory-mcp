@@ -3,14 +3,26 @@
     "description": "FLUX.2-dev text-to-image workflow",
     "model": "FLUX.2-dev",
     "type": "txt2img",
-    "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+    "parameters": [
+      "PROMPT",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "STEPS",
+      "GUIDANCE"
+    ],
     "defaults": {
       "WIDTH": 1024,
       "HEIGHT": 1024,
       "SEED": 42,
       "STEPS": 20,
       "GUIDANCE": 3.5
-    }
+    },
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "priority:recommended"
+    ]
   },
   "1": {
     "class_type": "UNETLoader",
@@ -36,14 +48,20 @@
   "4": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "5": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["4", 0],
+      "conditioning": [
+        "4",
+        0
+      ],
       "guidance": "{{GUIDANCE}}"
     }
   },
@@ -64,7 +82,10 @@
   "8": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": 1.0
@@ -79,31 +100,61 @@
   "10": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["1", 0],
-      "conditioning": ["5", 0]
+      "model": [
+        "1",
+        0
+      ],
+      "conditioning": [
+        "5",
+        0
+      ]
     }
   },
   "11": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["9", 0],
-      "guider": ["10", 0],
-      "sampler": ["7", 0],
-      "sigmas": ["8", 0],
-      "latent_image": ["6", 0]
+      "noise": [
+        "9",
+        0
+      ],
+      "guider": [
+        "10",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
     }
   },
   "12": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["11", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "13": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["12", 0],
+      "images": [
+        "12",
+        0
+      ],
       "filename_prefix": "flux2_output"
     }
   }

@@ -5,7 +5,18 @@
     "type": "txt2img_styled",
     "use_case": "Apply art styles via LoRA stacking",
     "replaces": "Midjourney --style, --niji, etc.",
-    "parameters": ["PROMPT", "LORA_1", "LORA_1_STRENGTH", "LORA_2", "LORA_2_STRENGTH", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
+    "parameters": [
+      "PROMPT",
+      "LORA_1",
+      "LORA_1_STRENGTH",
+      "LORA_2",
+      "LORA_2_STRENGTH",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "STEPS",
+      "GUIDANCE"
+    ],
     "defaults": {
       "WIDTH": 1024,
       "HEIGHT": 1024,
@@ -34,7 +45,12 @@
         "secondary_style": "0.3-0.5",
         "detail_enhancement": "0.4-0.6"
       }
-    }
+    },
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "capability:lora"
+    ]
   },
   "1": {
     "class_type": "UNETLoader",
@@ -61,8 +77,14 @@
     "class_type": "LoraLoader",
     "_comment": "Primary style LoRA",
     "inputs": {
-      "model": ["1", 0],
-      "clip": ["2", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "clip": [
+        "2",
+        0
+      ],
       "lora_name": "{{LORA_1}}",
       "strength_model": "{{LORA_1_STRENGTH}}",
       "strength_clip": "{{LORA_1_STRENGTH}}"
@@ -72,8 +94,14 @@
     "class_type": "LoraLoader",
     "_comment": "Secondary style LoRA (optional - set strength to 0 to disable)",
     "inputs": {
-      "model": ["4", 0],
-      "clip": ["4", 1],
+      "model": [
+        "4",
+        0
+      ],
+      "clip": [
+        "4",
+        1
+      ],
       "lora_name": "{{LORA_2}}",
       "strength_model": "{{LORA_2_STRENGTH}}",
       "strength_clip": "{{LORA_2_STRENGTH}}"
@@ -82,14 +110,20 @@
   "6": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["5", 1],
+      "clip": [
+        "5",
+        1
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "7": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["6", 0],
+      "conditioning": [
+        "6",
+        0
+      ],
       "guidance": "{{GUIDANCE}}"
     }
   },
@@ -110,7 +144,10 @@
   "10": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["5", 0],
+      "model": [
+        "5",
+        0
+      ],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": 1.0
@@ -125,31 +162,61 @@
   "12": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["5", 0],
-      "conditioning": ["7", 0]
+      "model": [
+        "5",
+        0
+      ],
+      "conditioning": [
+        "7",
+        0
+      ]
     }
   },
   "13": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["11", 0],
-      "guider": ["12", 0],
-      "sampler": ["9", 0],
-      "sigmas": ["10", 0],
-      "latent_image": ["8", 0]
+      "noise": [
+        "11",
+        0
+      ],
+      "guider": [
+        "12",
+        0
+      ],
+      "sampler": [
+        "9",
+        0
+      ],
+      "sigmas": [
+        "10",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ]
     }
   },
   "14": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["13", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "15": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["14", 0],
+      "images": [
+        "14",
+        0
+      ],
       "filename_prefix": "flux2_styled"
     }
   }

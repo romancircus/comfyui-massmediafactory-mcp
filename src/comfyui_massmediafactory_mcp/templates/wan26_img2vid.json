@@ -3,13 +3,24 @@
     "description": "Wan 2.6 image-to-video workflow",
     "model": "Wan 2.6",
     "type": "img2vid",
-    "parameters": ["IMAGE_PATH", "PROMPT", "SEED", "FRAMES", "FPS"],
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "SEED",
+      "FRAMES",
+      "FPS"
+    ],
     "defaults": {
       "SEED": 42,
       "FRAMES": 81,
       "FPS": 16,
       "PROMPT": "smooth motion, high quality video"
-    }
+    },
+    "vram_min": 16,
+    "tags": [
+      "model:wan",
+      "priority:recommended"
+    ]
   },
   "1": {
     "class_type": "DownloadAndLoadWanModel",
@@ -26,18 +37,33 @@
   "3": {
     "class_type": "GetImageSize",
     "inputs": {
-      "image": ["2", 0]
+      "image": [
+        "2",
+        0
+      ]
     }
   },
   "4": {
     "class_type": "WanImageToVideo",
     "inputs": {
-      "model": ["1", 0],
-      "image": ["2", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "image": [
+        "2",
+        0
+      ],
       "prompt": "{{PROMPT}}",
       "negative_prompt": "worst quality, blurry, jittery",
-      "width": ["3", 0],
-      "height": ["3", 1],
+      "width": [
+        "3",
+        0
+      ],
+      "height": [
+        "3",
+        1
+      ],
       "num_frames": "{{FRAMES}}",
       "guidance_scale": 5.0,
       "flow_shift": 3.0,
@@ -50,7 +76,10 @@
   "5": {
     "class_type": "VHS_VideoCombine",
     "inputs": {
-      "images": ["4", 0],
+      "images": [
+        "4",
+        0
+      ],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
       "filename_prefix": "wan26_output",

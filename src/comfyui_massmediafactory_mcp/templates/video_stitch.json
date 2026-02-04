@@ -4,7 +4,14 @@
     "type": "video_combine",
     "use_case": "Combine video clips with optional transitions (replaces basic Premiere/CapCut edits)",
     "replaces": "Premiere Pro / CapCut for simple video combining",
-    "parameters": ["VIDEO_1", "VIDEO_2", "VIDEO_3", "TRANSITION_TYPE", "TRANSITION_FRAMES", "OUTPUT_FPS"],
+    "parameters": [
+      "VIDEO_1",
+      "VIDEO_2",
+      "VIDEO_3",
+      "TRANSITION_TYPE",
+      "TRANSITION_FRAMES",
+      "OUTPUT_FPS"
+    ],
     "defaults": {
       "VIDEO_3": "",
       "TRANSITION_TYPE": "none",
@@ -23,9 +30,16 @@
         "For complex edits, use dedicated video editor"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-VideoHelperSuite"],
+    "custom_nodes_required": [
+      "ComfyUI-VideoHelperSuite"
+    ],
     "vram_required_gb": 4,
-    "note": "VHS node names verified against VideoHelperSuite. If nodes not found, check custom_nodes installation."
+    "note": "VHS node names verified against VideoHelperSuite. If nodes not found, check custom_nodes installation.",
+    "vram_min": 4,
+    "tags": [
+      "type:utility",
+      "capability:stitch"
+    ]
   },
   "1": {
     "class_type": "VHS_LoadVideo",
@@ -59,24 +73,42 @@
     "class_type": "VHS_MergeImages",
     "_comment": "Concatenate video frames (simple merge, no transition)",
     "inputs": {
-      "images_a": ["1", 0],
-      "images_b": ["2", 0]
+      "images_a": [
+        "1",
+        0
+      ],
+      "images_b": [
+        "2",
+        0
+      ]
     }
   },
   "4": {
     "class_type": "VHS_MergeAudio",
     "_comment": "Concatenate audio tracks",
     "inputs": {
-      "audio_a": ["1", 2],
-      "audio_b": ["2", 2]
+      "audio_a": [
+        "1",
+        2
+      ],
+      "audio_b": [
+        "2",
+        2
+      ]
     }
   },
   "5": {
     "class_type": "VHS_VideoCombine",
     "_comment": "Export combined video with audio",
     "inputs": {
-      "images": ["3", 0],
-      "audio": ["4", 0],
+      "images": [
+        "3",
+        0
+      ],
+      "audio": [
+        "4",
+        0
+      ],
       "frame_rate": "{{OUTPUT_FPS}}",
       "loop_count": 0,
       "filename_prefix": "stitched_video",

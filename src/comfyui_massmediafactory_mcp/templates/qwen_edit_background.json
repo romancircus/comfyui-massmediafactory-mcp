@@ -3,7 +3,13 @@
     "description": "Qwen Image Edit 2511 background replacement workflow",
     "model": "qwen_image_edit_2511",
     "type": "edit",
-    "parameters": ["IMAGE_PATH", "EDIT_PROMPT", "SEED", "CFG", "STEPS"],
+    "parameters": [
+      "IMAGE_PATH",
+      "EDIT_PROMPT",
+      "SEED",
+      "CFG",
+      "STEPS"
+    ],
     "defaults": {
       "SEED": 42,
       "CFG": 2.0,
@@ -14,7 +20,12 @@
       "denoise": "Fixed at 1.0. Lower values preserve original including background you want to change.",
       "latent": "Uses EmptyQwenImageLayeredLatentImage, NOT VAEEncode. VAEEncode approach fails for background replacement.",
       "workflow": "Image passed to TextEncodeQwenImageEditPlus as visual reference. Model regenerates while matching reference."
-    }
+    },
+    "vram_min": 24,
+    "tags": [
+      "model:qwen",
+      "capability:edit"
+    ]
   },
   "1": {
     "class_type": "LoadImage",
@@ -45,16 +56,28 @@
   "5": {
     "class_type": "TextEncodeQwenImageEditPlus",
     "inputs": {
-      "clip": ["3", 0],
+      "clip": [
+        "3",
+        0
+      ],
       "prompt": "{{EDIT_PROMPT}}",
-      "vae": ["4", 0],
-      "image1": ["1", 0]
+      "vae": [
+        "4",
+        0
+      ],
+      "image1": [
+        "1",
+        0
+      ]
     }
   },
   "6": {
     "class_type": "ConditioningZeroOut",
     "inputs": {
-      "conditioning": ["5", 0]
+      "conditioning": [
+        "5",
+        0
+      ]
     }
   },
   "7": {
@@ -69,29 +92,50 @@
   "8": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["2", 0],
+      "model": [
+        "2",
+        0
+      ],
       "seed": "{{SEED}}",
       "steps": "{{STEPS}}",
       "cfg": "{{CFG}}",
       "sampler_name": "euler",
       "scheduler": "normal",
-      "positive": ["5", 0],
-      "negative": ["6", 0],
-      "latent_image": ["7", 0],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
       "denoise": 1.0
     }
   },
   "9": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["8", 0],
-      "vae": ["4", 0]
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
     }
   },
   "10": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["9", 0],
+      "images": [
+        "9",
+        0
+      ],
       "filename_prefix": "qwen_edit_output"
     }
   }

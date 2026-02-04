@@ -5,7 +5,14 @@
     "type": "inpainting_precise",
     "use_case": "High-precision inpainting using GroundingDINO detection + SAM segmentation",
     "replaces": "DALL-E inpainting (with higher precision than CLIPSeg)",
-    "parameters": ["IMAGE_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "DETECTION_THRESHOLD", "DENOISE", "SEED"],
+    "parameters": [
+      "IMAGE_PATH",
+      "SELECT_TEXT",
+      "REPLACE_PROMPT",
+      "DETECTION_THRESHOLD",
+      "DENOISE",
+      "SEED"
+    ],
     "defaults": {
       "DETECTION_THRESHOLD": 0.3,
       "DENOISE": 0.85,
@@ -25,10 +32,20 @@
         "Object detection with bounding boxes needed"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-segment-anything"],
-    "models_required": ["GroundingDINO_SwinT_OGC.py", "sam_vit_h_4b8939.pth"],
+    "custom_nodes_required": [
+      "ComfyUI-segment-anything"
+    ],
+    "models_required": [
+      "GroundingDINO_SwinT_OGC.py",
+      "sam_vit_h_4b8939.pth"
+    ],
     "vram_required_gb": 12,
-    "node_name_note": "Node class names may vary by custom_node version. Common variants: 'GroundingDinoModelLoader (segment anything)', 'SAMModelLoader (segment anything)', 'GroundingDinoSAMSegment (segment anything)'. Adjust class_type if nodes not found."
+    "node_name_note": "Node class names may vary by custom_node version. Common variants: 'GroundingDinoModelLoader (segment anything)', 'SAMModelLoader (segment anything)', 'GroundingDinoSAMSegment (segment anything)'. Adjust class_type if nodes not found.",
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "capability:inpaint"
+    ]
   },
   "1": {
     "class_type": "LoadImage",
@@ -54,8 +71,14 @@
     "class_type": "GroundingDinoDetect",
     "_comment": "Detect object bounding boxes from text",
     "inputs": {
-      "model": ["2", 0],
-      "image": ["1", 0],
+      "model": [
+        "2",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
       "prompt": "{{SELECT_TEXT}}",
       "threshold": "{{DETECTION_THRESHOLD}}"
     }
@@ -64,16 +87,28 @@
     "class_type": "SAMSegment",
     "_comment": "Generate precise mask from bounding boxes",
     "inputs": {
-      "sam_model": ["3", 0],
-      "image": ["1", 0],
-      "boxes": ["4", 0]
+      "sam_model": [
+        "3",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ],
+      "boxes": [
+        "4",
+        0
+      ]
     }
   },
   "6": {
     "class_type": "GrowMask",
     "_comment": "Slightly expand mask for better blending",
     "inputs": {
-      "mask": ["5", 0],
+      "mask": [
+        "5",
+        0
+      ],
       "expand": 4,
       "tapered_corners": true
     }
@@ -82,7 +117,10 @@
     "class_type": "MaskToImage",
     "_comment": "Preview the generated mask",
     "inputs": {
-      "mask": ["6", 0]
+      "mask": [
+        "6",
+        0
+      ]
     }
   },
   "8": {
@@ -109,23 +147,38 @@
   "11": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["9", 0],
+      "clip": [
+        "9",
+        0
+      ],
       "text": "{{REPLACE_PROMPT}}"
     }
   },
   "12": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["11", 0],
+      "conditioning": [
+        "11",
+        0
+      ],
       "guidance": 3.5
     }
   },
   "13": {
     "class_type": "VAEEncodeForInpaint",
     "inputs": {
-      "pixels": ["1", 0],
-      "vae": ["10", 0],
-      "mask": ["6", 0],
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ],
+      "mask": [
+        "6",
+        0
+      ],
       "grow_mask_by": 6
     }
   },
@@ -138,7 +191,10 @@
   "15": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["8", 0],
+      "model": [
+        "8",
+        0
+      ],
       "scheduler": "simple",
       "steps": 20,
       "denoise": "{{DENOISE}}"
@@ -153,31 +209,61 @@
   "17": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["8", 0],
-      "conditioning": ["12", 0]
+      "model": [
+        "8",
+        0
+      ],
+      "conditioning": [
+        "12",
+        0
+      ]
     }
   },
   "18": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["16", 0],
-      "guider": ["17", 0],
-      "sampler": ["14", 0],
-      "sigmas": ["15", 0],
-      "latent_image": ["13", 0]
+      "noise": [
+        "16",
+        0
+      ],
+      "guider": [
+        "17",
+        0
+      ],
+      "sampler": [
+        "14",
+        0
+      ],
+      "sigmas": [
+        "15",
+        0
+      ],
+      "latent_image": [
+        "13",
+        0
+      ]
     }
   },
   "19": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["18", 0],
-      "vae": ["10", 0]
+      "samples": [
+        "18",
+        0
+      ],
+      "vae": [
+        "10",
+        0
+      ]
     }
   },
   "20": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["19", 0],
+      "images": [
+        "19",
+        0
+      ],
       "filename_prefix": "grounding_dino_inpaint"
     }
   }

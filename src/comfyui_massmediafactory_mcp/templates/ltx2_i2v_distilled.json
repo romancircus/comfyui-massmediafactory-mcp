@@ -4,7 +4,18 @@
     "model": "LTX-2 19B Distilled",
     "type": "img2vid",
     "source": "Based on official Lightricks LTX-2_I2V_Distilled workflow",
-    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS", "STRENGTH"],
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "STRENGTH"
+    ],
     "defaults": {
       "WIDTH": 768,
       "HEIGHT": 512,
@@ -19,18 +30,27 @@
       "vram_gb": 16,
       "speed": "3-4x faster than full model",
       "quality": "90-95% of full model"
-    }
+    },
+    "vram_min": 12,
+    "tags": [
+      "model:ltx",
+      "type:distilled"
+    ]
   },
   "1": {
     "class_type": "CheckpointLoaderSimple",
-    "_meta": { "title": "Load LTX-2 Distilled Model" },
+    "_meta": {
+      "title": "Load LTX-2 Distilled Model"
+    },
     "inputs": {
       "ckpt_name": "ltx-2-19b-distilled-fp8.safetensors"
     }
   },
   "2": {
     "class_type": "LTXVGemmaCLIPModelLoader",
-    "_meta": { "title": "Load Gemma-3 Text Encoder" },
+    "_meta": {
+      "title": "Load Gemma-3 Text Encoder"
+    },
     "inputs": {
       "gemma_path": "gemma_3_12B_it_fp8_e4m3fn.safetensors",
       "ltxv_path": "ltx-2-19b-distilled-fp8.safetensors",
@@ -39,24 +59,36 @@
   },
   "3": {
     "class_type": "LoadImage",
-    "_meta": { "title": "Load Input Image" },
+    "_meta": {
+      "title": "Load Input Image"
+    },
     "inputs": {
       "image": "{{IMAGE_PATH}}"
     }
   },
   "4": {
     "class_type": "LTXVPreprocess",
-    "_meta": { "title": "Preprocess Image for Video" },
+    "_meta": {
+      "title": "Preprocess Image for Video"
+    },
     "inputs": {
-      "image": ["3", 0],
+      "image": [
+        "3",
+        0
+      ],
       "strength": "{{STRENGTH}}"
     }
   },
   "5": {
     "class_type": "LTXVGemmaEnhancePrompt",
-    "_meta": { "title": "Enhance Prompt with AI" },
+    "_meta": {
+      "title": "Enhance Prompt with AI"
+    },
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "prompt": "{{PROMPT}}",
       "max_tokens": 512,
       "bypass_i2v": false,
@@ -65,37 +97,72 @@
   },
   "6": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Enhanced Prompt" },
+    "_meta": {
+      "title": "Encode Enhanced Prompt"
+    },
     "inputs": {
-      "clip": ["2", 0],
-      "text": ["5", 0]
+      "clip": [
+        "2",
+        0
+      ],
+      "text": [
+        "5",
+        0
+      ]
     }
   },
   "7": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "8": {
     "class_type": "LTXVConditioning",
-    "_meta": { "title": "Apply Frame Rate Conditioning" },
+    "_meta": {
+      "title": "Apply Frame Rate Conditioning"
+    },
     "inputs": {
-      "positive": ["6", 0],
-      "negative": ["7", 0],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
       "frame_rate": "{{FPS}}"
     }
   },
   "9": {
     "class_type": "LTXVImgToVideo",
-    "_meta": { "title": "Create I2V Latent" },
+    "_meta": {
+      "title": "Create I2V Latent"
+    },
     "inputs": {
-      "positive": ["8", 0],
-      "negative": ["8", 1],
-      "vae": ["1", 2],
-      "image": ["4", 0],
+      "positive": [
+        "8",
+        0
+      ],
+      "negative": [
+        "8",
+        1
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "image": [
+        "4",
+        0
+      ],
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
       "length": "{{FRAMES}}",
@@ -104,7 +171,9 @@
   },
   "10": {
     "class_type": "LTXVScheduler",
-    "_meta": { "title": "LTX Scheduler (Distilled)" },
+    "_meta": {
+      "title": "LTX Scheduler (Distilled)"
+    },
     "inputs": {
       "steps": "{{STEPS}}",
       "max_shift": 2.05,
@@ -114,39 +183,74 @@
   },
   "11": {
     "class_type": "KSamplerSelect",
-    "_meta": { "title": "Select Sampler" },
+    "_meta": {
+      "title": "Select Sampler"
+    },
     "inputs": {
       "sampler_name": "euler"
     }
   },
   "12": {
     "class_type": "SamplerCustom",
-    "_meta": { "title": "Sample Video" },
+    "_meta": {
+      "title": "Sample Video"
+    },
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "add_noise": true,
       "noise_seed": "{{SEED}}",
       "cfg": 2.5,
-      "positive": ["9", 0],
-      "negative": ["9", 1],
-      "sampler": ["11", 0],
-      "sigmas": ["10", 0],
-      "latent_image": ["9", 2]
+      "positive": [
+        "9",
+        0
+      ],
+      "negative": [
+        "9",
+        1
+      ],
+      "sampler": [
+        "11",
+        0
+      ],
+      "sigmas": [
+        "10",
+        0
+      ],
+      "latent_image": [
+        "9",
+        2
+      ]
     }
   },
   "13": {
     "class_type": "VAEDecode",
-    "_meta": { "title": "Decode Latent to Video" },
+    "_meta": {
+      "title": "Decode Latent to Video"
+    },
     "inputs": {
-      "samples": ["12", 0],
-      "vae": ["1", 2]
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
     }
   },
   "14": {
     "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Save Video" },
+    "_meta": {
+      "title": "Save Video"
+    },
     "inputs": {
-      "images": ["13", 0],
+      "images": [
+        "13",
+        0
+      ],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
       "filename_prefix": "ltx2_i2v_distilled",

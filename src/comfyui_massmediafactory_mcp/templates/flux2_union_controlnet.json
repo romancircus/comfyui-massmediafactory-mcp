@@ -3,7 +3,15 @@
     "description": "FLUX.2-dev with Union ControlNet for multi-mode conditioning",
     "model": "FLUX.2-dev",
     "type": "img2img_controlnet",
-    "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "IMAGE_PATH", "CONTROL_MODE", "CONTROL_STRENGTH"],
+    "parameters": [
+      "PROMPT",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "IMAGE_PATH",
+      "CONTROL_MODE",
+      "CONTROL_STRENGTH"
+    ],
     "defaults": {
       "WIDTH": 1024,
       "HEIGHT": 1024,
@@ -18,7 +26,12 @@
       "normal": 3
     },
     "rtx5090_precision": "fp16",
-    "estimated_vram_gb": 27
+    "estimated_vram_gb": 27,
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "capability:controlnet"
+    ]
   },
   "1": {
     "class_type": "UNETLoader",
@@ -56,24 +69,42 @@
   "6": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "7": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["6", 0],
+      "conditioning": [
+        "6",
+        0
+      ],
       "guidance": 3.5
     }
   },
   "8": {
     "class_type": "ControlNetApplyAdvanced",
     "inputs": {
-      "positive": ["7", 0],
-      "negative": ["7", 0],
-      "control_net": ["5", 0],
-      "image": ["4", 0],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "control_net": [
+        "5",
+        0
+      ],
+      "image": [
+        "4",
+        0
+      ],
       "strength": "{{CONTROL_STRENGTH}}",
       "start_percent": 0.0,
       "end_percent": 1.0,
@@ -97,7 +128,10 @@
   "11": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "scheduler": "simple",
       "steps": 20,
       "denoise": 1.0
@@ -112,31 +146,61 @@
   "13": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["1", 0],
-      "conditioning": ["8", 0]
+      "model": [
+        "1",
+        0
+      ],
+      "conditioning": [
+        "8",
+        0
+      ]
     }
   },
   "14": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["12", 0],
-      "guider": ["13", 0],
-      "sampler": ["10", 0],
-      "sigmas": ["11", 0],
-      "latent_image": ["9", 0]
+      "noise": [
+        "12",
+        0
+      ],
+      "guider": [
+        "13",
+        0
+      ],
+      "sampler": [
+        "10",
+        0
+      ],
+      "sigmas": [
+        "11",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
     }
   },
   "15": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["14", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "14",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "16": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["15", 0],
+      "images": [
+        "15",
+        0
+      ],
       "filename_prefix": "flux2_controlnet"
     }
   }

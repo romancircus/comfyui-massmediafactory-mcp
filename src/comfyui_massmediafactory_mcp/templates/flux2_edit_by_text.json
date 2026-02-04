@@ -5,7 +5,15 @@
     "type": "inpainting",
     "use_case": "Edit specific objects in an image by describing what to select",
     "replaces": "DALL-E inpainting (Select & Edit)",
-    "parameters": ["IMAGE_PATH", "SELECT_TEXT", "REPLACE_PROMPT", "SEED", "STEPS", "GUIDANCE", "DENOISE"],
+    "parameters": [
+      "IMAGE_PATH",
+      "SELECT_TEXT",
+      "REPLACE_PROMPT",
+      "SEED",
+      "STEPS",
+      "GUIDANCE",
+      "DENOISE"
+    ],
     "defaults": {
       "SEED": 42,
       "STEPS": 20,
@@ -16,7 +24,12 @@
       "SELECT_TEXT": "Describe the object to edit (e.g., 'the red car', 'person's face', 'background sky')",
       "REPLACE_PROMPT": "Describe what the selected area should become",
       "DENOISE": "0.7-0.9 for moderate changes, 0.3-0.5 for subtle refinements"
-    }
+    },
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "priority:recommended"
+    ]
   },
   "1": {
     "class_type": "LoadImage",
@@ -28,7 +41,10 @@
     "class_type": "CLIPSeg",
     "_comment": "Text-to-mask: converts text description into binary mask",
     "inputs": {
-      "image": ["1", 0],
+      "image": [
+        "1",
+        0
+      ],
       "text": "{{SELECT_TEXT}}",
       "blur": 7,
       "threshold": 0.4
@@ -38,7 +54,10 @@
     "class_type": "GrowMask",
     "_comment": "Expand mask slightly for better blending",
     "inputs": {
-      "mask": ["2", 0],
+      "mask": [
+        "2",
+        0
+      ],
       "expand": 8,
       "tapered_corners": true
     }
@@ -47,7 +66,10 @@
     "class_type": "MaskToImage",
     "_comment": "Optional: preview the generated mask",
     "inputs": {
-      "mask": ["3", 0]
+      "mask": [
+        "3",
+        0
+      ]
     }
   },
   "5": {
@@ -74,14 +96,20 @@
   "8": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["6", 0],
+      "clip": [
+        "6",
+        0
+      ],
       "text": "{{REPLACE_PROMPT}}"
     }
   },
   "9": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["8", 0],
+      "conditioning": [
+        "8",
+        0
+      ],
       "guidance": "{{GUIDANCE}}"
     }
   },
@@ -89,9 +117,18 @@
     "class_type": "VAEEncodeForInpaint",
     "_comment": "Encodes image + mask for inpainting",
     "inputs": {
-      "pixels": ["1", 0],
-      "vae": ["7", 0],
-      "mask": ["3", 0],
+      "pixels": [
+        "1",
+        0
+      ],
+      "vae": [
+        "7",
+        0
+      ],
+      "mask": [
+        "3",
+        0
+      ],
       "grow_mask_by": 6
     }
   },
@@ -104,7 +141,10 @@
   "12": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["5", 0],
+      "model": [
+        "5",
+        0
+      ],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": "{{DENOISE}}"
@@ -119,31 +159,61 @@
   "14": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["5", 0],
-      "conditioning": ["9", 0]
+      "model": [
+        "5",
+        0
+      ],
+      "conditioning": [
+        "9",
+        0
+      ]
     }
   },
   "15": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["13", 0],
-      "guider": ["14", 0],
-      "sampler": ["11", 0],
-      "sigmas": ["12", 0],
-      "latent_image": ["10", 0]
+      "noise": [
+        "13",
+        0
+      ],
+      "guider": [
+        "14",
+        0
+      ],
+      "sampler": [
+        "11",
+        0
+      ],
+      "sigmas": [
+        "12",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
     }
   },
   "16": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["15", 0],
-      "vae": ["7", 0]
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "7",
+        0
+      ]
     }
   },
   "17": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["16", 0],
+      "images": [
+        "16",
+        0
+      ],
       "filename_prefix": "flux2_inpaint"
     }
   }

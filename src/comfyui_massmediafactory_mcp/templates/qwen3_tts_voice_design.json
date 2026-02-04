@@ -4,7 +4,12 @@
     "type": "audio_tts_design",
     "use_case": "Generate speech with AI-designed voice from text description (no reference audio needed)",
     "replaces": "ElevenLabs Voice Lab",
-    "parameters": ["TEXT", "VOICE_DESCRIPTION", "LANGUAGE", "SEED"],
+    "parameters": [
+      "TEXT",
+      "VOICE_DESCRIPTION",
+      "LANGUAGE",
+      "SEED"
+    ],
     "defaults": {
       "LANGUAGE": "English",
       "SEED": 42
@@ -15,9 +20,18 @@
       "LANGUAGE": "Target language for synthesis",
       "unique_feature": "No reference audio needed - describe the voice you want in plain English"
     },
-    "custom_nodes_required": ["ComfyUI-Qwen3-TTS"],
-    "models_required": ["Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"],
-    "vram_required_gb": 4
+    "custom_nodes_required": [
+      "ComfyUI-Qwen3-TTS"
+    ],
+    "models_required": [
+      "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+    ],
+    "vram_required_gb": 4,
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts"
+    ]
   },
   "1": {
     "class_type": "Qwen3TTSLoader",
@@ -32,7 +46,10 @@
     "class_type": "Qwen3TTSVoiceDesign",
     "_comment": "Generate speech with AI-designed voice from description",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "text": "{{TEXT}}",
       "instruct": "{{VOICE_DESCRIPTION}}",
       "language": "{{LANGUAGE}}",
@@ -42,14 +59,20 @@
   "3": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["2", 0],
+      "audio": [
+        "2",
+        0
+      ],
       "filename_prefix": "qwen3_voice_design"
     }
   },
   "4": {
     "class_type": "GetAudioDuration",
     "inputs": {
-      "audio": ["2", 0]
+      "audio": [
+        "2",
+        0
+      ]
     }
   }
 }

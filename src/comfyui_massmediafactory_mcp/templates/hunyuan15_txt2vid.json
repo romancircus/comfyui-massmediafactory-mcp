@@ -4,7 +4,16 @@
     "model": "HunyuanVideo 1.5",
     "type": "txt2vid",
     "source": "Based on Kijai ComfyUI-HunyuanVideoWrapper",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "STEPS",
+      "CFG"
+    ],
     "defaults": {
       "WIDTH": 1280,
       "HEIGHT": 720,
@@ -18,11 +27,17 @@
       "vram_gb": 24,
       "resolution": "720p native (1280x720)",
       "duration": "~3.4 seconds at 24fps"
-    }
+    },
+    "vram_min": 24,
+    "tags": [
+      "model:hunyuan"
+    ]
   },
   "1": {
     "class_type": "HunyuanVideoModelLoader",
-    "_meta": { "title": "Load HunyuanVideo Model" },
+    "_meta": {
+      "title": "Load HunyuanVideo Model"
+    },
     "inputs": {
       "model_name": "hunyuanvideo_t2v_720p_bf16.safetensors",
       "precision": "bf16"
@@ -30,7 +45,9 @@
   },
   "2": {
     "class_type": "CLIPLoader",
-    "_meta": { "title": "Load Text Encoder" },
+    "_meta": {
+      "title": "Load Text Encoder"
+    },
     "inputs": {
       "clip_name": "llava_llama3_fp8_scaled.safetensors",
       "type": "hunyuan_video"
@@ -38,23 +55,35 @@
   },
   "3": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "4": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "5": {
     "class_type": "EmptyHunyuanLatentVideo",
-    "_meta": { "title": "Create Empty Latent" },
+    "_meta": {
+      "title": "Create Empty Latent"
+    },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -64,12 +93,26 @@
   },
   "6": {
     "class_type": "HunyuanVideoSampler",
-    "_meta": { "title": "Sample Video" },
+    "_meta": {
+      "title": "Sample Video"
+    },
     "inputs": {
-      "model": ["1", 0],
-      "positive": ["3", 0],
-      "negative": ["4", 0],
-      "latent": ["5", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ],
+      "latent": [
+        "5",
+        0
+      ],
       "seed": "{{SEED}}",
       "steps": "{{STEPS}}",
       "cfg": "{{CFG}}",
@@ -79,17 +122,30 @@
   },
   "7": {
     "class_type": "HunyuanVideoVAEDecode",
-    "_meta": { "title": "Decode Video" },
+    "_meta": {
+      "title": "Decode Video"
+    },
     "inputs": {
-      "samples": ["6", 0],
-      "vae": ["1", 1]
+      "samples": [
+        "6",
+        0
+      ],
+      "vae": [
+        "1",
+        1
+      ]
     }
   },
   "8": {
     "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Save Video" },
+    "_meta": {
+      "title": "Save Video"
+    },
     "inputs": {
-      "images": ["7", 0],
+      "images": [
+        "7",
+        0
+      ],
       "frame_rate": 24,
       "loop_count": 0,
       "filename_prefix": "hunyuan_t2v",

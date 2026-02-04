@@ -4,7 +4,13 @@
     "type": "audio_tts",
     "use_case": "Generate spoken audio with preset professional voices (replaces ElevenLabs)",
     "replaces": "ElevenLabs TTS",
-    "parameters": ["TEXT", "SPEAKER", "LANGUAGE", "INSTRUCT", "SEED"],
+    "parameters": [
+      "TEXT",
+      "SPEAKER",
+      "LANGUAGE",
+      "INSTRUCT",
+      "SEED"
+    ],
     "defaults": {
       "SPEAKER": "Ryan",
       "LANGUAGE": "Auto",
@@ -19,9 +25,18 @@
       "quality": "0.95 voice similarity, 97ms latency, Apache 2.0 license",
       "output_formula": "For video sync: video_frames = (audio_duration_seconds * fps)"
     },
-    "custom_nodes_required": ["ComfyUI-Qwen3-TTS"],
-    "models_required": ["Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"],
-    "vram_required_gb": 4
+    "custom_nodes_required": [
+      "ComfyUI-Qwen3-TTS"
+    ],
+    "models_required": [
+      "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+    ],
+    "vram_required_gb": 4,
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts"
+    ]
   },
   "1": {
     "class_type": "Qwen3TTSLoader",
@@ -36,7 +51,10 @@
     "class_type": "Qwen3TTSCustomVoice",
     "_comment": "Generate speech with preset premium voice",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "text": "{{TEXT}}",
       "speaker": "{{SPEAKER}}",
       "language": "{{LANGUAGE}}",
@@ -47,7 +65,10 @@
   "3": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["2", 0],
+      "audio": [
+        "2",
+        0
+      ],
       "filename_prefix": "qwen3_tts_output"
     }
   },
@@ -55,7 +76,10 @@
     "class_type": "GetAudioDuration",
     "_comment": "Output duration for video sync: frames = duration_seconds * fps",
     "inputs": {
-      "audio": ["2", 0]
+      "audio": [
+        "2",
+        0
+      ]
     }
   }
 }

@@ -4,7 +4,15 @@
     "model": "SDXL Base 1.0",
     "type": "txt2img",
     "source": "Based on official ComfyUI SDXL examples",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "STEPS",
+      "CFG"
+    ],
     "defaults": {
       "WIDTH": 1024,
       "HEIGHT": 1024,
@@ -16,34 +24,52 @@
     "performance": {
       "vram_gb": 8,
       "note": "Most widely supported model, good balance of quality and speed"
-    }
+    },
+    "vram_min": 12,
+    "tags": [
+      "model:sdxl"
+    ]
   },
   "1": {
     "class_type": "CheckpointLoaderSimple",
-    "_meta": { "title": "Load SDXL Model" },
+    "_meta": {
+      "title": "Load SDXL Model"
+    },
     "inputs": {
       "ckpt_name": "sd_xl_base_1.0.safetensors"
     }
   },
   "2": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "3": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "4": {
     "class_type": "EmptyLatentImage",
-    "_meta": { "title": "Create Empty Latent" },
+    "_meta": {
+      "title": "Create Empty Latent"
+    },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -52,12 +78,26 @@
   },
   "5": {
     "class_type": "KSampler",
-    "_meta": { "title": "Sample Image" },
+    "_meta": {
+      "title": "Sample Image"
+    },
     "inputs": {
-      "model": ["1", 0],
-      "positive": ["2", 0],
-      "negative": ["3", 0],
-      "latent_image": ["4", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
+      "latent_image": [
+        "4",
+        0
+      ],
       "seed": "{{SEED}}",
       "steps": "{{STEPS}}",
       "cfg": "{{CFG}}",
@@ -68,17 +108,30 @@
   },
   "6": {
     "class_type": "VAEDecode",
-    "_meta": { "title": "Decode Latent" },
+    "_meta": {
+      "title": "Decode Latent"
+    },
     "inputs": {
-      "samples": ["5", 0],
-      "vae": ["1", 2]
+      "samples": [
+        "5",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
     }
   },
   "7": {
     "class_type": "SaveImage",
-    "_meta": { "title": "Save Image" },
+    "_meta": {
+      "title": "Save Image"
+    },
     "inputs": {
-      "images": ["6", 0],
+      "images": [
+        "6",
+        0
+      ],
       "filename_prefix": "sdxl_output"
     }
   }

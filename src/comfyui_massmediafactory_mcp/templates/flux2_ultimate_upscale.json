@@ -5,7 +5,14 @@
     "type": "upscale",
     "use_case": "Upscale images to 4K/8K while adding detail (replaces Magnific AI)",
     "replaces": "Magnific AI upscaling",
-    "parameters": ["IMAGE_PATH", "SCALE_FACTOR", "DENOISE", "TILE_SIZE", "SEED", "STEPS"],
+    "parameters": [
+      "IMAGE_PATH",
+      "SCALE_FACTOR",
+      "DENOISE",
+      "TILE_SIZE",
+      "SEED",
+      "STEPS"
+    ],
     "defaults": {
       "SCALE_FACTOR": 0.5,
       "DENOISE": 0.35,
@@ -14,14 +21,21 @@
       "STEPS": 20
     },
     "agent_notes": {
-      "SCALE_FACTOR": "0.5 for 2x final upscale (1024→2048), 1.0 for 4x (1024→4096). UltraSharp does 4x, then this scales.",
+      "SCALE_FACTOR": "0.5 for 2x final upscale (1024\u21922048), 1.0 for 4x (1024\u21924096). UltraSharp does 4x, then this scales.",
       "DENOISE": "0.3-0.4 for detail enhancement, 0.5-0.7 for more creative reinterpretation",
       "TILE_SIZE": "512 recommended. Larger = faster but less detail. Smaller = more detail but slower.",
-      "pattern": "Generate Low Res → Pixel Upscale → Latent Refine with ControlNet Tile",
+      "pattern": "Generate Low Res \u2192 Pixel Upscale \u2192 Latent Refine with ControlNet Tile",
       "vram_warning": "4x upscale of 1024x1024 requires ~20GB VRAM with tiled VAE"
     },
-    "custom_nodes_required": ["ComfyUI-Ultimate-SD-Upscale"],
-    "vram_required_gb": 16
+    "custom_nodes_required": [
+      "ComfyUI-Ultimate-SD-Upscale"
+    ],
+    "vram_required_gb": 16,
+    "vram_min": 16,
+    "tags": [
+      "model:flux",
+      "capability:upscale"
+    ]
   },
   "1": {
     "class_type": "LoadImage",
@@ -40,15 +54,24 @@
     "class_type": "ImageUpscaleWithModel",
     "_comment": "Pixel upscale using neural network (always 4x)",
     "inputs": {
-      "upscale_model": ["2", 0],
-      "image": ["1", 0]
+      "upscale_model": [
+        "2",
+        0
+      ],
+      "image": [
+        "1",
+        0
+      ]
     }
   },
   "3b": {
     "class_type": "ImageScaleBy",
     "_comment": "Normalize to target SCALE_FACTOR (0.5 = final 2x, 1.0 = final 4x)",
     "inputs": {
-      "image": ["3", 0],
+      "image": [
+        "3",
+        0
+      ],
       "upscale_method": "lanczos",
       "scale_by": "{{SCALE_FACTOR}}"
     }
@@ -78,22 +101,34 @@
     "class_type": "CLIPTextEncode",
     "_comment": "Quality enhancement prompt",
     "inputs": {
-      "clip": ["5", 0],
+      "clip": [
+        "5",
+        0
+      ],
       "text": "high resolution, sharp details, 8k uhd, masterpiece quality"
     }
   },
   "8": {
     "class_type": "FluxGuidance",
     "inputs": {
-      "conditioning": ["7", 0],
+      "conditioning": [
+        "7",
+        0
+      ],
       "guidance": 3.5
     }
   },
   "9": {
     "class_type": "VAEEncode",
     "inputs": {
-      "pixels": ["3b", 0],
-      "vae": ["6", 0]
+      "pixels": [
+        "3b",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ]
     }
   },
   "10": {
@@ -105,7 +140,10 @@
   "11": {
     "class_type": "BasicScheduler",
     "inputs": {
-      "model": ["4", 0],
+      "model": [
+        "4",
+        0
+      ],
       "scheduler": "simple",
       "steps": "{{STEPS}}",
       "denoise": "{{DENOISE}}"
@@ -120,33 +158,63 @@
   "13": {
     "class_type": "BasicGuider",
     "inputs": {
-      "model": ["4", 0],
-      "conditioning": ["8", 0]
+      "model": [
+        "4",
+        0
+      ],
+      "conditioning": [
+        "8",
+        0
+      ]
     }
   },
   "14": {
     "class_type": "SamplerCustomAdvanced",
     "inputs": {
-      "noise": ["12", 0],
-      "guider": ["13", 0],
-      "sampler": ["10", 0],
-      "sigmas": ["11", 0],
-      "latent_image": ["9", 0]
+      "noise": [
+        "12",
+        0
+      ],
+      "guider": [
+        "13",
+        0
+      ],
+      "sampler": [
+        "10",
+        0
+      ],
+      "sigmas": [
+        "11",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
     }
   },
   "15": {
     "class_type": "VAEDecodeTiled",
     "_comment": "Use tiled VAE decode for large images to prevent OOM",
     "inputs": {
-      "samples": ["14", 0],
-      "vae": ["6", 0],
+      "samples": [
+        "14",
+        0
+      ],
+      "vae": [
+        "6",
+        0
+      ],
       "tile_size": "{{TILE_SIZE}}"
     }
   },
   "16": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["15", 0],
+      "images": [
+        "15",
+        0
+      ],
       "filename_prefix": "upscaled_4k"
     }
   }

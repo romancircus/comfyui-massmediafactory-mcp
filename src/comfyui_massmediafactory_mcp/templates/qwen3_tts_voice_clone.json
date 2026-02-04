@@ -4,7 +4,13 @@
     "type": "audio_tts_clone",
     "use_case": "Clone a voice from reference audio with 0.95 similarity (replaces ElevenLabs Instant Voice Cloning)",
     "replaces": "ElevenLabs Voice Cloning",
-    "parameters": ["TEXT", "REFERENCE_AUDIO", "REFERENCE_TEXT", "LANGUAGE", "SEED"],
+    "parameters": [
+      "TEXT",
+      "REFERENCE_AUDIO",
+      "REFERENCE_TEXT",
+      "LANGUAGE",
+      "SEED"
+    ],
     "defaults": {
       "LANGUAGE": "Auto",
       "SEED": 42
@@ -22,9 +28,19 @@
         "Supports cross-lingual cloning (clone English voice, speak Japanese)"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-Qwen3-TTS"],
-    "models_required": ["Qwen/Qwen3-TTS-12Hz-1.7B-Base"],
-    "vram_required_gb": 4
+    "custom_nodes_required": [
+      "ComfyUI-Qwen3-TTS"
+    ],
+    "models_required": [
+      "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+    ],
+    "vram_required_gb": 4,
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts",
+      "model:qwen3_tts"
+    ]
   },
   "1": {
     "class_type": "Qwen3TTSLoader",
@@ -46,8 +62,14 @@
     "class_type": "Qwen3TTSVoiceClone",
     "_comment": "Clone voice and generate new speech",
     "inputs": {
-      "model": ["1", 0],
-      "ref_audio": ["2", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "ref_audio": [
+        "2",
+        0
+      ],
       "ref_text": "{{REFERENCE_TEXT}}",
       "text": "{{TEXT}}",
       "language": "{{LANGUAGE}}",
@@ -57,7 +79,10 @@
   "4": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["3", 0],
+      "audio": [
+        "3",
+        0
+      ],
       "filename_prefix": "qwen3_voice_clone"
     }
   },
@@ -65,7 +90,10 @@
     "class_type": "GetAudioDuration",
     "_comment": "For video sync: frames = duration_seconds * fps",
     "inputs": {
-      "audio": ["3", 0]
+      "audio": [
+        "3",
+        0
+      ]
     }
   }
 }

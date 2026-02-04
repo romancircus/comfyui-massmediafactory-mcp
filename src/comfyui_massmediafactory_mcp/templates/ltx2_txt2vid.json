@@ -4,7 +4,15 @@
     "model": "LTX-2 19B Dev FP8",
     "type": "txt2vid",
     "source": "Based on official ComfyUI LTX-Video examples",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "FPS"
+    ],
     "defaults": {
       "WIDTH": 768,
       "HEIGHT": 512,
@@ -17,11 +25,18 @@
       "vram_gb": 18,
       "steps": 30,
       "quality": "Maximum quality"
-    }
+    },
+    "vram_min": 12,
+    "tags": [
+      "model:ltx",
+      "priority:recommended"
+    ]
   },
   "1": {
     "class_type": "LTXVLoader",
-    "_meta": { "title": "Load LTX-2 Model" },
+    "_meta": {
+      "title": "Load LTX-2 Model"
+    },
     "inputs": {
       "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
       "dtype": "bfloat16"
@@ -29,32 +44,52 @@
   },
   "2": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "3": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
-      "clip": ["1", 1],
+      "clip": [
+        "1",
+        1
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "4": {
     "class_type": "LTXVConditioning",
-    "_meta": { "title": "Apply Frame Rate Conditioning" },
+    "_meta": {
+      "title": "Apply Frame Rate Conditioning"
+    },
     "inputs": {
-      "positive": ["2", 0],
-      "negative": ["3", 0],
+      "positive": [
+        "2",
+        0
+      ],
+      "negative": [
+        "3",
+        0
+      ],
       "frame_rate": "{{FPS}}"
     }
   },
   "5": {
     "class_type": "EmptyLTXVLatentVideo",
-    "_meta": { "title": "Create Empty Latent" },
+    "_meta": {
+      "title": "Create Empty Latent"
+    },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -64,7 +99,9 @@
   },
   "6": {
     "class_type": "LTXVScheduler",
-    "_meta": { "title": "LTX Scheduler" },
+    "_meta": {
+      "title": "LTX Scheduler"
+    },
     "inputs": {
       "steps": 30,
       "max_shift": 2.05,
@@ -74,39 +111,74 @@
   },
   "7": {
     "class_type": "KSamplerSelect",
-    "_meta": { "title": "Select Sampler" },
+    "_meta": {
+      "title": "Select Sampler"
+    },
     "inputs": {
       "sampler_name": "euler"
     }
   },
   "8": {
     "class_type": "SamplerCustom",
-    "_meta": { "title": "Sample Video" },
+    "_meta": {
+      "title": "Sample Video"
+    },
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "add_noise": true,
       "noise_seed": "{{SEED}}",
       "cfg": 3.0,
-      "positive": ["4", 0],
-      "negative": ["4", 1],
-      "sampler": ["7", 0],
-      "sigmas": ["6", 0],
-      "latent_image": ["5", 0]
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "4",
+        1
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "5",
+        0
+      ]
     }
   },
   "9": {
     "class_type": "VAEDecode",
-    "_meta": { "title": "Decode Latent to Video" },
+    "_meta": {
+      "title": "Decode Latent to Video"
+    },
     "inputs": {
-      "samples": ["8", 0],
-      "vae": ["1", 2]
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
     }
   },
   "10": {
     "class_type": "VHS_VideoCombine",
-    "_meta": { "title": "Save Video" },
+    "_meta": {
+      "title": "Save Video"
+    },
     "inputs": {
-      "images": ["9", 0],
+      "images": [
+        "9",
+        0
+      ],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
       "filename_prefix": "ltx2_output",

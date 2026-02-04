@@ -4,7 +4,13 @@
     "type": "audio_tts_clone",
     "use_case": "Clone a voice from reference audio (replaces ElevenLabs voice cloning)",
     "replaces": "ElevenLabs Voice Cloning",
-    "parameters": ["TEXT", "REFERENCE_AUDIO", "REFERENCE_TEXT", "SPEED", "SEED"],
+    "parameters": [
+      "TEXT",
+      "REFERENCE_AUDIO",
+      "REFERENCE_TEXT",
+      "SPEED",
+      "SEED"
+    ],
     "defaults": {
       "SPEED": 1.0,
       "SEED": 42
@@ -20,8 +26,15 @@
         "Similar length/style to reference works best"
       ]
     },
-    "custom_nodes_required": ["ComfyUI-F5-TTS"],
-    "installation": "Install via ComfyUI Manager: search 'F5-TTS'"
+    "custom_nodes_required": [
+      "ComfyUI-F5-TTS"
+    ],
+    "installation": "Install via ComfyUI Manager: search 'F5-TTS'",
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts"
+    ]
   },
   "1": {
     "class_type": "F5TTSModelLoader",
@@ -41,8 +54,14 @@
     "class_type": "F5TTSVoiceClone",
     "_comment": "Clone voice from reference and generate new speech",
     "inputs": {
-      "model": ["1", 0],
-      "reference_audio": ["2", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "reference_audio": [
+        "2",
+        0
+      ],
       "reference_text": "{{REFERENCE_TEXT}}",
       "text": "{{TEXT}}",
       "seed": "{{SEED}}",
@@ -52,7 +71,10 @@
   "4": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["3", 0],
+      "audio": [
+        "3",
+        0
+      ],
       "filename_prefix": "voice_clone_output"
     }
   },
@@ -60,7 +82,10 @@
     "class_type": "GetAudioDuration",
     "_comment": "Output duration for video sync: frames = duration_seconds * fps",
     "inputs": {
-      "audio": ["3", 0]
+      "audio": [
+        "3",
+        0
+      ]
     }
   }
 }

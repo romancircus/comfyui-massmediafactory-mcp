@@ -3,7 +3,14 @@
     "description": "Qwen-Image-2512 optimized for poster design with precise text placement",
     "model": "Qwen-Image-2512",
     "type": "txt2img",
-    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "SHIFT"],
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "SHIFT"
+    ],
     "defaults": {
       "WIDTH": 1296,
       "HEIGHT": 1728,
@@ -20,6 +27,11 @@
       "Specify font style: 'bold font, red color'",
       "Describe layout sections: 'Header area, main content, footer'",
       "Use design terminology: 'minimalist', 'gradient background'"
+    ],
+    "vram_min": 24,
+    "tags": [
+      "model:qwen",
+      "capability:poster"
     ]
   },
   "1": {
@@ -46,22 +58,33 @@
   "4": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{PROMPT}}"
     }
   },
   "5": {
     "class_type": "CLIPTextEncode",
     "inputs": {
-      "clip": ["2", 0],
+      "clip": [
+        "2",
+        0
+      ],
       "text": "{{NEGATIVE}}"
     }
   },
   "6": {
     "class_type": "ModelSamplingAuraFlow",
-    "_meta": {"title": "Shift Control (CRITICAL: 7.0 for sharp, 12-13 for max sharpness)"},
+    "_meta": {
+      "title": "Shift Control (CRITICAL: 7.0 for sharp, 12-13 for max sharpness)"
+    },
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "shift": "{{SHIFT}}"
     }
   },
@@ -76,10 +99,22 @@
   "8": {
     "class_type": "KSampler",
     "inputs": {
-      "model": ["6", 0],
-      "positive": ["4", 0],
-      "negative": ["5", 0],
-      "latent_image": ["7", 0],
+      "model": [
+        "6",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "7",
+        0
+      ],
       "seed": "{{SEED}}",
       "steps": 50,
       "cfg": 3.5,
@@ -91,14 +126,23 @@
   "9": {
     "class_type": "VAEDecode",
     "inputs": {
-      "samples": ["8", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "10": {
     "class_type": "SaveImage",
     "inputs": {
-      "images": ["9", 0],
+      "images": [
+        "9",
+        0
+      ],
       "filename_prefix": "qwen_poster"
     }
   }

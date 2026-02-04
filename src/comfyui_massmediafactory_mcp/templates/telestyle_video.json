@@ -3,13 +3,24 @@
     "description": "TeleStyle video style transfer with temporal consistency",
     "model": "TeleStyle",
     "type": "video_style_transfer",
-    "parameters": ["VIDEO_PATH", "STYLE_PATH", "STEPS", "CFG", "SEED", "FPS"],
+    "parameters": [
+      "VIDEO_PATH",
+      "STYLE_PATH",
+      "STEPS",
+      "CFG",
+      "SEED",
+      "FPS"
+    ],
     "defaults": {
       "STEPS": 12,
       "CFG": 1.0,
       "SEED": 42,
       "FPS": 24
-    }
+    },
+    "vram_min": 16,
+    "tags": [
+      "capability:style_transfer"
+    ]
   },
   "1": {
     "class_type": "TeleStyleLoader",
@@ -38,15 +49,27 @@
   "4": {
     "class_type": "VHS_VideoInfo",
     "inputs": {
-      "video_info": ["2", 3]
+      "video_info": [
+        "2",
+        3
+      ]
     }
   },
   "5": {
     "class_type": "TeleStyleVideoInference",
     "inputs": {
-      "model": ["1", 0],
-      "video_frames": ["2", 0],
-      "style_image": ["3", 0],
+      "model": [
+        "1",
+        0
+      ],
+      "video_frames": [
+        "2",
+        0
+      ],
+      "style_image": [
+        "3",
+        0
+      ],
       "steps": "{{STEPS}}",
       "cfg": "{{CFG}}",
       "seed": "{{SEED}}",
@@ -59,8 +82,14 @@
   "6": {
     "class_type": "VHS_VideoCombine",
     "inputs": {
-      "images": ["5", 0],
-      "audio": ["2", 2],
+      "images": [
+        "5",
+        0
+      ],
+      "audio": [
+        "2",
+        2
+      ],
       "frame_rate": "{{FPS}}",
       "loop_count": 0,
       "filename_prefix": "telestyle_output",

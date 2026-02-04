@@ -4,7 +4,13 @@
     "type": "audio_tts",
     "use_case": "Generate expressive speech with paralinguistic sounds (laughs, sighs, etc.)",
     "replaces": "ElevenLabs TTS",
-    "parameters": ["TEXT", "REFERENCE_AUDIO", "EXAGGERATION", "CFG_WEIGHT", "SEED"],
+    "parameters": [
+      "TEXT",
+      "REFERENCE_AUDIO",
+      "EXAGGERATION",
+      "CFG_WEIGHT",
+      "SEED"
+    ],
     "defaults": {
       "EXAGGERATION": 0.5,
       "CFG_WEIGHT": 0.5,
@@ -23,8 +29,16 @@
       ],
       "best_for": "English language, expressive content, podcasts, character voices"
     },
-    "custom_nodes_required": ["ComfyUI_Fill-ChatterBox"],
-    "vram_required_gb": 3
+    "custom_nodes_required": [
+      "ComfyUI_Fill-ChatterBox"
+    ],
+    "vram_required_gb": 3,
+    "vram_min": 4,
+    "tags": [
+      "type:audio",
+      "capability:tts",
+      "model:chatterbox"
+    ]
   },
   "1": {
     "class_type": "FL_ChatterBox_Loader",
@@ -37,7 +51,10 @@
     "class_type": "FL_ChatterBox_TTS",
     "_comment": "Generate expressive speech with optional voice cloning",
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "text": "{{TEXT}}",
       "audio_prompt": "{{REFERENCE_AUDIO}}",
       "exaggeration": "{{EXAGGERATION}}",
@@ -48,14 +65,20 @@
   "3": {
     "class_type": "SaveAudio",
     "inputs": {
-      "audio": ["2", 0],
+      "audio": [
+        "2",
+        0
+      ],
       "filename_prefix": "chatterbox_output"
     }
   },
   "4": {
     "class_type": "GetAudioDuration",
     "inputs": {
-      "audio": ["2", 0]
+      "audio": [
+        "2",
+        0
+      ]
     }
   }
 }
