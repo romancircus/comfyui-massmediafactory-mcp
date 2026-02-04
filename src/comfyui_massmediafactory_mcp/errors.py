@@ -1,10 +1,26 @@
 """Centralized Error Handling with Actionable Guidance.
 
+Legacy error formatting functions - now integrated with core.errors.
+
 Transform cryptic error messages into actionable guidance for users.
 """
 
 from typing import Dict, Any, Optional, List
 import os
+import sys
+from pathlib import Path
+
+# Add src to path for core module access
+_src_path = str(Path(__file__).parent.parent.parent)
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
+
+from core import (
+    format_model_not_found,
+    format_custom_node_missing,
+    format_template_metadata,
+    format_template_parameter,
+)
 
 
 def format_model_not_found(

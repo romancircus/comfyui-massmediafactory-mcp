@@ -474,9 +474,11 @@ def sota_query(
 
 @mcp.tool()
 @mcp_tool_wrapper
-def list_workflow_templates(limit: int = 50, cursor: str = None) -> dict:
-    """List available workflow templates. Paginated."""
-    result = templates.list_templates()
+def list_workflow_templates(limit: int = 50, cursor: str = None, only_installed: bool = False, model_type: str = None, tags: List[str] = None) -> dict:
+    """List available workflow templates. Paginated. Supports filtering."""
+    if tags is None:
+        tags = []
+    result = templates.list_templates(validate=False, only_installed=only_installed, model_type=model_type, tags=tags)
     if "error" in result:
         return _to_mcp_response(result)
     template_list = result.get("templates", [])

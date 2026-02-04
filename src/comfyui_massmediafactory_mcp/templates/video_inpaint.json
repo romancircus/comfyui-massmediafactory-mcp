@@ -48,7 +48,8 @@
     "tags": [
       "type:utility",
       "capability:inpaint"
-    ]
+    ],
+    "model": "utility"
   },
   "1": {
     "class_type": "VHS_LoadVideo",

@@ -10,8 +10,48 @@ import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
+# Import error formatters with fallback for module loading
+try:
+    from core import format_template_metadata
+    _HAS_CORE_ERRORS = True
+except (ImportError, ModuleNotFoundError):
+    _HAS_CORE_ERRORS = False
+    format_template_metadata = None
+
 
 TEMPLATES_DIR = Path(__file__).parent
+
+
+# Model type mapping for filtering
+MODEL_TYPE_MAP = {
+    "flux2": ["flux2", "flux.2", "flux2-dev", "flux", "fl.2"],
+    "ltx2": ["ltx2", "ltx-2", "ltxvideo", "ltx"],
+    "wan26": ["wan26", "wan 2.6", "wan2.6", "wan"],
+    "qwen": ["qwen", "qwen-image"],
+    "qwen_edit": ["qwen_edit", "qwen-edit", "qwen_image_edit"],
+    "hunyuan15": ["hunyuanvideo 1.5", "hunyuan15", "hunyuan"],
+    "sdxl": ["sdxl", "stable diffusion xl"],
+    "telestyle": ["telestyle", "tele_style"],
+    "audio": ["audio", "f5_tts", "chatterbox", "qwen3_tts"],
+    "utility": ["utility", "video"],
+}
+
+
+def get_model_type(model_name: str) -> Optional[str]:
+    """Normalize model name to canonical type."""
+    if not model_name:
+        return None
+    model_lower = model_name.lower()
+    
+    # Check for exact matches first (check "edit" variants before base "qwen")
+    for canonical in ["qwen_edit", "flux2", "ltx2", "wan26", "qwen", "hunyuan15", "sdxl", "telestyle", "audio", "utility"]:
+        if canonical not in MODEL_TYPE_MAP:
+            continue
+        for var in MODEL_TYPE_MAP[canonical]:
+            if var.lower() in model_lower:
+                return canonical
+    
+    return model_lower if model_lower else None
 
 
 def validate_template(template: Dict[str, Any]) -> Tuple[List[str], List[str]]:
@@ -112,6 +152,12 @@ def load_template(name: str, validate: bool = True) -> Dict[str, Any]:
     """
     template_file = TEMPLATES_DIR / f"{name}.json"
     if not template_file.exists():
+        # Use centralized error format
+        if _HAS_CORE_ERRORS and format_template_metadata is not None:
+            return format_template_metadata(
+                template_name=name,
+                missing_fields=["Template file doesn't exist"]
+            )
         return {"error": f"Template '{name}' not found"}
 
     try:
@@ -122,6 +168,33 @@ def load_template(name: str, validate: bool = True) -> Dict[str, Any]:
     if validate:
         errors, warnings = validate_template(template)
         if errors:
+            # Use centralized error formatter if available
+            if _HAS_CORE_ERRORS and format_template_metadata is not None:
+                # Ensure errors is a list for type safety
+                errors_list = list(errors) if errors else []
+                
+                # Check if missing _meta fields
+                if "_meta" not in template:
+                    return format_template_metadata(
+                        template_name=name,
+                        missing_fields=["_meta section"],
+                        errors=errors_list
+                    )
+                # Check for required _meta fields
+                meta = template.get("_meta", {})
+                missing = [f for f in ["description", "model", "type", "parameters"] if f not in meta]
+                if missing:
+                    return format_template_metadata(
+                        template_name=name,
+                        missing_fields=missing,
+                        errors=errors_list
+                    )
+                # Generic validation error
+                return format_template_metadata(
+                    template_name=name,
+                    errors=errors_list
+                )
+            # Fallback with old format
             return {
                 "error": f"Template '{name}' has validation errors",
                 "validation_errors": errors,
@@ -134,29 +207,57 @@ def load_template(name: str, validate: bool = True) -> Dict[str, Any]:
     return template
 
 
-def list_templates(validate: bool = False) -> Dict[str, Any]:
+def list_templates(validate: bool = False, only_installed: bool = False, model_type: str = None, tags: List[str] = None) -> Dict[str, Any]:
     """
     List all available templates.
 
     Args:
         validate: Whether to validate each template (default False for speed)
+        only_installed: Filter to only templates with installed models
+        model_type: Filter by model type (flux2, ltx2, wan26, etc.)
+        tags: Filter templates with specific tags (AND matching)
 
     Returns:
         Dict with templates list and count
     """
+    if tags is None:
+        tags = []
+    
     templates = []
     validation_issues = []
 
     for f in TEMPLATES_DIR.glob("*.json"):
         try:
             data = json.loads(f.read_text())
+            meta = data.get("_meta", {})
+            
+            # Extract model from _meta.model and normalize
+            model = meta.get("model", "")
+            model_type_normalized = get_model_type(model)
+            
+            # Apply model_type filter
+            if model_type and model_type_normalized != model_type.lower():
+                continue
+            
+            # Apply tags filter (AND matching - all tags must be present)
+            if tags:
+                template_tags = meta.get("tags", [])
+                if not all(tag in template_tags for tag in tags):
+                    continue
+            
+            # Apply only_installed filter (check if model is available)
+            # For Phase 1, this is a placeholder - future implementation would check model registry
+            if only_installed:
+                pass
 
             template_info = {
                 "name": f.stem,
-                "description": data.get("_meta", {}).get("description", ""),
-                "model": data.get("_meta", {}).get("model", ""),
-                "type": data.get("_meta", {}).get("type", ""),
-                "parameters": data.get("_meta", {}).get("parameters", []),
+                "description": meta.get("description", ""),
+                "model": model,
+                "type": meta.get("type", ""),
+                "parameters": meta.get("parameters", []),
+                "vram_min": meta.get("vram_min"),
+                "tags": meta.get("tags", []),
             }
 
             if validate:

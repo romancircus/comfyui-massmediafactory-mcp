@@ -31,7 +31,8 @@
       "type:audio",
       "capability:tts",
       "model:f5_tts"
-    ]
+    ],
+    "model": "audio"
   },
   "1": {
     "class_type": "F5TTSModelLoader",

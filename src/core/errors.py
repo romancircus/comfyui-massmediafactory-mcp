@@ -27,8 +27,8 @@ class MCPError:
     - details: additional context (optional)
     """
 
-    code: str
-    error: str
+    code: str = ""
+    error: str = ""
     suggestion: str = ""
     details: Dict[str, Any] = field(default_factory=dict)
     troubleshooting: Optional[str | List[str]] = None
@@ -62,8 +62,8 @@ class ModelNotFoundError(MCPError):
         ).to_dict()
     """
 
-    model_name: str
-    model_type: str
+    model_name: str = ""
+    model_type: str = ""
     available_models: List[str] = field(default_factory=list)
     path: str = ""
 
@@ -97,7 +97,7 @@ class CustomNodeMissingError(MCPError):
         ).to_dict()
     """
 
-    node_type: str
+    node_type: str = ""
     package: Optional[str] = None
     install_cmd: Optional[str] = None
 
@@ -133,7 +133,7 @@ class TemplateMetadataError(MCPError):
         ).to_dict()
     """
 
-    template_name: str
+    template_name: str = ""
     missing_fields: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     template_path: Optional[str] = None
@@ -174,14 +174,14 @@ class TemplateParameterError(MCPError):
             parameter="FRAMES",
             expected="integer divisible by 8",
             provided=97,
-            suggestion="Use 81, 89, 97, 105, etc. (8n+1)"
+            suggestion_override="Use 81, 89, 97, 105, etc. (8n+1)"
         ).to_dict()
     """
 
-    template_name: str
-    parameter: str
-    expected: str
-    provided: Any = None
+    template_name: str = ""
+    parameter: str = ""
+    expected: str = ""
+    provided: Optional[Any] = None
     suggestion_override: Optional[str] = None
 
     def __post_init__(self):
@@ -214,11 +214,24 @@ def format_model_not_found(
     available_models: List[str]
 ) -> Dict[str, Any]:
     """Format error for model not found with actionable suggestions."""
-    return ModelNotFoundError(
+    error = ModelNotFoundError(
         model_name=model_name,
         model_type=model_type,
         available_models=available_models,
-    ).to_dict()
+    )
+    error.code = "MODEL_NOT_FOUND"
+    error.error = f"Model '{model_name}' not found in models/{model_type}/"
+    error.suggestion = (
+        f"Run list_models('{model_type}') to see available models. "
+        f"Common issues: typo in model name, model not downloaded, or wrong model_type."
+    )
+    error.details = {
+        "model_name": model_name,
+        "model_type": model_type,
+        "available": available_models[:10],
+    }
+    error.troubleshooting = f"Check ~/ComfyUI/models/{model_type}/ for the file."
+    return error.to_dict()
 
 
 def format_custom_node_missing(
@@ -227,11 +240,25 @@ def format_custom_node_missing(
     install_cmd: Optional[str] = None
 ) -> Dict[str, Any]:
     """Format error for missing custom node."""
-    return CustomNodeMissingError(
+    error = CustomNodeMissingError(
         node_type=node_type,
         package=package,
         install_cmd=install_cmd,
-    ).to_dict()
+    )
+    error.code = "CUSTOM_NODE_MISSING"
+    error.error = f"Custom node '{node_type}' not installed or not loaded."
+    error.details = {"node_type": node_type}
+    if package:
+        error.details["package"] = package
+    if install_cmd:
+        error.details["install_cmd"] = install_cmd
+        error.suggestion = f"Run: {install_cmd}"
+    error.troubleshooting = (
+        "1. Install package: pip install <package>\n"
+        "2. Restart ComfyUI: sudo systemctl restart comfyui\n"
+        "3. Check nodes are loaded in ComfyUI UI (missing nodes panel)"
+    )
+    return error.to_dict()
 
 
 def format_template_metadata(
@@ -241,26 +268,68 @@ def format_template_metadata(
     template_path: Optional[str] = None
 ) -> Dict[str, Any]:
     """Format error for invalid template metadata."""
-    return TemplateMetadataError(
+    error = TemplateMetadataError(
         template_name=template_name,
         missing_fields=missing_fields or [],
         errors=errors or [],
         template_path=template_path,
-    ).to_dict()
+    )
+    error.code = "TEMPLATE_METADATA"
+    if missing_fields:
+        error.error = f"Template '{template_name}' missing required fields: {', '.join(missing_fields)}"
+    elif errors:
+        error.error = f"Template '{template_name}' has {len(errors)} validation errors."
+    else:
+        error.error = f"Template '{template_name}' has invalid metadata structure."
+    error.suggestion = (
+        "Ensure template has _meta section with: description, model, type, parameters, defaults. "
+        "Use list_workflow_templates() to see valid templates."
+    )
+    error.details = {
+        "template_name": template_name,
+        "missing_fields": missing_fields or [],
+        "errors": (errors or [])[:10],
+    }
+    if template_path:
+        error.details["template_path"] = template_path
+    error.troubleshooting = (
+        "1. Open template file\n"
+        "2. Ensure _meta section exists with required fields\n"
+        "3. Validate: validate_all_templates() or test at https://jsonlint.com"
+    )
+    return error.to_dict()
 
 
 def format_template_parameter(
     template_name: str,
     parameter: str,
     expected: str,
-    provided: Any = None,
+    provided: Optional[Any] = None,
     suggestion_override: Optional[str] = None
 ) -> Dict[str, Any]:
     """Format error for invalid template parameter."""
-    return TemplateParameterError(
+    error = TemplateParameterError(
         template_name=template_name,
         parameter=parameter,
         expected=expected,
         provided=provided,
         suggestion_override=suggestion_override,
-    ).to_dict()
+    )
+    error.code = "TEMPLATE_PARAMETER"
+    error.error = f"Parameter '{parameter}' invalid for template '{template_name}'."
+    error.suggestion = suggestion_override or (
+        f"Expected: {expected}. "
+        f"Run get_template('{template_name}') to see valid parameters."
+    )
+    error.details = {
+        "template_name": template_name,
+        "parameter": parameter,
+        "expected": expected,
+        "provided": provided,
+    }
+    error.troubleshooting = (
+        "1. Check template parameters: get_template('<name>')\n"
+        "2. Use list_workflow_templates() to see all templates\n"
+        "3. See docs/ERROR_RECOVERY.md for parameter reference"
+    )
+    return error.to_dict()

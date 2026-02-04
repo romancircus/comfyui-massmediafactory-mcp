@@ -38,7 +38,8 @@
       "type:audio",
       "capability:tts",
       "model:chatterbox"
-    ]
+    ],
+    "model": "audio"
   },
   "1": {
     "class_type": "FL_ChatterBox_Loader",

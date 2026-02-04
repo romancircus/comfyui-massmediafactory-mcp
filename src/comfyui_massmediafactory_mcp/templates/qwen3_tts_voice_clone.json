@@ -40,7 +40,8 @@
       "type:audio",
       "capability:tts",
       "model:qwen3_tts"
-    ]
+    ],
+    "model": "audio"
   },
   "1": {
     "class_type": "Qwen3TTSLoader",

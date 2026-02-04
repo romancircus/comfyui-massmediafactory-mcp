@@ -39,7 +39,8 @@
     "tags": [
       "type:utility",
       "capability:stitch"
-    ]
+    ],
+    "model": "utility"
   },
   "1": {
     "class_type": "VHS_LoadVideo",
