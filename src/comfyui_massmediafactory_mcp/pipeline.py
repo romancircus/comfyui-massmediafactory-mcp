@@ -10,6 +10,7 @@ import uuid
 from typing import Dict, List, Any, Optional, Callable
 from .client import get_client
 from .execution import wait_for_completion
+from .param_inject import inject_placeholders
 from .mcp_utils import log_structured, get_correlation_id
 
 
@@ -87,7 +88,9 @@ def execute_pipeline(
     pipeline_id = str(uuid.uuid4())[:8]
     cid = get_correlation_id()
 
-    log_structured("info", "pipeline_started",
+    log_structured(
+        "info",
+        "pipeline_started",
         pipeline_id=pipeline_id,
         correlation_id=cid,
         total_stages=len(stages),
@@ -109,7 +112,9 @@ def execute_pipeline(
         output_mapping = stage_def.get("output_mapping", {})
         skip_condition = stage_def.get("skip_if")
 
-        log_structured("info", "stage_started",
+        log_structured(
+            "info",
+            "stage_started",
             pipeline_id=pipeline_id,
             correlation_id=cid,
             stage_index=i,
@@ -149,16 +154,18 @@ def execute_pipeline(
             stage_result["error"] = queue_result["error"]
             results["stages"].append(stage_result)
             results["status"] = "error"
-            
+
             # Log stage error
-            log_structured("error", "stage_error",
+            log_structured(
+                "error",
+                "stage_error",
                 pipeline_id=pipeline_id,
                 correlation_id=cid,
                 stage_index=i,
                 stage_name=stage_name,
                 error=queue_result["error"],
             )
-            
+
             break
 
         prompt_id = queue_result.get("prompt_id")
@@ -172,16 +179,18 @@ def execute_pipeline(
             stage_result["error"] = completion.get("error")
             results["stages"].append(stage_result)
             results["status"] = "error"
-            
+
             # Log stage error from completion
-            log_structured("error", "stage_error",
+            log_structured(
+                "error",
+                "stage_error",
                 pipeline_id=pipeline_id,
                 correlation_id=cid,
                 stage_index=i,
                 stage_name=stage_name,
                 error=completion.get("error"),
             )
-            
+
             break
 
         # Extract outputs
@@ -189,10 +198,12 @@ def execute_pipeline(
         stage_result["status"] = "completed"
         stage_result["outputs"] = outputs
         stage_result["duration"] = time.time() - stage_start
-        
+
         # Log stage completion
         output_count = len(outputs.get("images", [])) if isinstance(outputs, dict) else 0
-        log_structured("info", "stage_completed",
+        log_structured(
+            "info",
+            "stage_completed",
             pipeline_id=pipeline_id,
             correlation_id=cid,
             stage_index=i,
@@ -214,10 +225,12 @@ def execute_pipeline(
     results["total_duration"] = time.time() - start_time
     if results["status"] == "running":
         results["status"] = "completed"
-    
+
     # Log pipeline completion
     final_status = results["status"]
-    log_structured("info" if final_status == "completed" else "error", "pipeline_completed",
+    log_structured(
+        "info" if final_status == "completed" else "error",
+        "pipeline_completed",
         pipeline_id=pipeline_id,
         correlation_id=cid,
         total_stages=len(stages),
@@ -324,23 +337,7 @@ def create_upscale_pipeline(
 
 def _substitute_params(workflow: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
     """Substitute parameters in workflow."""
-    import json
-
-    workflow_str = json.dumps(workflow)
-
-    for param_name, param_value in params.items():
-        placeholder = f"{{{{{param_name}}}}}"
-
-        if isinstance(param_value, (int, float)):
-            workflow_str = workflow_str.replace(f'"{placeholder}"', str(param_value))
-            workflow_str = workflow_str.replace(placeholder, str(param_value))
-        elif isinstance(param_value, bool):
-            workflow_str = workflow_str.replace(f'"{placeholder}"', str(param_value).lower())
-        else:
-            escaped = json.dumps(str(param_value))[1:-1]
-            workflow_str = workflow_str.replace(placeholder, escaped)
-
-    return json.loads(workflow_str)
+    return inject_placeholders(workflow, params)
 
 
 def _should_skip(condition: Dict[str, Any], results: Dict[str, Any]) -> bool:
@@ -352,21 +349,32 @@ def _should_skip(condition: Dict[str, Any], results: Dict[str, Any]) -> bool:
     return False
 
 
-def _extract_output_files(outputs: Dict[str, Any], output_type: str) -> List[str]:
+def _extract_output_files(outputs: Any, output_type: str) -> List[str]:
     """Extract output files of a specific type from workflow outputs."""
     files = []
 
-    for node_outputs in outputs.values():
-        if output_type in node_outputs:
-            for item in node_outputs[output_type]:
-                if isinstance(item, dict):
-                    filename = item.get("filename", "")
-                    subfolder = item.get("subfolder", "")
-                    if filename:
-                        path = f"{subfolder}/{filename}" if subfolder else filename
-                        files.append(path)
-                elif isinstance(item, str):
-                    files.append(item)
+    # Handle list format (from wait_for_completion)
+    if isinstance(outputs, list):
+        for item in outputs:
+            if isinstance(item, dict) and item.get("type") == output_type:
+                filename = item.get("filename", "")
+                subfolder = item.get("subfolder", "")
+                if filename:
+                    path = f"{subfolder}/{filename}" if subfolder else filename
+                    files.append(path)
+    # Handle dict format (from raw ComfyUI API)
+    elif isinstance(outputs, dict):
+        for node_outputs in outputs.values():
+            if output_type in node_outputs:
+                for item in node_outputs[output_type]:
+                    if isinstance(item, dict):
+                        filename = item.get("filename", "")
+                        subfolder = item.get("subfolder", "")
+                        if filename:
+                            path = f"{subfolder}/{filename}" if subfolder else filename
+                            files.append(path)
+                    elif isinstance(item, str):
+                        files.append(item)
 
     return files
 
@@ -374,6 +382,7 @@ def _extract_output_files(outputs: Dict[str, Any], output_type: str) -> List[str
 # =============================================================================
 # Audio-Video Sync Automation
 # =============================================================================
+
 
 def calculate_video_frames(
     audio_duration_seconds: float,
@@ -454,7 +463,7 @@ def create_tts_to_video_pipeline(
         word_count = len(text.split())
         return word_count / 2.5
 
-    stages = [
+    _stages = [
         {
             "name": "generate_audio",
             "workflow": tts_workflow,
@@ -494,16 +503,18 @@ def create_tts_to_video_pipeline(
     if "error" in queue_result:
         return {"status": "error", "error": queue_result["error"]}
 
-    tts_completion = wait_for_completion(queue_result["prompt_id"], timeout=300)
+    tts_completion = wait_for_completion(queue_result["prompt_id"], timeout_seconds=300)
 
     if tts_completion.get("status") == "error":
         return {"status": "error", "error": tts_completion.get("error")}
 
-    results["stages"].append({
-        "name": "generate_audio",
-        "status": "completed",
-        "outputs": tts_completion.get("outputs", {}),
-    })
+    results["stages"].append(
+        {
+            "name": "generate_audio",
+            "status": "completed",
+            "outputs": tts_completion.get("outputs", {}),
+        }
+    )
 
     # Extract audio path and duration
     audio_path = _extract_output_files(tts_completion.get("outputs", {}), "audio")
@@ -521,18 +532,20 @@ def create_tts_to_video_pipeline(
     if "error" in queue_result:
         return {"status": "error", "error": queue_result["error"]}
 
-    video_completion = wait_for_completion(queue_result["prompt_id"], timeout=600)
+    video_completion = wait_for_completion(queue_result["prompt_id"], timeout_seconds=600)
 
     if video_completion.get("status") == "error":
         return {"status": "error", "error": video_completion.get("error")}
 
-    results["stages"].append({
-        "name": "generate_video",
-        "status": "completed",
-        "outputs": video_completion.get("outputs", {}),
-        "audio_duration": audio_duration,
-        "calculated_frames": current_params["FRAMES"],
-    })
+    results["stages"].append(
+        {
+            "name": "generate_video",
+            "status": "completed",
+            "outputs": video_completion.get("outputs", {}),
+            "audio_duration": audio_duration,
+            "calculated_frames": current_params["FRAMES"],
+        }
+    )
 
     results["total_duration"] = time.time() - start_time
     results["status"] = "completed"

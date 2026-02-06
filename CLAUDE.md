@@ -94,13 +94,29 @@ output = wait_for_completion(result["prompt_id"])
 
 ## Core Workflow
 
-### Step 1: Choose Your Approach
+### Step 1: Choose Your Approach (Dual Generation Path)
 
-| Approach | When to Use |
-|----------|-------------|
-| `generate_workflow()` | Best for most cases - generates validated workflows |
-| `get_template()` + `create_workflow_from_template()` | When you need specific template variations |
-| Build from scratch | Only when you need custom node combinations |
+There are two complementary generation paths. Choose based on your needs:
+
+**Path A: `generate_workflow()` - Auto-Generated Workflows**
+- 12 model+type combos (flux/t2i, ltx/t2v, ltx/i2v, wan/t2v, qwen/t2i, etc.)
+- Auto-corrects resolution, frames, CFG to model constraints
+- Best for: prompt-to-output with standard settings
+
+**Path B: `create_workflow_from_template()` - Template-Based Workflows**
+- 30+ templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
+- Exact configurations preserved, no auto-correction
+- Best for: specialized workflows, batch production, Cyrus overnight
+
+| Need | Use Path A | Use Path B |
+|------|-----------|-----------|
+| Quick image/video from prompt | `generate_workflow(model="flux", ...)` | |
+| ControlNet/LoRA/face ID | | `create_workflow_from_template("flux2_union_controlnet", ...)` |
+| Background replacement | | `create_workflow_from_template("qwen_edit_background", ...)` |
+| Standard t2v/i2v/t2i | Either works | Either works |
+| Batch production (>10) | | Templates + direct API (see Token Optimization) |
+| TTS/audio | | `create_workflow_from_template("chatterbox_tts", ...)` |
+| Custom node combos | Build from scratch | |
 
 ### Step 2: Execute & Monitor
 

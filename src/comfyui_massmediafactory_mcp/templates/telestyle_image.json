@@ -26,7 +26,9 @@
     "vram_min": 16,
     "tags": [
       "capability:style_transfer"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "61f436517cf2a354"
   },
   "1": {
     "class_type": "LoadImage",

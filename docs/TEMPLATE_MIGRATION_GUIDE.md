@@ -557,7 +557,7 @@ stages = [
         "input_from": "base_image"
     },
     {
-        "template": "ltx2_img2vid", 
+        "template": "ltx2_img2vid",
         "params": {"PROMPT": prompt, "FRAMES": 49},
         "input_from": "upscaled_image"
     }

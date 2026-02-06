@@ -1,8 +1,8 @@
 # AUDIT_PLAN.md - Comprehensive Codebase Audit
 
-**Auditor:** KIMI  
-**Repository:** comfyui-massmediafactory-mcp  
-**Date:** February 2026  
+**Auditor:** KIMI
+**Repository:** comfyui-massmediafactory-mcp
+**Date:** February 2026
 **Estimated Time:** 10 hours
 
 ---

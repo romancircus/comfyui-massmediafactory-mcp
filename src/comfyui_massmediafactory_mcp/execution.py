@@ -7,10 +7,10 @@ Tools for executing workflows and managing ComfyUI operations.
 import time
 import copy
 import random
-from typing import Optional, Dict, Any
+from typing import Optional, Any
 from .client import get_client
-from .assets import get_registry, AssetRecord
-from .mcp_utils import log_structured, get_correlation_id, set_correlation_id
+from .assets import get_registry
+from .mcp_utils import log_structured, get_correlation_id
 
 
 def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
@@ -39,7 +39,9 @@ def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dic
         return result
 
     # Structured logging for workflow queued
-    log_structured("info", "workflow_queued",
+    log_structured(
+        "info",
+        "workflow_queued",
         prompt_id=result.get("prompt_id"),
         client_id=client_id,
         node_count=len(workflow),
@@ -103,12 +105,14 @@ def get_workflow_status(prompt_id: str) -> dict:
             for key in ["images", "video", "videos", "gifs", "audio"]:
                 if key in output:
                     for item in output[key]:
-                        outputs.append({
-                            "type": key,
-                            "filename": item.get("filename"),
-                            "subfolder": item.get("subfolder", ""),
-                            "node_id": node_id,
-                        })
+                        outputs.append(
+                            {
+                                "type": key,
+                                "filename": item.get("filename"),
+                                "subfolder": item.get("subfolder", ""),
+                                "node_id": node_id,
+                            }
+                        )
 
         return {
             "status": "completed",
@@ -130,10 +134,13 @@ def wait_for_completion(
     """
     Wait for a workflow to complete and return outputs.
 
+    Uses WebSocket for event-driven waiting (1 connection vs 300 polls).
+    Falls back to HTTP polling if WebSocket connection fails.
+
     Args:
         prompt_id: The prompt_id to wait for.
         timeout_seconds: Maximum time to wait (default 600s / 10 minutes).
-        poll_interval: Seconds between status checks.
+        poll_interval: Seconds between status checks (only used in fallback).
         workflow: Original workflow (for asset registration).
         parameters: Template parameters used (for regeneration).
         session_id: Session ID for grouping related generations.
@@ -143,64 +150,118 @@ def wait_for_completion(
     """
     start_time = time.time()
     cid = get_correlation_id()
-    log_structured("info", "waiting_for_completion",
+    log_structured(
+        "info",
+        "waiting_for_completion",
         prompt_id=prompt_id,
         timeout_seconds=timeout_seconds,
         correlation_id=cid,
     )
 
+    # Try WebSocket first (event-driven, no polling)
+    ws_stage = _wait_via_websocket(prompt_id, timeout_seconds)
+
+    if ws_stage is not None:
+        # WebSocket told us the terminal state, now fetch full status once
+        log_structured(
+            "info",
+            "ws_wait_complete",
+            prompt_id=prompt_id,
+            ws_stage=ws_stage,
+            correlation_id=cid,
+        )
+        status = get_workflow_status(prompt_id)
+        # If WS said completed but history isn't ready yet, give it a moment
+        if status.get("status") not in ("completed", "error"):
+            time.sleep(1.0)
+            status = get_workflow_status(prompt_id)
+    else:
+        # WebSocket failed, fall back to polling
+        log_structured(
+            "info",
+            "ws_fallback_to_polling",
+            prompt_id=prompt_id,
+            correlation_id=cid,
+        )
+        status = _poll_for_completion(prompt_id, timeout_seconds, start_time, poll_interval)
+
+    if status is None:
+        # Timeout
+        elapsed = time.time() - start_time
+        log_structured(
+            "warning",
+            "workflow_timeout",
+            prompt_id=prompt_id,
+            timeout_seconds=timeout_seconds,
+            elapsed_seconds=round(elapsed, 2),
+            correlation_id=cid,
+        )
+        return {
+            "status": "timeout",
+            "prompt_id": prompt_id,
+            "elapsed_seconds": timeout_seconds,
+        }
+
+    elapsed = time.time() - start_time
+    status["elapsed_seconds"] = round(elapsed, 1)
+
+    # Register assets if workflow provided and completed
+    if status.get("status") == "completed" and workflow:
+        status = _register_outputs_as_assets(status, workflow, parameters, session_id)
+        outputs = status.get("outputs", [])
+        asset_ids = [a.get("asset_id") for a in outputs if a.get("asset_id")]
+        log_structured(
+            "info",
+            "workflow_completed",
+            prompt_id=prompt_id,
+            status="completed",
+            elapsed_seconds=round(elapsed, 2),
+            output_count=len(outputs) if outputs else 0,
+            asset_ids=asset_ids,
+            correlation_id=cid,
+        )
+    elif status.get("status") == "error":
+        error_details = status.get("error")
+        log_structured(
+            "error",
+            "workflow_error",
+            prompt_id=prompt_id,
+            status=status["status"],
+            error=str(error_details) if error_details else None,
+            elapsed_seconds=round(elapsed, 2),
+            correlation_id=cid,
+        )
+
+    return status
+
+
+def _wait_via_websocket(prompt_id: str, timeout_seconds: int) -> Optional[str]:
+    """Try to wait for completion via WebSocket.
+
+    Returns:
+        Terminal stage ("completed"/"error") or None if WS unavailable.
+    """
+    try:
+        from .websocket_client import wait_for_prompt_ws
+
+        return wait_for_prompt_ws(prompt_id, timeout_seconds=timeout_seconds)
+    except Exception:
+        return None
+
+
+def _poll_for_completion(
+    prompt_id: str,
+    timeout_seconds: int,
+    start_time: float,
+    poll_interval: float,
+) -> Optional[dict]:
+    """Fall back to polling get_workflow_status(). Returns status or None on timeout."""
     while time.time() - start_time < timeout_seconds:
         status = get_workflow_status(prompt_id)
-
         if status["status"] in ["completed", "error"]:
-            elapsed = time.time() - start_time
-            status["elapsed_seconds"] = round(elapsed, 1)
-
-            # Register assets if workflow provided and completed
-            if status["status"] == "completed" and workflow:
-                status = _register_outputs_as_assets(
-                    status, workflow, parameters, session_id
-                )
-                # Log successful completion with asset info
-                outputs = status.get("outputs", [])
-                asset_ids = [a.get("asset_id") for a in outputs if a.get("asset_id")]
-                log_structured("info", "workflow_completed",
-                    prompt_id=prompt_id,
-                    status="completed",
-                    elapsed_seconds=round(elapsed, 2),
-                    output_count=len(outputs) if outputs else 0,
-                    asset_ids=asset_ids,
-                    correlation_id=cid,
-                )
-            elif status["status"] == "error":
-                # Log workflow error
-                error_details = status.get("error")
-                log_structured("error", "workflow_error",
-                    prompt_id=prompt_id,
-                    status=status["status"],
-                    error=str(error_details) if error_details else None,
-                    elapsed_seconds=round(elapsed, 2),
-                    correlation_id=cid,
-                )
-
             return status
-
         time.sleep(poll_interval)
-
-    # Timeout case
-    elapsed = time.time() - start_time
-    log_structured("warning", "workflow_timeout",
-        prompt_id=prompt_id,
-        timeout_seconds=timeout_seconds,
-        elapsed_seconds=round(elapsed, 2),
-        correlation_id=cid,
-    )
-
-    return {
-        "status": "timeout",
-        "prompt_id": prompt_id,
-        "elapsed_seconds": timeout_seconds,
-    }
+    return None
 
 
 def _register_outputs_as_assets(
@@ -229,7 +290,9 @@ def _register_outputs_as_assets(
 
     # Structured logging for asset registration
     asset_ids = [asset.asset_id for asset in assets]
-    log_structured("info", "assets_registered",
+    log_structured(
+        "info",
+        "assets_registered",
         count=len(assets),
         asset_ids=asset_ids,
         session_id=session_id,
@@ -257,15 +320,18 @@ def get_system_stats() -> dict:
     gpu_info = []
 
     for device in devices:
-        gpu_info.append({
-            "name": device.get("name", "Unknown"),
-            "type": device.get("type", "Unknown"),
-            "vram_total_gb": round(device.get("vram_total", 0) / (1024**3), 2),
-            "vram_free_gb": round(device.get("vram_free", 0) / (1024**3), 2),
-            "vram_used_gb": round(
-                (device.get("vram_total", 0) - device.get("vram_free", 0)) / (1024**3), 2
-            ),
-        })
+        gpu_info.append(
+            {
+                "name": device.get("name", "Unknown"),
+                "type": device.get("type", "Unknown"),
+                "vram_total_gb": round(device.get("vram_total", 0) / (1024**3), 2),
+                "vram_free_gb": round(device.get("vram_free", 0) / (1024**3), 2),
+                "vram_used_gb": round(
+                    (device.get("vram_total", 0) - device.get("vram_free", 0)) / (1024**3),
+                    2,
+                ),
+            }
+        )
 
     return {
         "devices": gpu_info,
@@ -289,7 +355,9 @@ def free_memory(unload_models: bool = False) -> dict:
     if "error" in result:
         return result
 
-    log_structured("info", "memory_freed",
+    log_structured(
+        "info",
+        "memory_freed",
         unload_models=unload_models,
     )
 
@@ -312,7 +380,9 @@ def interrupt_execution() -> dict:
     if "error" in result:
         return result
 
-    log_structured("info", "execution_interrupted",
+    log_structured(
+        "info",
+        "execution_interrupted",
         prompt_id=None,
     )
 
@@ -383,7 +453,9 @@ def regenerate(
     # Log regeneration start
     cid = get_correlation_id()
     override_keys = list(extra_overrides.keys()) if extra_overrides else []
-    log_structured("info", "regeneration_started",
+    log_structured(
+        "info",
+        "regeneration_started",
         asset_id=asset_id,
         overrides=override_keys,
         correlation_id=cid,
@@ -427,7 +499,9 @@ def regenerate(
         return result
 
     # Log regeneration completed
-    log_structured("info", "regeneration_completed",
+    log_structured(
+        "info",
+        "regeneration_completed",
         asset_id=asset_id,
         new_prompt_id=result.get("prompt_id"),
         correlation_id=cid,
@@ -444,17 +518,87 @@ def regenerate(
     }
 
 
+def _find_conditioning_nodes(workflow: dict) -> dict:
+    """
+    Trace sampler connections to identify positive vs negative conditioning nodes.
+
+    Returns:
+        {"positive": [node_ids], "negative": [node_ids]}
+    """
+    result = {"positive": [], "negative": []}
+
+    # Find sampler nodes
+    sampler_classes = ["KSampler", "KSamplerAdvanced", "SamplerCustomAdvanced"]
+    sampler_nodes = [
+        node_id
+        for node_id, node in workflow.items()
+        if isinstance(node, dict) and node.get("class_type") in sampler_classes
+    ]
+
+    if not sampler_nodes:
+        return result
+
+    # Trace connections for each sampler
+    for sampler_id in sampler_nodes:
+        sampler = workflow[sampler_id]
+        inputs = sampler.get("inputs", {})
+
+        # Trace positive conditioning
+        if "positive" in inputs:
+            pos_input = inputs["positive"]
+            if isinstance(pos_input, list) and len(pos_input) >= 1:
+                pos_node_id = str(pos_input[0])
+                if pos_node_id in workflow:
+                    result["positive"].append(pos_node_id)
+
+        # Trace negative conditioning
+        if "negative" in inputs:
+            neg_input = inputs["negative"]
+            if isinstance(neg_input, list) and len(neg_input) >= 1:
+                neg_node_id = str(neg_input[0])
+                if neg_node_id in workflow:
+                    result["negative"].append(neg_node_id)
+
+    return result
+
+
 def _apply_workflow_overrides(workflow: dict, overrides: dict) -> dict:
     """Apply parameter overrides to matching workflow nodes."""
+    # Find conditioning nodes by tracing sampler connections
+    conditioning_nodes = _find_conditioning_nodes(workflow)
+
     override_map = {
-        "prompt": [("CLIPTextEncode", "text"), ("CLIPTextEncodeSDXL", "text_g")],
-        "negative_prompt": [("CLIPTextEncode", "text")],  # Second CLIPTextEncode
-        "steps": [("KSampler", "steps"), ("KSamplerAdvanced", "steps"), ("SamplerCustomAdvanced", "steps")],
-        "cfg": [("KSampler", "cfg"), ("KSamplerAdvanced", "cfg"), ("FluxGuidance", "guidance")],
+        "steps": [
+            ("KSampler", "steps"),
+            ("KSamplerAdvanced", "steps"),
+            ("SamplerCustomAdvanced", "steps"),
+        ],
+        "cfg": [
+            ("KSampler", "cfg"),
+            ("KSamplerAdvanced", "cfg"),
+            ("FluxGuidance", "guidance"),
+        ],
     }
 
     for key, value in overrides.items():
-        if key in override_map:
+        # Handle prompt/negative_prompt with connection-aware targeting
+        if key == "prompt":
+            # Update positive conditioning nodes
+            for node_id in conditioning_nodes.get("positive", []):
+                if node_id in workflow:
+                    node = workflow[node_id]
+                    if node.get("class_type") == "CLIPTextEncode":
+                        node["inputs"]["text"] = value
+                    elif node.get("class_type") == "CLIPTextEncodeSDXL":
+                        node["inputs"]["text_g"] = value
+        elif key == "negative_prompt":
+            # Update negative conditioning nodes
+            for node_id in conditioning_nodes.get("negative", []):
+                if node_id in workflow:
+                    node = workflow[node_id]
+                    if node.get("class_type") == "CLIPTextEncode":
+                        node["inputs"]["text"] = value
+        elif key in override_map:
             targets = override_map[key]
             for class_type, input_name in targets:
                 _update_nodes_by_class(workflow, class_type, input_name, value)
@@ -468,9 +612,7 @@ def _apply_workflow_overrides(workflow: dict, overrides: dict) -> dict:
     return workflow
 
 
-def _update_nodes_by_class(
-    workflow: dict, class_type: str, input_name: str, value: Any
-) -> None:
+def _update_nodes_by_class(workflow: dict, class_type: str, input_name: str, value: Any) -> None:
     """Update all nodes of a given class type."""
     for node_id, node in workflow.items():
         if isinstance(node, dict) and node.get("class_type") == class_type:
@@ -614,7 +756,9 @@ def cleanup_expired_assets() -> dict:
     registry = get_registry()
     removed_count = registry.cleanup_expired()
 
-    log_structured("info", "assets_cleanup",
+    log_structured(
+        "info",
+        "assets_cleanup",
         removed_count=removed_count,
     )
 

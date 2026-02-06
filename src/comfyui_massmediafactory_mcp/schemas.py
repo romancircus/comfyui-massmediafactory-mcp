@@ -5,20 +5,23 @@ Explicit JSON Schema definitions per MCP specification requirements.
 These schemas define the expected structure of tool inputs.
 """
 
-from typing import TypedDict, Optional, List, Dict, Any, Union
+from typing import TypedDict, Optional, List, Dict, Any
 from typing_extensions import Required, NotRequired
 
 # =============================================================================
 # Workflow Schema
 # =============================================================================
 
+
 class WorkflowNodeInput(TypedDict, total=False):
     """Input connection or value for a workflow node."""
+
     pass  # Can be str, int, float, bool, or [node_id, slot_index]
 
 
 class WorkflowNode(TypedDict):
     """A single node in a ComfyUI workflow."""
+
     class_type: Required[str]
     inputs: Required[Dict[str, Any]]
     _meta: NotRequired[Dict[str, Any]]
@@ -40,21 +43,15 @@ WORKFLOW_SCHEMA = {
         "type": "object",
         "required": ["class_type", "inputs"],
         "properties": {
-            "class_type": {
-                "type": "string",
-                "description": "Node type (e.g., 'KSampler', 'UNETLoader')"
-            },
+            "class_type": {"type": "string", "description": "Node type (e.g., 'KSampler', 'UNETLoader')"},
             "inputs": {
                 "type": "object",
                 "description": "Node inputs - can be values or links [node_id, slot]",
-                "additionalProperties": True
+                "additionalProperties": True,
             },
-            "_meta": {
-                "type": "object",
-                "description": "Optional metadata (stripped on submit)"
-            }
-        }
-    }
+            "_meta": {"type": "object", "description": "Optional metadata (stripped on submit)"},
+        },
+    },
 }
 
 
@@ -63,16 +60,13 @@ EXECUTE_WORKFLOW_SCHEMA = {
     "type": "object",
     "required": ["workflow"],
     "properties": {
-        "workflow": {
-            **WORKFLOW_SCHEMA,
-            "description": "The workflow JSON with node definitions"
-        },
+        "workflow": {**WORKFLOW_SCHEMA, "description": "The workflow JSON with node definitions"},
         "client_id": {
             "type": "string",
             "default": "massmediafactory",
-            "description": "Optional identifier for tracking"
-        }
-    }
+            "description": "Optional identifier for tracking",
+        },
+    },
 }
 
 
@@ -81,35 +75,13 @@ REGENERATE_SCHEMA = {
     "type": "object",
     "required": ["asset_id"],
     "properties": {
-        "asset_id": {
-            "type": "string",
-            "description": "The asset ID to regenerate from"
-        },
-        "prompt": {
-            "type": "string",
-            "description": "New prompt (optional)"
-        },
-        "negative_prompt": {
-            "type": "string",
-            "description": "New negative prompt (optional)"
-        },
-        "seed": {
-            "type": "integer",
-            "description": "New seed. -1 to keep original, null for random"
-        },
-        "steps": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 150,
-            "description": "New step count (optional)"
-        },
-        "cfg": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 30,
-            "description": "New CFG scale (optional)"
-        }
-    }
+        "asset_id": {"type": "string", "description": "The asset ID to regenerate from"},
+        "prompt": {"type": "string", "description": "New prompt (optional)"},
+        "negative_prompt": {"type": "string", "description": "New negative prompt (optional)"},
+        "seed": {"type": "integer", "description": "New seed. -1 to keep original, null for random"},
+        "steps": {"type": "integer", "minimum": 1, "maximum": 150, "description": "New step count (optional)"},
+        "cfg": {"type": "number", "minimum": 0, "maximum": 30, "description": "New CFG scale (optional)"},
+    },
 }
 
 
@@ -117,27 +89,21 @@ LIST_ASSETS_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-        "session_id": {
-            "type": "string",
-            "description": "Filter by session (optional)"
-        },
+        "session_id": {"type": "string", "description": "Filter by session (optional)"},
         "asset_type": {
             "type": "string",
             "enum": ["images", "video", "audio"],
-            "description": "Filter by type (optional)"
+            "description": "Filter by type (optional)",
         },
         "limit": {
             "type": "integer",
             "minimum": 1,
             "maximum": 100,
             "default": 20,
-            "description": "Maximum results per page"
+            "description": "Maximum results per page",
         },
-        "cursor": {
-            "type": "string",
-            "description": "Pagination cursor from previous response"
-        }
-    }
+        "cursor": {"type": "string", "description": "Pagination cursor from previous response"},
+    },
 }
 
 
@@ -145,12 +111,7 @@ VALIDATE_WORKFLOW_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "required": ["workflow"],
-    "properties": {
-        "workflow": {
-            **WORKFLOW_SCHEMA,
-            "description": "The workflow JSON to validate"
-        }
-    }
+    "properties": {"workflow": {**WORKFLOW_SCHEMA, "description": "The workflow JSON to validate"}},
 }
 
 
@@ -159,16 +120,13 @@ CREATE_WORKFLOW_FROM_TEMPLATE_SCHEMA = {
     "type": "object",
     "required": ["template_name", "parameters"],
     "properties": {
-        "template_name": {
-            "type": "string",
-            "description": "Name of the template (e.g., 'qwen_txt2img')"
-        },
+        "template_name": {"type": "string", "description": "Name of the template (e.g., 'qwen_txt2img')"},
         "parameters": {
             "type": "object",
             "description": "Dict of parameter values (e.g., {'PROMPT': 'a dragon', 'SEED': 123})",
-            "additionalProperties": True
-        }
-    }
+            "additionalProperties": True,
+        },
+    },
 }
 
 
@@ -177,33 +135,27 @@ EXECUTE_BATCH_SCHEMA = {
     "type": "object",
     "required": ["workflow", "parameter_sets"],
     "properties": {
-        "workflow": {
-            **WORKFLOW_SCHEMA,
-            "description": "Base workflow with {{PLACEHOLDER}} fields"
-        },
+        "workflow": {**WORKFLOW_SCHEMA, "description": "Base workflow with {{PLACEHOLDER}} fields"},
         "parameter_sets": {
             "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": True
-            },
-            "description": "List of parameter dicts for each execution"
+            "items": {"type": "object", "additionalProperties": True},
+            "description": "List of parameter dicts for each execution",
         },
         "parallel": {
             "type": "integer",
             "minimum": 1,
             "maximum": 4,
             "default": 1,
-            "description": "Max concurrent executions"
+            "description": "Max concurrent executions",
         },
         "timeout_per_job": {
             "type": "integer",
             "minimum": 60,
             "maximum": 3600,
             "default": 600,
-            "description": "Timeout per job in seconds"
-        }
-    }
+            "description": "Timeout per job in seconds",
+        },
+    },
 }
 
 
@@ -212,27 +164,15 @@ QA_OUTPUT_SCHEMA = {
     "type": "object",
     "required": ["asset_id", "prompt"],
     "properties": {
-        "asset_id": {
-            "type": "string",
-            "description": "The asset to evaluate"
-        },
-        "prompt": {
-            "type": "string",
-            "description": "Original generation prompt for comparison"
-        },
+        "asset_id": {"type": "string", "description": "The asset to evaluate"},
+        "prompt": {"type": "string", "description": "Original generation prompt for comparison"},
         "checks": {
             "type": "array",
-            "items": {
-                "type": "string",
-                "enum": ["prompt_match", "artifacts", "faces", "text", "composition"]
-            },
-            "description": "List of checks to perform"
+            "items": {"type": "string", "enum": ["prompt_match", "artifacts", "faces", "text", "composition"]},
+            "description": "List of checks to perform",
         },
-        "vlm_model": {
-            "type": "string",
-            "description": "VLM to use (default: qwen2.5-vl:7b)"
-        }
-    }
+        "vlm_model": {"type": "string", "description": "VLM to use (default: qwen2.5-vl:7b)"},
+    },
 }
 
 
@@ -241,56 +181,26 @@ RECORD_GENERATION_SCHEMA = {
     "type": "object",
     "required": ["prompt", "model", "seed"],
     "properties": {
-        "prompt": {
-            "type": "string",
-            "description": "The generation prompt"
-        },
-        "model": {
-            "type": "string",
-            "description": "Model used (e.g., 'flux2-dev')"
-        },
-        "seed": {
-            "type": "integer",
-            "description": "Random seed"
-        },
-        "parameters": {
-            "type": "object",
-            "additionalProperties": True,
-            "description": "Full parameter dict"
-        },
-        "negative_prompt": {
-            "type": "string",
-            "default": "",
-            "description": "Negative prompt if any"
-        },
-        "rating": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "description": "User rating 0.0-1.0"
-        },
+        "prompt": {"type": "string", "description": "The generation prompt"},
+        "model": {"type": "string", "description": "Model used (e.g., 'flux2-dev')"},
+        "seed": {"type": "integer", "description": "Random seed"},
+        "parameters": {"type": "object", "additionalProperties": True, "description": "Full parameter dict"},
+        "negative_prompt": {"type": "string", "default": "", "description": "Negative prompt if any"},
+        "rating": {"type": "number", "minimum": 0, "maximum": 1, "description": "User rating 0.0-1.0"},
         "tags": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Style tags (e.g., ['anime', 'portrait'])"
+            "description": "Style tags (e.g., ['anime', 'portrait'])",
         },
         "outcome": {
             "type": "string",
             "enum": ["success", "failed", "regenerated"],
             "default": "success",
-            "description": "Generation outcome"
+            "description": "Generation outcome",
         },
-        "qa_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "description": "Automated QA score if available"
-        },
-        "notes": {
-            "type": "string",
-            "description": "Additional notes"
-        }
-    }
+        "qa_score": {"type": "number", "minimum": 0, "maximum": 1, "description": "Automated QA score if available"},
+        "notes": {"type": "string", "description": "Additional notes"},
+    },
 }
 
 
@@ -299,26 +209,15 @@ DOWNLOAD_MODEL_SCHEMA = {
     "type": "object",
     "required": ["url", "model_type"],
     "properties": {
-        "url": {
-            "type": "string",
-            "format": "uri",
-            "description": "Download URL (Civitai or HuggingFace)"
-        },
+        "url": {"type": "string", "format": "uri", "description": "Download URL (Civitai or HuggingFace)"},
         "model_type": {
             "type": "string",
             "enum": ["checkpoint", "unet", "lora", "vae", "controlnet", "clip", "upscaler", "embedding"],
-            "description": "Where to save the model"
+            "description": "Where to save the model",
         },
-        "filename": {
-            "type": "string",
-            "description": "Target filename (auto-detected if not provided)"
-        },
-        "overwrite": {
-            "type": "boolean",
-            "default": False,
-            "description": "Replace existing file"
-        }
-    }
+        "filename": {"type": "string", "description": "Target filename (auto-detected if not provided)"},
+        "overwrite": {"type": "boolean", "default": False, "description": "Replace existing file"},
+    },
 }
 
 
@@ -330,16 +229,10 @@ EXECUTE_WORKFLOW_OUTPUT = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-        "prompt_id": {
-            "type": "string",
-            "description": "Unique identifier for tracking the workflow"
-        },
-        "status": {
-            "type": "string",
-            "enum": ["queued", "running", "completed", "error"]
-        }
+        "prompt_id": {"type": "string", "description": "Unique identifier for tracking the workflow"},
+        "status": {"type": "string", "enum": ["queued", "running", "completed", "error"]},
     },
-    "required": ["prompt_id"]
+    "required": ["prompt_id"],
 }
 
 
@@ -347,10 +240,7 @@ WAIT_FOR_COMPLETION_OUTPUT = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-        "status": {
-            "type": "string",
-            "enum": ["completed", "error", "timeout"]
-        },
+        "status": {"type": "string", "enum": ["completed", "error", "timeout"]},
         "outputs": {
             "type": "array",
             "items": {
@@ -359,12 +249,12 @@ WAIT_FOR_COMPLETION_OUTPUT = {
                     "type": {"type": "string", "enum": ["image", "video", "audio"]},
                     "filename": {"type": "string"},
                     "asset_id": {"type": "string"},
-                    "url": {"type": "string", "format": "uri"}
-                }
-            }
+                    "url": {"type": "string", "format": "uri"},
+                },
+            },
         },
-        "duration_seconds": {"type": "number"}
-    }
+        "duration_seconds": {"type": "number"},
+    },
 }
 
 
@@ -380,14 +270,14 @@ LIST_ASSETS_OUTPUT = {
                     "asset_id": {"type": "string"},
                     "type": {"type": "string"},
                     "filename": {"type": "string"},
-                    "created_at": {"type": "string", "format": "date-time"}
-                }
-            }
+                    "created_at": {"type": "string", "format": "date-time"},
+                },
+            },
         },
         "nextCursor": {"type": ["string", "null"]},
-        "total": {"type": "integer"}
+        "total": {"type": "integer"},
     },
-    "required": ["assets", "total"]
+    "required": ["assets", "total"],
 }
 
 
@@ -403,14 +293,14 @@ VALIDATE_WORKFLOW_OUTPUT = {
                 "properties": {
                     "node_id": {"type": "string"},
                     "error": {"type": "string"},
-                    "severity": {"type": "string", "enum": ["error", "warning"]}
-                }
-            }
+                    "severity": {"type": "string", "enum": ["error", "warning"]},
+                },
+            },
         },
         "warnings": {"type": "array", "items": {"type": "string"}},
-        "suggestions": {"type": "array", "items": {"type": "string"}}
+        "suggestions": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["valid"]
+    "required": ["valid"],
 }
 
 
@@ -421,12 +311,9 @@ QA_OUTPUT_OUTPUT = {
         "passed": {"type": "boolean"},
         "score": {"type": "number", "minimum": 0, "maximum": 1},
         "issues": {"type": "array", "items": {"type": "string"}},
-        "recommendation": {
-            "type": "string",
-            "enum": ["accept", "regenerate", "tweak_prompt"]
-        }
+        "recommendation": {"type": "string", "enum": ["accept", "regenerate", "tweak_prompt"]},
     },
-    "required": ["passed", "score", "recommendation"]
+    "required": ["passed", "score", "recommendation"],
 }
 
 
@@ -436,13 +323,10 @@ DETECT_OBJECTS_OUTPUT = {
     "properties": {
         "detected": {"type": "array", "items": {"type": "string"}},
         "not_detected": {"type": "array", "items": {"type": "string"}},
-        "confidence": {
-            "type": "object",
-            "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
-        },
-        "description": {"type": "string"}
+        "confidence": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+        "description": {"type": "string"},
     },
-    "required": ["detected", "not_detected", "confidence"]
+    "required": ["detected", "not_detected", "confidence"],
 }
 
 
@@ -457,13 +341,10 @@ IMAGE_DIMENSIONS_OUTPUT = {
         "orientation": {"type": "string", "enum": ["landscape", "portrait", "square"]},
         "recommended_video_size": {
             "type": "object",
-            "properties": {
-                "width": {"type": "integer"},
-                "height": {"type": "integer"}
-            }
-        }
+            "properties": {"width": {"type": "integer"}, "height": {"type": "integer"}},
+        },
     },
-    "required": ["width", "height", "aspect_ratio"]
+    "required": ["width", "height", "aspect_ratio"],
 }
 
 
@@ -479,14 +360,14 @@ RECOMMEND_MODEL_OUTPUT = {
                 "cfg": {"type": "number"},
                 "steps": {"type": "integer"},
                 "sampler": {"type": "string"},
-                "scheduler": {"type": "string"}
-            }
+                "scheduler": {"type": "string"},
+            },
         },
         "fits_vram": {"type": "boolean"},
         "vram_required_gb": {"type": "number"},
-        "notes": {"type": "string"}
+        "notes": {"type": "string"},
     },
-    "required": ["model", "settings"]
+    "required": ["model", "settings"],
 }
 
 
@@ -497,9 +378,9 @@ MCP_ERROR_OUTPUT = {
         "error": {"type": "string", "description": "Human-readable error message"},
         "code": {"type": "string", "description": "Error code"},
         "isError": {"type": "boolean", "const": True},
-        "details": {"type": "object", "additionalProperties": True}
+        "details": {"type": "object", "additionalProperties": True},
     },
-    "required": ["error", "isError"]
+    "required": ["error", "isError"],
 }
 
 

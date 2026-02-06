@@ -3,23 +3,22 @@ Security hardening tests - Task ROM-201
 Tests for path traversal, URL validation, and prompt injection prevention
 """
 
-import pytest
 import sys
 import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Set up mocks before importing modules
-if 'comfyui_massmediafactory_mcp.client' not in sys.modules:
-    client_mock = types.ModuleType('comfyui_massmediafactory_mcp.client')
+if "comfyui_massmediafactory_mcp.client" not in sys.modules:
+    client_mock = types.ModuleType("comfyui_massmediafactory_mcp.client")
     client_mock.get_client = lambda: None
     client_mock.ComfyUIClient = MagicMock
-    sys.modules['comfyui_massmediafactory_mcp.client'] = client_mock
+    sys.modules["comfyui_massmediafactory_mcp.client"] = client_mock
 
-if 'comfyui_massmediafactory_mcp' not in sys.modules:
-    pkg = types.ModuleType('comfyui_massmediafactory_mcp')
+if "comfyui_massmediafactory_mcp" not in sys.modules:
+    pkg = types.ModuleType("comfyui_massmediafactory_mcp")
     pkg.__path__ = [str(Path(__file__).parent.parent / "src" / "comfyui_massmediafactory_mcp")]
-    sys.modules['comfyui_massmediafactory_mcp'] = pkg
+    sys.modules["comfyui_massmediafactory_mcp"] = pkg
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -150,18 +149,18 @@ class TestContentEscaping:
 class TestUploadImageSecurity:
     """Security tests for upload_image tool"""
 
-    @patch('comfyui_massmediafactory_mcp.server.execution')
+    @patch("comfyui_massmediafactory_mcp.server.execution")
     def test_upload_rejects_traversal(self, mock_execution):
         """Test that upload_image blocks path traversal"""
         result = upload_image("../../../etc/passwd", "test.png")
         assert "error" in result
         mock_execution.upload_image.assert_not_called()
 
-    @patch('comfyui_massmediafactory_mcp.server.execution')
+    @patch("comfyui_massmediafactory_mcp.server.execution")
     def test_upload_accepts_valid_path(self, mock_execution):
         """Test that upload_image accepts valid paths"""
         mock_execution.upload_image.return_value = {"success": True}
-        with patch('comfyui_massmediafactory_mcp.server._validate_path') as mock_validate:
+        with patch("comfyui_massmediafactory_mcp.server._validate_path") as mock_validate:
             mock_validate.return_value = (True, "/home/user/images/test.png")
             result = upload_image("/home/user/images/test.png", "test.png")
             assert result.get("success") is True
@@ -170,7 +169,7 @@ class TestUploadImageSecurity:
 class TestDownloadOutputSecurity:
     """Security tests for download_output tool"""
 
-    @patch('comfyui_massmediafactory_mcp.server.execution')
+    @patch("comfyui_massmediafactory_mcp.server.execution")
     def test_download_rejects_traversal(self, mock_execution):
         """Test that download_output blocks path traversal"""
         result = download_output("asset-123", "../../../etc/passwd")
@@ -181,18 +180,18 @@ class TestDownloadOutputSecurity:
 class TestDownloadModelSecurity:
     """Security tests for download_model tool"""
 
-    @patch('comfyui_massmediafactory_mcp.server.models')
+    @patch("comfyui_massmediafactory_mcp.server.models")
     def test_download_rejects_malicious_url(self, mock_models):
         """Test that download_model blocks non-whitelisted URLs"""
         result = download_model("https://evil.com/malware.exe", "checkpoint")
         assert "error" in result
         mock_models.download_model.assert_not_called()
 
-    @patch('comfyui_massmediafactory_mcp.server.models')
+    @patch("comfyui_massmediafactory_mcp.server.models")
     def test_download_accepts_valid_url(self, mock_models):
         """Test that download_model accepts valid URLs"""
         mock_models.download_model.return_value = {"success": True}
-        result = download_model("https://civitai.com/models/12345", "checkpoint")
+        _result = download_model("https://civitai.com/models/12345", "checkpoint")
         # Should proceed to actual download call
         mock_models.download_model.assert_called_once()
 
@@ -200,16 +199,16 @@ class TestDownloadModelSecurity:
 class TestQAOutputSecurity:
     """Security tests for qa_output tool"""
 
-    @patch('comfyui_massmediafactory_mcp.server.qa')
+    @patch("comfyui_massmediafactory_mcp.server.qa")
     def test_qa_escapes_prompt(self, mock_qa):
         """Test that qa_output escapes user prompt"""
         mock_qa.qa_output.return_value = {"result": "pass"}
-        
+
         # Call with potentially malicious prompt
         malicious_prompt = "test\x00\x01\x02"
-        result = qa_output("asset-123", malicious_prompt)
-        
+        _result = qa_output("asset-123", malicious_prompt)
+
         # Verify the qa module was called with escaped content
         call_args = mock_qa.qa_output.call_args
-        escaped_prompt = call_args.kwargs.get('prompt') or call_args[1].get('prompt')
+        escaped_prompt = call_args.kwargs.get("prompt") or call_args[1].get("prompt")
         assert "\x00" not in escaped_prompt

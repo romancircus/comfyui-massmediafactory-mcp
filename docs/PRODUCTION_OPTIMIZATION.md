@@ -156,19 +156,19 @@ import json
 def discover_and_validate():
     # Use MCP to find the right model and constraints
     from mcp import get_model_constraints, get_node_chain
-    
+
     constraints = get_model_constraints("wan26")  # MCP call
     workflow_skeleton = get_node_chain("wan26", "t2v")  # MCP call
-    
+
     # Validate workflow with MCP
     validate_workflow(workflow_skeleton, auto_fix=True)
-    
+
     return workflow_skeleton
 
 # Phase 2: Direct API for execution (overnight batch)
 def execute_batch(workflows):
     COMFYUI_URL = "http://localhost:8188"
-    
+
     for workflow in workflows:
         # Direct HTTP call - no MCP overhead
         response = requests.post(
@@ -176,9 +176,9 @@ def execute_batch(workflows):
             json={"prompt": workflow, "client_id": "batch"},
             headers={"Content-Type": "application/json"}
         )
-        
+
         prompt_id = response.json()["prompt_id"]
-        
+
         # Direct HTTP for polling
         while True:
             status = requests.get(f"{COMFYUI_URL}/history/{prompt_id}").json()
@@ -189,7 +189,7 @@ def execute_batch(workflows):
 if __name__ == "__main__":
     # Discover once (MCP)
     workflow_template = discover_and_validate()
-    
+
     # Execute N times (Direct API)
     workflows = [modify_workflow(workflow_template, seed=i) for i in range(151)]
     execute_batch(workflows)
@@ -218,7 +218,7 @@ def validate_with_mcp(workflow):
         capture_output=True,
         text=True
     )
-    
+
     if result.returncode != 0:
         raise ValueError(f"Validation failed: {result.stderr}")
     return workflow
@@ -230,53 +230,53 @@ def execute_direct(workflow):
         json={"prompt": workflow},
         headers={"Content-Type": "application/json"}
     )
-    
+
     if response.status_code != 200:
         raise RuntimeError(f"Execution failed: {response.text}")
-    
+
     return response.json()["prompt_id"]
 
 def wait_for_result(prompt_id, timeout=600):
     """Poll direct API for completion"""
     import time
-    
+
     start = time.time()
     while time.time() - start < timeout:
         response = requests.get(f"{COMFYUI_URL}/history/{prompt_id}")
         data = response.json()
-        
+
         if prompt_id in data:
             status_obj = data[prompt_id]
             if status_obj["status"]["completed"]:
                 return status_obj["outputs"]
-        
+
         time.sleep(5)  # Poll every 5 seconds
-    
+
     raise TimeoutError(f"Workflow {prompt_id} timed out")
 
 def batch_generate(workflows, validate_each=True):
     """Generate N workflows with optional MCP validation"""
     results = []
-    
+
     for i, workflow in enumerate(workflows):
         print(f"[{i+1}/{len(workflows)}] Executing...")
-        
+
         # Validate once per workflow (optional)
         if validate_each:
             workflow = validate_with_mcp(workflow)
-        
+
         # Execute via direct API
         prompt_id = execute_direct(workflow)
         outputs = wait_for_result(prompt_id)
         results.append(outputs)
-    
+
     return results
 
 # Usage
 if __name__ == "__main__":
     # Generated templates stored as JSON (MCP not needed at runtime)
     templates = json.loads(Path("workflow_templates.json").read_text())
-    
+
     # Batch execution with direct API
     results = batch_generate(templates, validate_each=False)  # Skip MCP validation for speed
 ```
@@ -313,7 +313,7 @@ def parameterized_execute(template, params_list):
 if __name__ == "__main__":
     # One-time template discovery (MCP)
     template = get_template_via_mcp("wan26_txt2vid")
-    
+
     # Production batch (Direct API)
     params = [{"seed": i, "cfg": 2.5} for i in range(151)]
     parameterized_execute(template, params)
@@ -359,16 +359,16 @@ def execute_remote(workflow):
 if __name__ == "__main__":
     # Start local MCP for validation
     mcp_process = start_local_mcp()
-    
+
     try:
         workflows = load_workflows("batch.json")
-        
+
         for workflow in workflows:
             # Validate with local MCP (low token cost)
             valid = validate_local(workflow)
             if not valid["is_valid"]:
                 raise ValueError(valid["error"])
-            
+
             # Execute remotely (production)
             prompt_id = execute_remote(workflow)
             print(f"Executed: {prompt_id}")
@@ -404,7 +404,7 @@ def queue_workflow(workflow):
         data=data,
         headers={"Content-Type": "application/json"}
     )
-    
+
     with urllib.request.urlopen(req) as response:
         return json.loads(response.read())["prompt_id"]
 
@@ -412,22 +412,22 @@ def get_history(prompt_id):
     """Poll via direct API - NO MCP overhead"""
     with urllib.request.urlopen(f"{COMFYUI_API}/history/{prompt_id}") as response:
         data = json.loads(response.read())
-        
+
         if prompt_id not in data:
             return None, "queued"
-        
+
         status = data[prompt_id]["status"]
         if status.get("completed"):
             return data[prompt_id]["outputs"] if "outputs" in data[prompt_id] else [], "completed"
-        
+
         return None, status.get("str", "running")
 
 if __name__ == "__main__":
     workflows = load_workflows("wan_templates.json")
-    
+
     for i, workflow in enumerate(workflows):
         prompt_id = queue_workflow(workflow)
-        
+
         while True:
             outputs, status = get_history(prompt_id)
             if status == "completed":
@@ -497,7 +497,7 @@ Need batch generation?
 ```python
 def calculate_cost(workflow_count, approach="mcp"):
     """Calculate token cost for batch operations"""
-    
+
     if approach == "mcp":
         tokens_per_call = 15175  # MCP overhead
     elif approach == "direct":
@@ -505,10 +505,10 @@ def calculate_cost(workflow_count, approach="mcp"):
     elif approach == "hybrid":
         # MCP discovery (1 call) + Direct API (N calls)
         tokens_per_call = 15175 + (workflow_count * 3500)
-    
+
     total_tokens = workflow_count * tokens_per_call
     estimated_cost = total_tokens * 0.00002  # ~$20 per 1M tokens
-    
+
     return {
         "total_tokens": total_tokens,
         "estimated_cost_usd": estimated_cost,
@@ -601,7 +601,7 @@ prompt_id = response.json()["prompt_id"]
 # 3. Poll for completion
 while True:
     history = requests.get(f"{COMFYUI_URL}/history/{prompt_id}").json()
-    
+
     if prompt_id in history:
         status = history[prompt_id]["status"]
         if status["completed"]:
@@ -610,7 +610,7 @@ while True:
             break
         elif status.get("str") == "error":
             raise RuntimeError("Generation failed")
-    
+
     time.sleep(5)
 ```
 

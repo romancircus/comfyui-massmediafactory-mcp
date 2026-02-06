@@ -9,32 +9,30 @@ Provides full TypedDict definitions for all return types, enabling:
 
 Usage:
     from comfyui_massmediafactory_mcp.types import WorkflowResult, AssetOutput
-    
+
     def my_function() -> WorkflowResult:
         return {"prompt_id": "abc", "status": "completed", "outputs": []}
 """
 
 from typing import (
-    TypedDict, 
-    NotRequired, 
-    Required, 
-    Literal, 
-    List, 
-    Dict, 
-    Any, 
-    Optional,
+    TypedDict,
+    NotRequired,
+    Literal,
+    List,
+    Dict,
+    Any,
     Union,
-    overload,
 )
-from typing_extensions import Annotated
 
 
 # =============================================================================
 # Core Asset Types
 # =============================================================================
 
+
 class AssetOutput(TypedDict):
     """Output asset from workflow execution."""
+
     asset_id: str
     asset_type: Literal["image", "video", "audio", "model"]
     url: str
@@ -47,6 +45,7 @@ class AssetOutput(TypedDict):
 
 class AssetMetadata(TypedDict):
     """Full metadata for an asset including workflow."""
+
     asset_id: str
     asset_type: Literal["image", "video", "audio", "model"]
     created_at: str  # ISO 8601 timestamp
@@ -61,8 +60,10 @@ class AssetMetadata(TypedDict):
 # Workflow Types
 # =============================================================================
 
+
 class WorkflowResult(TypedDict):
     """Result from workflow execution."""
+
     prompt_id: str
     status: Literal["queued", "running", "completed", "error"]
     outputs: List[AssetOutput]
@@ -72,6 +73,7 @@ class WorkflowResult(TypedDict):
 
 class WorkflowStatus(TypedDict):
     """Status of a workflow execution."""
+
     prompt_id: str
     status: Literal["pending", "running", "completed", "error", "cancelled"]
     progress: NotRequired[float]  # 0.0 to 1.0
@@ -82,6 +84,7 @@ class WorkflowStatus(TypedDict):
 
 class QueueStatus(TypedDict):
     """Status of the execution queue."""
+
     queue_running: List[str]  # prompt_ids
     queue_pending: List[str]  # prompt_ids
     queue_completed: int
@@ -92,8 +95,10 @@ class QueueStatus(TypedDict):
 # Model Types
 # =============================================================================
 
+
 class ModelInfo(TypedDict):
     """Information about a model."""
+
     name: str
     type: Literal["checkpoint", "unet", "lora", "vae", "controlnet", "clip"]
     path: str
@@ -103,6 +108,7 @@ class ModelInfo(TypedDict):
 
 class ModelConstraints(TypedDict):
     """Constraints for a specific model."""
+
     min_cfg: NotRequired[float]
     max_cfg: NotRequired[float]
     default_cfg: NotRequired[float]
@@ -118,8 +124,10 @@ class ModelConstraints(TypedDict):
 # Node Types
 # =============================================================================
 
+
 class NodeInfo(TypedDict):
     """Information about a ComfyUI node type."""
+
     class_type: str
     category: str
     description: str
@@ -129,6 +137,7 @@ class NodeInfo(TypedDict):
 
 class NodeChainEntry(TypedDict):
     """Entry in a node chain."""
+
     id: str
     class_type: str
     inputs: Dict[str, List]  # input_name -> [source_id, slot]
@@ -139,8 +148,10 @@ class NodeChainEntry(TypedDict):
 # Template Types
 # =============================================================================
 
+
 class TemplateMetadata(TypedDict):
     """Metadata for a workflow template."""
+
     name: str
     description: str
     model: str
@@ -151,6 +162,7 @@ class TemplateMetadata(TypedDict):
 
 class Template(TypedDict):
     """Complete workflow template."""
+
     name: str
     workflow: Dict[str, Any]
     _meta: TemplateMetadata
@@ -160,8 +172,10 @@ class Template(TypedDict):
 # Pattern Types
 # =============================================================================
 
+
 class PatternInfo(TypedDict):
     """Information about a workflow pattern."""
+
     model: str
     task: str
     description: str
@@ -171,6 +185,7 @@ class PatternInfo(TypedDict):
 
 class ValidationResult(TypedDict):
     """Result of workflow validation."""
+
     valid: bool
     errors: List[str]
     warnings: List[str]
@@ -183,8 +198,10 @@ class ValidationResult(TypedDict):
 # VRAM Types
 # =============================================================================
 
+
 class VRAMEstimate(TypedDict):
     """VRAM usage estimate."""
+
     estimated_vram_gb: float
     model_vram_gb: float
     overhead_gb: float
@@ -195,6 +212,7 @@ class VRAMEstimate(TypedDict):
 
 class ModelFitCheck(TypedDict):
     """Result of model fit check."""
+
     fits: bool
     model_size_gb: float
     available_vram_gb: float
@@ -206,8 +224,10 @@ class ModelFitCheck(TypedDict):
 # SOTA Types
 # =============================================================================
 
+
 class SOTAModel(TypedDict):
     """SOTA model recommendation."""
+
     name: str
     category: Literal["image", "video", "audio", "text"]
     vram_gb: float
@@ -217,6 +237,7 @@ class SOTAModel(TypedDict):
 
 class SOTASettings(TypedDict):
     """Optimal settings for a model."""
+
     model: str
     recommended_cfg: float
     recommended_steps: int
@@ -228,8 +249,10 @@ class SOTASettings(TypedDict):
 # Rate Limiting Types
 # =============================================================================
 
+
 class RateLimitStatus(TypedDict):
     """Rate limiting status."""
+
     requests_per_minute: int
     requests_remaining: int
     current_usage: int
@@ -244,6 +267,7 @@ class RateLimitStatus(TypedDict):
 
 class ToolRateStatus(TypedDict):
     """Rate status for a specific tool."""
+
     tool: str
     requests_remaining: int
     current_usage: int
@@ -253,6 +277,7 @@ class ToolRateStatus(TypedDict):
 
 class AllToolsRateStatus(TypedDict):
     """Rate status for all tools."""
+
     tools: List[ToolRateStatus]
     global_limit: int
     window_seconds: int
@@ -262,6 +287,7 @@ class AllToolsRateStatus(TypedDict):
 
 class RateLimitSummary(TypedDict):
     """Brief rate limit summary for dashboards."""
+
     status: Literal["ok", "warning", "critical"]
     message: str
     requests_remaining: int
@@ -274,8 +300,10 @@ class RateLimitSummary(TypedDict):
 # Execution Types
 # =============================================================================
 
+
 class ExecutionResult(TypedDict):
     """Result of a single execution."""
+
     prompt_id: str
     status: Literal["queued", "running", "completed", "error"]
     outputs: List[AssetOutput]
@@ -284,6 +312,7 @@ class ExecutionResult(TypedDict):
 
 class BatchResult(TypedDict):
     """Result of batch execution."""
+
     results: List[ExecutionResult]
     total: int
     succeeded: int
@@ -295,8 +324,10 @@ class BatchResult(TypedDict):
 # QA Types
 # =============================================================================
 
+
 class QAResult(TypedDict):
     """Quality assurance check result."""
+
     passed: bool
     score: float  # 0.0 to 1.0
     issues: List[str]
@@ -307,8 +338,10 @@ class QAResult(TypedDict):
 # Style Learning Types
 # =============================================================================
 
+
 class GenerationRecord(TypedDict):
     """Recorded generation for style learning."""
+
     record_id: str
     prompt: str
     model: str
@@ -322,6 +355,7 @@ class GenerationRecord(TypedDict):
 
 class StylePreset(TypedDict):
     """Style preset for prompt enhancement."""
+
     name: str
     description: str
     prompt_additions: str
@@ -332,6 +366,7 @@ class StylePreset(TypedDict):
 
 class SimilarPrompt(TypedDict):
     """Similar prompt from style learning."""
+
     prompt: str
     similarity_score: float
     rating: float
@@ -342,8 +377,10 @@ class SimilarPrompt(TypedDict):
 # Visualization Types
 # =============================================================================
 
+
 class WorkflowVisualization(TypedDict):
     """Workflow visualization result."""
+
     mermaid: str  # Mermaid diagram syntax
     url: str  # Mermaid Live Editor URL
     node_count: int
@@ -352,6 +389,7 @@ class WorkflowVisualization(TypedDict):
 
 class WorkflowSummary(TypedDict):
     """Summary of workflow structure."""
+
     node_types: Dict[str, int]  # class_type -> count
     total_nodes: int
     parameters: List[str]
@@ -362,8 +400,10 @@ class WorkflowSummary(TypedDict):
 # Semantic Search Types
 # =============================================================================
 
+
 class SemanticSearchResult(TypedDict):
     """Result from semantic pattern search."""
+
     results: List[Dict[str, Any]]  # Pattern matches with scores
     query: str
     query_time_ms: float
@@ -375,6 +415,7 @@ class SemanticSearchResult(TypedDict):
 
 class PatternMatch(TypedDict):
     """Single pattern match from semantic search."""
+
     pattern_id: str
     score: float
     description: str
@@ -386,8 +427,10 @@ class PatternMatch(TypedDict):
 # Error Types
 # =============================================================================
 
+
 class MCPError(TypedDict):
     """MCP-compliant error response."""
+
     error: str
     code: str
     isError: Literal[True]
@@ -397,6 +440,7 @@ class MCPError(TypedDict):
 
 class SuccessResult(TypedDict):
     """Generic success result."""
+
     success: Literal[True]
     message: NotRequired[str]
     data: NotRequired[Any]

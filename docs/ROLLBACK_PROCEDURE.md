@@ -1,8 +1,8 @@
 # MCP Migration Rollback Procedure
 
-**Version:** 1.0  
-**Date:** 2026-02-04  
-**Target Rollback Time:** <5 minutes  
+**Version:** 1.0
+**Date:** 2026-02-04
+**Target Rollback Time:** <5 minutes
 
 ## Quick Rollback (One-Command)
 
@@ -15,7 +15,7 @@ START_TIME=$(date +%s)
 
 # Rollback all repos
 cd ~/Applications/comfyui-massmediafactory-mcp && git checkout pre-mcp-backup
-cd ~/Applications/pokedex-generator && git checkout pre-mcp-backup  
+cd ~/Applications/pokedex-generator && git checkout pre-mcp-backup
 cd ~/Applications/Goat && git checkout pre-mcp-backup
 cd ~/Applications/RobloxChristian && git checkout pre-mcp-backup
 
@@ -117,8 +117,8 @@ cd ~/Applications/RobloxChristian && git checkout master
 
 ## Rollback Test Results
 
-**Date:** 2026-02-04  
-**Tester:** Juvenal (Claude)  
+**Date:** 2026-02-04
+**Tester:** Juvenal (Claude)
 
 ### Phase 1: Pre-Rollback State Capture ✅
 - Current state documented

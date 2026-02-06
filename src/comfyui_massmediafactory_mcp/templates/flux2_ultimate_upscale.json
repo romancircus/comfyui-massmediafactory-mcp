@@ -35,7 +35,9 @@
     "tags": [
       "model:flux",
       "capability:upscale"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "379039f4360af0f7"
   },
   "1": {
     "class_type": "LoadImage",

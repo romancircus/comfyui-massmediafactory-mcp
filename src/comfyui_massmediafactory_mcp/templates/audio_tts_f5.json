@@ -32,7 +32,9 @@
       "capability:tts",
       "model:f5_tts"
     ],
-    "model": "audio"
+    "model": "audio",
+    "version": "1.0.0",
+    "hub_hash": "062dcdac4506ae22"
   },
   "1": {
     "class_type": "F5TTSModelLoader",

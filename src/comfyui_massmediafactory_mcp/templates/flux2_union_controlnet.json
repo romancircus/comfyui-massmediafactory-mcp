@@ -31,7 +31,9 @@
     "tags": [
       "model:flux",
       "capability:controlnet"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "27841370efc699e3"
   },
   "1": {
     "class_type": "UNETLoader",

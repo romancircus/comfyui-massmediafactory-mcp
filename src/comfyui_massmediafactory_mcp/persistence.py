@@ -6,7 +6,6 @@ Workflows are stored in ~/.massmediafactory/workflows/
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
@@ -142,12 +141,14 @@ def list_workflows(tag: Optional[str] = None) -> dict:
 
         except (json.JSONDecodeError, KeyError):
             # Include but mark as invalid
-            workflows.append({
-                "name": path.stem,
-                "description": "(invalid JSON)",
-                "tags": [],
-                "error": True,
-            })
+            workflows.append(
+                {
+                    "name": path.stem,
+                    "description": "(invalid JSON)",
+                    "tags": [],
+                    "error": True,
+                }
+            )
 
     # Sort by updated_at descending
     workflows.sort(
@@ -406,7 +407,7 @@ def convert_ui_to_api_format(ui_workflow: dict) -> dict:
 
         # Get input definitions from node
         node_inputs = node.get("inputs", [])
-        node_outputs = node.get("outputs", [])
+        _node_outputs = node.get("outputs", [])
 
         # Map input slots to connections
         for i, inp in enumerate(node_inputs):
@@ -421,7 +422,7 @@ def convert_ui_to_api_format(ui_workflow: dict) -> dict:
 
         # Map widget values to inputs (simplified - may need node-specific handling)
         # This is a best-effort mapping since widget order isn't guaranteed
-        widget_idx = 0
+        _widget_idx = 0
         for prop in node.get("properties", {}).items():
             # Properties are sometimes stored separately
             pass
@@ -494,21 +495,25 @@ def convert_api_to_ui_format(api_workflow: dict) -> dict:
                 source_slot = input_value[1]
 
                 # Add input slot definition
-                node["inputs"].append({
-                    "name": input_name,
-                    "type": "*",  # Type unknown without node info
-                    "link": link_id,
-                })
+                node["inputs"].append(
+                    {
+                        "name": input_name,
+                        "type": "*",  # Type unknown without node info
+                        "link": link_id,
+                    }
+                )
 
                 # Add link
-                links.append([
-                    link_id,
-                    int(source_node) if str(source_node).isdigit() else hash(source_node) % 10000,
-                    source_slot,
-                    node["id"],
-                    input_slot,
-                    "*",
-                ])
+                links.append(
+                    [
+                        link_id,
+                        int(source_node) if str(source_node).isdigit() else hash(source_node) % 10000,
+                        source_slot,
+                        node["id"],
+                        input_slot,
+                        "*",
+                    ]
+                )
 
                 link_id += 1
                 input_slot += 1

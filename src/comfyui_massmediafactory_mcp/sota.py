@@ -4,15 +4,16 @@ SOTA Model Recommendations
 Provides current State-of-the-Art model recommendations for ComfyUI workflows.
 Integrates knowledge from sota-tracker to help select optimal models.
 
-Last Updated: January 2026
+Last Updated: February 2026
+Cross-reference: ~/Applications/sota-tracker-mcp for live SOTA data
 """
 
-from typing import Optional, List, Dict
+from typing import Optional
 from .client import get_client
-from .vram import MODEL_VRAM_ESTIMATES, detect_model_type
+from .vram import detect_model_type
 
 
-# Current SOTA models by category (January 2026)
+# Current SOTA models by category (February 2026)
 # Keep in sync with sota-tracker MCP
 # Updated with RTX 5090 32GB optimization recommendations
 SOTA_MODELS = {
@@ -23,7 +24,12 @@ SOTA_MODELS = {
                 "comfyui_files": ["flux2-dev.safetensors", "flux2-dev-fp8.safetensors"],
                 "vram_fp16": 24,
                 "vram_fp8": 12,
-                "strengths": ["photorealism", "anatomy", "lighting", "prompt adherence"],
+                "strengths": [
+                    "photorealism",
+                    "anatomy",
+                    "lighting",
+                    "prompt adherence",
+                ],
                 "best_for": ["portraits", "general purpose", "artistic styles"],
                 "prompt_style": "natural_language",  # Descriptive, "The image showcases..."
                 "loader": "UNETLoader",
@@ -38,11 +44,25 @@ SOTA_MODELS = {
             },
             {
                 "name": "Qwen-Image-2512",
-                "comfyui_files": ["qwen_image_2512_fp16.safetensors", "qwen_image_2512_fp8_e4m3fn.safetensors"],
+                "comfyui_files": [
+                    "qwen_image_2512_fp16.safetensors",
+                    "qwen_image_2512_fp8_e4m3fn.safetensors",
+                ],
                 "vram_fp16": 14,
                 "vram_fp8": 7,
-                "strengths": ["text rendering", "complex layouts", "OCR-heavy tasks", "UI design"],
-                "best_for": ["posters", "ui design", "charts", "text in images", "logos"],
+                "strengths": [
+                    "text rendering",
+                    "complex layouts",
+                    "OCR-heavy tasks",
+                    "UI design",
+                ],
+                "best_for": [
+                    "posters",
+                    "ui design",
+                    "charts",
+                    "text in images",
+                    "logos",
+                ],
                 "prompt_style": "instructional",  # "Place text X at top left"
                 "loader": "UNETLoader",
                 "guidance_node": "ModelSamplingAuraFlow",
@@ -73,11 +93,24 @@ SOTA_MODELS = {
         "sota": [
             {
                 "name": "LTX-2 19B",
-                "comfyui_files": ["ltx-2-19b-dev-fp8.safetensors", "ltx-2-19b.safetensors"],
+                "comfyui_files": [
+                    "ltx-2-19b-dev-fp8.safetensors",
+                    "ltx-2-19b.safetensors",
+                ],
                 "vram_fp16": 38,  # Too large for RTX 5090!
                 "vram_fp8": 19,
-                "strengths": ["native audio", "lip sync", "long duration", "narrative coherence"],
-                "best_for": ["talking head", "music videos", "dialogue scenes", "audio-reactive"],
+                "strengths": [
+                    "native audio",
+                    "lip sync",
+                    "long duration",
+                    "narrative coherence",
+                ],
+                "best_for": [
+                    "talking head",
+                    "music videos",
+                    "dialogue scenes",
+                    "audio-reactive",
+                ],
                 "prompt_style": "motion",  # Describe change, not static state
                 "audio_support": True,
                 "lip_sync": True,
@@ -96,8 +129,18 @@ SOTA_MODELS = {
                 "comfyui_files": ["wan2.6_i2v_fp8.safetensors", "wan2.6.safetensors"],
                 "vram_fp16": 32,  # Too tight for RTX 5090
                 "vram_fp8": 16,
-                "strengths": ["motion quality", "high-dynamic motion", "physics simulation", "cinematography"],
-                "best_for": ["image-to-video", "action sequences", "b-roll", "cinematic shots"],
+                "strengths": [
+                    "motion quality",
+                    "high-dynamic motion",
+                    "physics simulation",
+                    "cinematography",
+                ],
+                "best_for": [
+                    "image-to-video",
+                    "action sequences",
+                    "b-roll",
+                    "cinematic shots",
+                ],
                 "prompt_style": "motion",  # Describe change, not static state
                 "audio_support": False,
                 "motion_brush": True,
@@ -110,7 +153,10 @@ SOTA_MODELS = {
             },
             {
                 "name": "HunyuanVideo 1.5",
-                "comfyui_files": ["hunyuan-video-1.5.safetensors", "hunyuan-video-1.5-fp8.safetensors"],
+                "comfyui_files": [
+                    "hunyuan-video-1.5.safetensors",
+                    "hunyuan-video-1.5-fp8.safetensors",
+                ],
                 "vram_fp16": 24,
                 "vram_fp8": 12,
                 "strengths": ["high resolution", "cinematic quality", "stable motion"],
@@ -152,9 +198,16 @@ SOTA_MODELS = {
         "sota": [
             {
                 "name": "IP-Adapter FaceID Plus v2",
-                "comfyui_files": ["ip-adapter-faceid-plusv2_sd15.bin", "ip-adapter-faceid-plusv2_sdxl.bin"],
+                "comfyui_files": [
+                    "ip-adapter-faceid-plusv2_sd15.bin",
+                    "ip-adapter-faceid-plusv2_sdxl.bin",
+                ],
                 "vram": 3.0,
-                "best_for": ["character consistency", "face preservation", "style transfer"],
+                "best_for": [
+                    "character consistency",
+                    "face preservation",
+                    "style transfer",
+                ],
                 "note": "Standard for character consistency across generations",
             },
             {
@@ -214,7 +267,6 @@ TASK_MODEL_MATRIX = {
         "precision": "fp16",
         "prompt_tip": "Describe style naturally: 'in the style of...', 'oil painting', etc.",
     },
-
     # === VIDEO GENERATION TASKS ===
     "talking_head": {
         "recommended": "LTX-2 19B",
@@ -264,7 +316,6 @@ TASK_MODEL_MATRIX = {
         "alternatives": ["LTX-2 19B"],
         "precision": "fp8",
     },
-
     # === SPECIALIZED TASKS ===
     "style_transfer": {
         "recommended": "Qwen-Image-2512 + ControlNet",
@@ -374,8 +425,9 @@ def recommend_model_for_task(
     vram_fp16 = recommended_model.get("vram_fp16", recommended_model.get("vram", 16))
 
     precision = "fp8" if vram_fp8 <= available_vram_gb else "fp16"
-    fits = (precision == "fp8" and vram_fp8 <= available_vram_gb) or \
-           (precision == "fp16" and vram_fp16 <= available_vram_gb)
+    fits = (precision == "fp8" and vram_fp8 <= available_vram_gb) or (
+        precision == "fp16" and vram_fp16 <= available_vram_gb
+    )
 
     return {
         "task": task,
@@ -562,16 +614,12 @@ def get_available_sota_models() -> dict:
     installed_unets = set()
 
     try:
-        installed_checkpoints = set(
-            checkpoints_result["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0]
-        )
+        installed_checkpoints = set(checkpoints_result["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0])
     except (KeyError, IndexError, TypeError):
         pass
 
     try:
-        installed_unets = set(
-            unets_result["UNETLoader"]["input"]["required"]["unet_name"][0]
-        )
+        installed_unets = set(unets_result["UNETLoader"]["input"]["required"]["unet_name"][0])
     except (KeyError, IndexError, TypeError):
         pass
 
@@ -593,17 +641,21 @@ def get_available_sota_models() -> dict:
                     break
 
             if found:
-                installed_sota.append({
-                    "name": model["name"],
-                    "category": category,
-                    "file": found_file,
-                })
+                installed_sota.append(
+                    {
+                        "name": model["name"],
+                        "category": category,
+                        "file": found_file,
+                    }
+                )
             else:
-                missing_sota.append({
-                    "name": model["name"],
-                    "category": category,
-                    "expected_files": model.get("comfyui_files", []),
-                })
+                missing_sota.append(
+                    {
+                        "name": model["name"],
+                        "category": category,
+                        "expected_files": model.get("comfyui_files", []),
+                    }
+                )
 
     return {
         "installed_sota": installed_sota,

@@ -1,9 +1,9 @@
 # IMPLEMENTATION_PLAN.md - First Feature Implementation
 
-**Author:** KIMI  
-**Repository:** comfyui-massmediafactory-mcp  
-**Date:** February 2026  
-**Feature:** Type Safety Overhaul + Model Registry Consolidation  
+**Author:** KIMI
+**Repository:** comfyui-massmediafactory-mcp
+**Date:** February 2026
+**Feature:** Type Safety Overhaul + Model Registry Consolidation
 **Effort:** 14 hours
 
 ---
@@ -34,7 +34,7 @@
 
 ### Two-Phase Approach
 
-**Phase 1:** Type Safety Overhaul (8 hours)  
+**Phase 1:** Type Safety Overhaul (8 hours)
 **Phase 2:** Model Registry Consolidation (6 hours)
 
 ---
@@ -298,12 +298,12 @@ from pathlib import Path
 
 class ModelDefinition(TypedDict):
     """Complete definition for a supported model."""
-    
+
     # Identity
     id: str
     display_name: str
     model_type: str  # "image", "video", "edit"
-    
+
     # Constraints
     cfg_min: float
     cfg_max: float
@@ -312,24 +312,24 @@ class ModelDefinition(TypedDict):
     resolution_min: int
     resolution_max: int
     resolution_native: List[int]
-    
+
     # Video-specific (optional)
     frames_default: Optional[int]
     frames_max: Optional[int]
     frames_formula: Optional[str]
-    
+
     # Generation defaults
     steps_default: int
     steps_min: int
     steps_max: int
     width_default: int
     height_default: int
-    
+
     # Workflow
     skeleton_key: str  # Key in WORKFLOW_SKELETONS
     required_nodes: List[str]
     forbidden_nodes: Dict[str, str]
-    
+
     # Aliases
     aliases: List[str]  # Alternative names ("flux", "flux2")
 
@@ -362,7 +362,7 @@ MODELS: Dict[str, ModelDefinition] = {
         },
         "aliases": ["flux", "flux2", "flux.2"]
     },
-    
+
     "ltx2": {
         "id": "ltx2",
         "display_name": "LTX-Video 2.0",
@@ -390,7 +390,7 @@ MODELS: Dict[str, ModelDefinition] = {
         },
         "aliases": ["ltx", "ltx2", "ltx-video"]
     },
-    
+
     # ... more models
 }
 
@@ -403,15 +403,15 @@ for model_id, definition in MODELS.items():
 def get_model(model_id_or_alias: str) -> Optional[ModelDefinition]:
     """Get model definition by ID or alias."""
     key = model_id_or_alias.lower()
-    
+
     # Direct lookup
     if key in MODELS:
         return MODELS[key]
-    
+
     # Alias lookup
     if key in ALIAS_TO_MODEL:
         return MODELS[ALIAS_TO_MODEL[key]]
-    
+
     return None
 
 def list_models_by_type(model_type: Optional[str] = None) -> List[ModelDefinition]:
@@ -424,11 +424,11 @@ def validate_model_params(model_id: str, params: Dict[str, Any]) -> List[str]:
     """Validate parameters against model constraints."""
     errors = []
     model = get_model(model_id)
-    
+
     if not model:
         errors.append(f"Unknown model: {model_id}")
         return errors
-    
+
     # Check CFG
     if "cfg" in params:
         cfg = params["cfg"]
@@ -436,7 +436,7 @@ def validate_model_params(model_id: str, params: Dict[str, Any]) -> List[str]:
             errors.append(
                 f"CFG {cfg} out of range [{model['cfg_min']}, {model['cfg_max']}]"
             )
-    
+
     # Check resolution
     for dim in ["width", "height"]:
         if dim in params:
@@ -444,14 +444,14 @@ def validate_model_params(model_id: str, params: Dict[str, Any]) -> List[str]:
             divisor = model["resolution_divisor"]
             if val % divisor != 0:
                 errors.append(f"{dim} {val} not divisible by {divisor}")
-    
+
     # Check frames for video
     if model["model_type"] == "video" and "frames" in params:
         frames = params["frames"]
         if model["frames_formula"] == "8n+1":
             if (frames - 1) % 8 != 0:
                 errors.append(f"Frames {frames} must be 8n+1")
-    
+
     return errors
 ```
 
@@ -469,7 +469,7 @@ def get_model_constraints(model: str) -> Dict[str, Any]:
     model_def = get_model(model)
     if not model_def:
         return {"error": f"Unknown model: {model}"}
-    
+
     # Convert ModelDefinition to old format for compatibility
     return {
         "display_name": model_def["display_name"],
@@ -500,7 +500,7 @@ def resolve_parameters(skeleton: dict, model: str, ...) -> Dict[str, Any]:
     model_def = get_model(model)
     if not model_def:
         raise ValueError(f"Unknown model: {model}")
-    
+
     # Use model_def instead of MODEL_DEFAULTS
     defaults = {
         "width": model_def["width_default"],
@@ -508,7 +508,7 @@ def resolve_parameters(skeleton: dict, model: str, ...) -> Dict[str, Any]:
         "steps": model_def["steps_default"],
         "cfg": model_def["cfg_default"]
     }
-    
+
     # ... rest of function
 ```
 
@@ -523,7 +523,7 @@ from .model_registry import get_model
 # Replace MODEL_CONSTRAINTS lookups:
 def validate_topology(workflow_json: str, model: Optional[str] = None):
     model_def = get_model(model) if model else None
-    
+
     if model_def:
         # Use model_def for validation
         errors = validate_model_params(model, extracted_params)

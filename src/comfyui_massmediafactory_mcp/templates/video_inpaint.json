@@ -49,7 +49,9 @@
       "type:utility",
       "capability:inpaint"
     ],
-    "model": "utility"
+    "model": "utility",
+    "version": "1.0.0",
+    "hub_hash": "14de8db4379c115f"
   },
   "1": {
     "class_type": "VHS_LoadVideo",

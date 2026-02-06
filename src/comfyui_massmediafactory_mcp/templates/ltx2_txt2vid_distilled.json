@@ -32,7 +32,9 @@
     "tags": [
       "model:ltx",
       "type:distilled"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "698950b9d44a34b9"
   },
   "1": {
     "class_type": "CheckpointLoaderSimple",

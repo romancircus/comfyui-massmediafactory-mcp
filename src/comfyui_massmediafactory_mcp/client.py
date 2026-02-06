@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 from uuid import uuid4
 
 # Retry configuration from environment
@@ -66,9 +66,7 @@ def retry(
                     # Check if result is an error dict that might be retryable
                     if isinstance(result, dict) and "error" in result:
                         error_str = str(result["error"]).lower()
-                        is_retryable = any(
-                            pattern in error_str for pattern in RETRYABLE_ERRORS
-                        )
+                        is_retryable = any(pattern in error_str for pattern in RETRYABLE_ERRORS)
 
                         if is_retryable and attempt < max_attempts - 1:
                             last_error = result
@@ -81,9 +79,7 @@ def retry(
                 except Exception as e:
                     last_error = e
                     error_str = str(e).lower()
-                    is_retryable = any(
-                        pattern in error_str for pattern in RETRYABLE_ERRORS
-                    )
+                    is_retryable = any(pattern in error_str for pattern in RETRYABLE_ERRORS)
 
                     if is_retryable and attempt < max_attempts - 1:
                         time.sleep(delay)
@@ -108,9 +104,7 @@ class ComfyUIClient:
     """HTTP client for ComfyUI API."""
 
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = base_url or os.environ.get(
-            "COMFYUI_URL", "http://localhost:8188"
-        )
+        self.base_url = base_url or os.environ.get("COMFYUI_URL", "http://localhost:8188")
 
     @retry()
     def request(
@@ -177,10 +171,7 @@ class ComfyUIClient:
 
     def free_memory(self, unload_models: bool = False) -> dict:
         """Free GPU memory."""
-        return self.post("/free", {
-            "free_memory": True,
-            "unload_models": unload_models
-        })
+        return self.post("/free", {"free_memory": True, "unload_models": unload_models})
 
     def upload_image(
         self,
@@ -220,9 +211,7 @@ class ComfyUIClient:
 
         # Add image file
         body_parts.append(f"--{boundary}".encode())
-        body_parts.append(
-            f'Content-Disposition: form-data; name="image"; filename="{filename}"'.encode()
-        )
+        body_parts.append(f'Content-Disposition: form-data; name="image"; filename="{filename}"'.encode())
         body_parts.append(f"Content-Type: {content_type}".encode())
         body_parts.append(b"")
         with open(path, "rb") as f:

@@ -5,8 +5,7 @@ Estimate GPU memory usage for workflows before execution.
 Helps prevent OOM errors and optimize model selection.
 """
 
-import re
-from typing import Optional, Tuple
+from typing import Tuple
 from .client import get_client
 
 
@@ -18,7 +17,6 @@ MODEL_VRAM_ESTIMATES = {
     # IMAGE MODELS
     # ==========================================================================
     # RTX 5090 32GB Strategy: Use fp16 for all image models (quality > speed)
-
     "flux": {
         "fp32": 48.0,
         "fp16": 24.0,
@@ -89,12 +87,10 @@ MODEL_VRAM_ESTIMATES = {
         "rtx5090_recommended": "fp16",
         "rtx5090_note": "Fast iteration model - 8 steps",
     },
-
     # ==========================================================================
     # VIDEO MODELS
     # ==========================================================================
     # RTX 5090 32GB Strategy: Use fp8 for large video models (19B+)
-
     "ltx": {
         "fp32": 40.0,
         "fp16": 20.0,
@@ -175,7 +171,6 @@ MODEL_VRAM_ESTIMATES = {
         "rtx5090_recommended": "fp16",
         "rtx5090_note": "Deprecated - use Wan 2.6 or LTX-2 instead",
     },
-
     # Fallback
     "unknown": {
         "fp32": 16.0,
@@ -196,11 +191,12 @@ RTX_5090_USABLE_GB = RTX_5090_VRAM_GB - RTX_5090_SAFE_MARGIN_GB  # 28GB usable
 COMPONENT_VRAM = {
     "vae": 1.5,  # GB for VAE
     "clip": 2.0,  # GB for CLIP text encoder
-    "t5": 8.0,   # GB for T5 text encoder (Flux, SD3)
+    "t5": 8.0,  # GB for T5 text encoder (Flux, SD3)
     "controlnet": 2.5,  # GB per ControlNet
     "lora": 0.5,  # GB per LoRA (approximate)
     "ipadapter": 3.0,  # GB for IP-Adapter
 }
+
 
 # Resolution scaling factors (relative to 512x512)
 def get_resolution_multiplier(width: int, height: int) -> float:
@@ -290,7 +286,7 @@ def get_rtx5090_recommendation(model_name: str) -> dict:
     total_estimated = recommended_vram + 4.0  # Conservative overhead
 
     will_fit = total_estimated <= RTX_5090_USABLE_GB
-    has_warning = vram_table.get("rtx5090_warning") is not None
+    _has_warning = vram_table.get("rtx5090_warning") is not None
 
     return {
         "model": model_name,
@@ -383,12 +379,14 @@ def estimate_workflow_vram(workflow: dict) -> dict:
             model_type, precision = detect_model_type(model_name)
             vram = MODEL_VRAM_ESTIMATES.get(model_type, MODEL_VRAM_ESTIMATES["unknown"])
             vram_gb = vram.get(precision, vram["default"])
-            models_found.append({
-                "name": model_name,
-                "type": model_type,
-                "precision": precision,
-                "vram_gb": vram_gb,
-            })
+            models_found.append(
+                {
+                    "name": model_name,
+                    "type": model_type,
+                    "precision": precision,
+                    "vram_gb": vram_gb,
+                }
+            )
             total_vram += vram_gb
             breakdown.append(f"{model_type} ({precision}): {vram_gb:.1f}GB")
 
@@ -579,9 +577,11 @@ def get_alternatives(model_type: str, available_vram: float) -> list:
         if precision in vram_table:
             vram_needed = vram_table[precision] + 4.0  # Include overhead
             if vram_needed <= available_vram:
-                alternatives.append({
-                    "precision": precision,
-                    "estimated_vram_gb": round(vram_needed, 1),
-                })
+                alternatives.append(
+                    {
+                        "precision": precision,
+                        "estimated_vram_gb": round(vram_needed, 1),
+                    }
+                )
 
     return alternatives

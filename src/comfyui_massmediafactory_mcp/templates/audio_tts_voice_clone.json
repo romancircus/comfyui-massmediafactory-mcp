@@ -35,7 +35,9 @@
       "type:audio",
       "capability:tts"
     ],
-    "model": "audio"
+    "model": "audio",
+    "version": "1.0.0",
+    "hub_hash": "1482f879df258bd9"
   },
   "1": {
     "class_type": "F5TTSModelLoader",

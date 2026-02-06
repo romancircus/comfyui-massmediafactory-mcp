@@ -14,18 +14,16 @@ import hashlib
 import time
 from typing import Dict, List, Any, Optional
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 # Default database location
-DEFAULT_DB_PATH = os.environ.get(
-    "COMFY_MCP_STYLE_DB",
-    os.path.expanduser("~/.comfyui-mcp/style_learning.db")
-)
+DEFAULT_DB_PATH = os.environ.get("COMFY_MCP_STYLE_DB", os.path.expanduser("~/.comfyui-mcp/style_learning.db"))
 
 
 @dataclass
 class GenerationRecord:
     """Record of a single generation with outcome."""
+
     id: str
     prompt: str
     negative_prompt: str
@@ -59,7 +57,8 @@ class StyleLearningDB:
     def _init_db(self):
         """Initialize database schema."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS generations (
                     id TEXT PRIMARY KEY,
                     prompt TEXT NOT NULL,
@@ -75,23 +74,33 @@ class StyleLearningDB:
                     notes TEXT DEFAULT '',
                     prompt_hash TEXT
                 )
-            """)
+            """
+            )
 
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_prompt_hash ON generations(prompt_hash)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_model ON generations(model)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_rating ON generations(rating)
-            """)
-            conn.execute("""
+            """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_tags ON generations(tags)
-            """)
+            """
+            )
 
             # Style presets table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS style_presets (
                     name TEXT PRIMARY KEY,
                     description TEXT,
@@ -103,7 +112,8 @@ class StyleLearningDB:
                     created_at REAL,
                     updated_at REAL
                 )
-            """)
+            """
+            )
 
             conn.commit()
 
@@ -147,25 +157,28 @@ class StyleLearningDB:
         record_id = f"gen_{int(time.time() * 1000)}_{hashlib.md5(prompt.encode()).hexdigest()[:8]}"
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO generations
                 (id, prompt, negative_prompt, model, seed, parameters, rating, tags, outcome, qa_score, created_at, notes, prompt_hash)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                record_id,
-                prompt,
-                negative_prompt,
-                model,
-                seed,
-                json.dumps(parameters or {}),
-                rating,
-                json.dumps(tags or []),
-                outcome,
-                qa_score,
-                time.time(),
-                notes,
-                self._hash_prompt(prompt),
-            ))
+            """,
+                (
+                    record_id,
+                    prompt,
+                    negative_prompt,
+                    model,
+                    seed,
+                    json.dumps(parameters or {}),
+                    rating,
+                    json.dumps(tags or []),
+                    outcome,
+                    qa_score,
+                    time.time(),
+                    notes,
+                    self._hash_prompt(prompt),
+                ),
+            )
             conn.commit()
 
         return record_id
@@ -184,15 +197,9 @@ class StyleLearningDB:
         """
         with sqlite3.connect(self.db_path) as conn:
             if notes:
-                conn.execute(
-                    "UPDATE generations SET rating = ?, notes = ? WHERE id = ?",
-                    (rating, notes, record_id)
-                )
+                conn.execute("UPDATE generations SET rating = ?, notes = ? WHERE id = ?", (rating, notes, record_id))
             else:
-                conn.execute(
-                    "UPDATE generations SET rating = ? WHERE id = ?",
-                    (rating, record_id)
-                )
+                conn.execute("UPDATE generations SET rating = ? WHERE id = ?", (rating, record_id))
             conn.commit()
             return conn.total_changes > 0
 
@@ -291,7 +298,7 @@ class StyleLearningDB:
         """
         with sqlite3.connect(self.db_path) as conn:
             # Build tag matching query
-            tag_conditions = " OR ".join([f"tags LIKE ?" for _ in tags])
+            tag_conditions = " OR ".join(["tags LIKE ?" for _ in tags])
             query = f"""
                 SELECT id, prompt, model, seed, rating, tags, parameters
                 FROM generations
@@ -408,31 +415,31 @@ class StyleLearningDB:
             True if saved successfully.
         """
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO style_presets
                 (name, description, prompt_additions, negative_additions, recommended_model, recommended_params, example_generations, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                name,
-                description,
-                prompt_additions,
-                negative_additions,
-                recommended_model,
-                json.dumps(recommended_params or {}),
-                json.dumps(example_generation_ids or []),
-                time.time(),
-                time.time(),
-            ))
+            """,
+                (
+                    name,
+                    description,
+                    prompt_additions,
+                    negative_additions,
+                    recommended_model,
+                    json.dumps(recommended_params or {}),
+                    json.dumps(example_generation_ids or []),
+                    time.time(),
+                    time.time(),
+                ),
+            )
             conn.commit()
             return True
 
     def get_style_preset(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a style preset by name."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM style_presets WHERE name = ?",
-                (name,)
-            )
+            cursor = conn.execute("SELECT * FROM style_presets WHERE name = ?", (name,))
             row = cursor.fetchone()
 
         if not row:
@@ -451,15 +458,10 @@ class StyleLearningDB:
     def list_style_presets(self) -> List[Dict[str, str]]:
         """List all saved style presets."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT name, description, recommended_model FROM style_presets ORDER BY name"
-            )
+            cursor = conn.execute("SELECT name, description, recommended_model FROM style_presets ORDER BY name")
             results = cursor.fetchall()
 
-        return [
-            {"name": r[0], "description": r[1], "model": r[2]}
-            for r in results
-        ]
+        return [{"name": r[0], "description": r[1], "model": r[2]} for r in results]
 
     def delete_style_preset(self, name: str) -> bool:
         """Delete a style preset by name."""
@@ -471,7 +473,8 @@ class StyleLearningDB:
     def get_statistics(self) -> Dict[str, Any]:
         """Get overall statistics about stored generations."""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT
                     COUNT(*) as total,
                     AVG(rating) as avg_rating,
@@ -479,12 +482,11 @@ class StyleLearningDB:
                     COUNT(CASE WHEN outcome = 'success' THEN 1 END) as successful,
                     COUNT(DISTINCT model) as models_used
                 FROM generations
-            """)
+            """
+            )
             row = cursor.fetchone()
 
-            cursor = conn.execute(
-                "SELECT COUNT(*) FROM style_presets"
-            )
+            cursor = conn.execute("SELECT COUNT(*) FROM style_presets")
             preset_count = cursor.fetchone()[0]
 
         return {

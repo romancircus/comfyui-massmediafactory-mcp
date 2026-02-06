@@ -35,7 +35,9 @@
       "model:ltx",
       "type:audio2vid",
       "priority:experimental"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "45e16b73635f92c1"
   },
   "1": {
     "class_type": "LTXVLoader",

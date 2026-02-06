@@ -25,7 +25,9 @@
     "tags": [
       "model:qwen",
       "capability:edit"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "104cbe9c42f7c9c3"
   },
   "1": {
     "class_type": "LoadImage",

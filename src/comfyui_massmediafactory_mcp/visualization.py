@@ -9,13 +9,14 @@ Key functions:
 """
 
 import json
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Dict, Any, List, Set, Tuple
 from dataclasses import dataclass
 
 
 @dataclass
 class NodeInfo:
     """Information about a workflow node for visualization."""
+
     node_id: str
     class_type: str
     title: str
@@ -41,11 +42,11 @@ def _extract_node_info(node_id: str, node_data: Dict[str, Any]) -> NodeInfo:
     """Extract node information from workflow data."""
     meta = node_data.get("_meta", {})
     title = meta.get("title", node_data.get("class_type", "Unknown"))
-    
+
     # Get outputs from the workflow structure
     outputs = []
     inputs = node_data.get("inputs", {})
-    
+
     return NodeInfo(
         node_id=node_id,
         class_type=node_data.get("class_type", "Unknown"),
@@ -87,21 +88,21 @@ def workflow_to_mermaid(
     lines = [f"graph {direction}"]
     nodes: Dict[str, NodeInfo] = {}
     edges: List[Tuple[str, str, str]] = []  # (source, target, label)
-    
+
     # First pass: extract all node info
     for node_id, node_data in workflow.items():
         if node_id.startswith("_"):
             continue  # Skip metadata keys
-        
+
         if not isinstance(node_data, dict):
             continue
-        
+
         nodes[node_id] = _extract_node_info(node_id, node_data)
-    
+
     # Second pass: build edges from connections
     for node_id, node_info in nodes.items():
         mermaid_id = _sanitize_node_id(node_id)
-        
+
         for input_name, input_value in node_info.inputs.items():
             if _is_connection(input_value):
                 # This is a connection to another node
@@ -125,12 +126,12 @@ def workflow_to_mermaid(
                             outputs=[],
                         )
                     edges.append((param_id, mermaid_id, input_name))
-    
+
     # Generate node definitions
     for node_id, node_info in nodes.items():
         mermaid_id = _sanitize_node_id(node_id)
         label = _sanitize_label(node_info.title)
-        
+
         # Style nodes by type
         if node_info.class_type in ["SaveImage", "VHS_VideoCombine"]:
             # Output nodes
@@ -144,17 +145,17 @@ def workflow_to_mermaid(
         else:
             # Standard nodes
             lines.append(f'    {mermaid_id}["{label}"]')
-    
+
     # Generate edges
     for source, target, label in edges:
         lines.append(f"    {source} -->|{label}| {target}")
-    
+
     # Add styling classes
     lines.append("")
     lines.append("    classDef outputNode fill:#f96,stroke:#333,stroke-width:2px")
     lines.append("    classDef loaderNode fill:#9f9,stroke:#333,stroke-width:1px")
     lines.append("    classDef paramNode fill:#99f,stroke:#333,stroke-width:1px,stroke-dasharray: 5 5")
-    
+
     # Apply classes
     for node_id, node_info in nodes.items():
         mermaid_id = _sanitize_node_id(node_id)
@@ -164,33 +165,36 @@ def workflow_to_mermaid(
             lines.append(f"    class {mermaid_id} loaderNode")
         elif node_info.class_type == "Parameter":
             lines.append(f"    class {mermaid_id} paramNode")
-    
+
     return "\n".join(lines)
 
 
 def workflow_to_mermaid_url(workflow: Dict[str, Any]) -> str:
     """
     Generate a Mermaid Live Editor URL for the workflow diagram.
-    
+
     This allows users to open the diagram in Mermaid's online editor.
-    
+
     Args:
         workflow: ComfyUI workflow JSON
-        
+
     Returns:
         URL to Mermaid Live Editor with the diagram encoded
     """
     mermaid_code = workflow_to_mermaid(workflow)
-    
+
     # Mermaid Live Editor uses base64-encoded state
     import base64
-    state = json.dumps({
-        "code": mermaid_code,
-        "mermaid": {"theme": "default"},
-        "autoSync": True,
-        "updateDiagram": True,
-    })
-    
+
+    state = json.dumps(
+        {
+            "code": mermaid_code,
+            "mermaid": {"theme": "default"},
+            "autoSync": True,
+            "updateDiagram": True,
+        }
+    )
+
     encoded = base64.b64encode(state.encode()).decode()
     return f"https://mermaid.live/edit#base64:{encoded}"
 
@@ -198,10 +202,10 @@ def workflow_to_mermaid_url(workflow: Dict[str, Any]) -> str:
 def visualize_workflow(workflow: Dict[str, Any]) -> Dict[str, Any]:
     """
     MCP tool: Generate Mermaid diagram from workflow.
-    
+
     Args:
         workflow: ComfyUI workflow JSON
-        
+
     Returns:
         {
             "mermaid": str,  # Mermaid diagram syntax
@@ -213,13 +217,10 @@ def visualize_workflow(workflow: Dict[str, Any]) -> Dict[str, Any]:
     try:
         mermaid_code = workflow_to_mermaid(workflow)
         url = workflow_to_mermaid_url(workflow)
-        
+
         # Count nodes and edges
-        node_count = sum(
-            1 for k in workflow.keys()
-            if not k.startswith("_") and isinstance(workflow[k], dict)
-        )
-        
+        node_count = sum(1 for k in workflow.keys() if not k.startswith("_") and isinstance(workflow[k], dict))
+
         # Count edges by looking for connections in inputs
         edge_count = 0
         for node_data in workflow.values():
@@ -229,7 +230,7 @@ def visualize_workflow(workflow: Dict[str, Any]) -> Dict[str, Any]:
             for value in inputs.values():
                 if _is_connection(value):
                     edge_count += 1
-        
+
         return {
             "mermaid": mermaid_code,
             "url": url,
@@ -247,29 +248,29 @@ def visualize_workflow(workflow: Dict[str, Any]) -> Dict[str, Any]:
 def get_workflow_summary(workflow: Dict[str, Any]) -> Dict[str, Any]:
     """
     Get a text summary of workflow structure.
-    
+
     Args:
         workflow: ComfyUI workflow JSON
-        
+
     Returns:
         Summary with node types, connections, and parameters
     """
     node_types: Dict[str, int] = {}
     parameters: Set[str] = set()
-    
+
     for node_id, node_data in workflow.items():
         if node_id.startswith("_") or not isinstance(node_data, dict):
             continue
-        
+
         class_type = node_data.get("class_type", "Unknown")
         node_types[class_type] = node_types.get(class_type, 0) + 1
-        
+
         # Find placeholder parameters
         inputs = node_data.get("inputs", {})
         for value in inputs.values():
             if isinstance(value, str) and value.startswith("{{") and value.endswith("}}"):
                 parameters.add(value[2:-2])
-    
+
     return {
         "node_types": node_types,
         "total_nodes": sum(node_types.values()),

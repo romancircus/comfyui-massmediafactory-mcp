@@ -4,7 +4,6 @@ Discovery Tools
 Tools for discovering available models, nodes, and capabilities in ComfyUI.
 """
 
-from typing import Optional
 from .client import get_client
 
 
@@ -178,11 +177,13 @@ def search_nodes(query: str, limit: int = 50) -> dict:
             score = 10
 
         if score > 0:
-            matches.append({
-                "name": node_name,
-                "category": node_info.get("category", "unknown"),
-                "score": score,
-            })
+            matches.append(
+                {
+                    "name": node_name,
+                    "category": node_info.get("category", "unknown"),
+                    "score": score,
+                }
+            )
 
     # Sort by score descending
     matches.sort(key=lambda x: x["score"], reverse=True)

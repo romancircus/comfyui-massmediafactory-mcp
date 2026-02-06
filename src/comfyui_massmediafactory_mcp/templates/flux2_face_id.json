@@ -47,7 +47,9 @@
     "tags": [
       "model:flux",
       "capability:face_id"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "9b6e60d09b89a646"
   },
   "1": {
     "class_type": "UNETLoader",

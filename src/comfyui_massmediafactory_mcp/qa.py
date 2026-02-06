@@ -18,6 +18,7 @@ from .assets import get_registry
 @dataclass
 class QAResult:
     """Result of QA check on an asset."""
+
     passed: bool
     score: float  # 0.0 - 1.0
     issues: List[str] = field(default_factory=list)
@@ -67,7 +68,7 @@ def call_ollama_vlm(
             result = json.loads(resp.read())
             return result.get("response", "")
 
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -77,8 +78,7 @@ def build_qa_prompt(original_prompt: str, checks: List[str]) -> str:
 
     if "prompt_match" in checks:
         check_instructions.append(
-            f"1. PROMPT MATCH: Does this image match the prompt '{original_prompt}'? "
-            "Rate 0-10 how well it matches."
+            f"1. PROMPT MATCH: Does this image match the prompt '{original_prompt}'? " "Rate 0-10 how well it matches."
         )
 
     if "artifacts" in checks:
@@ -95,14 +95,12 @@ def build_qa_prompt(original_prompt: str, checks: List[str]) -> str:
 
     if "text" in checks:
         check_instructions.append(
-            "4. TEXT: If there is text in the image, is it readable and spelled correctly? "
-            "List any text errors."
+            "4. TEXT: If there is text in the image, is it readable and spelled correctly? " "List any text errors."
         )
 
     if "composition" in checks:
         check_instructions.append(
-            "5. COMPOSITION: Is the image well-composed? Good framing, lighting, focus? "
-            "Rate 0-10."
+            "5. COMPOSITION: Is the image well-composed? Good framing, lighting, focus? " "Rate 0-10."
         )
 
     checks_text = "\n".join(check_instructions)
@@ -223,7 +221,7 @@ def qa_output(
         }
 
     # Only support image QA for now
-    if asset.asset_type != "image":
+    if asset.asset_type not in ("images", "image"):
         return {
             "error": "UNSUPPORTED_ASSET_TYPE",
             "message": f"QA only supports images, got {asset.asset_type}",
@@ -231,9 +229,7 @@ def qa_output(
         }
 
     # Get ComfyUI output directory
-    comfyui_output_dir = os.environ.get(
-        "COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output"
-    )
+    comfyui_output_dir = os.environ.get("COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output")
 
     # Build path to asset
     if asset.subfolder:

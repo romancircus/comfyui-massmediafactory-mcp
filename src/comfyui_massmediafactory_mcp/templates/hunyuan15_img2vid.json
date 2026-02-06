@@ -32,7 +32,9 @@
     "vram_min": 24,
     "tags": [
       "model:hunyuan"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "d2f0a2438c740099"
   },
   "1": {
     "class_type": "HunyuanVideoModelLoader",

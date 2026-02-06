@@ -41,7 +41,9 @@
       "capability:tts",
       "model:qwen3_tts"
     ],
-    "model": "audio"
+    "model": "audio",
+    "version": "1.0.0",
+    "hub_hash": "90f2989f521da1d8"
   },
   "1": {
     "class_type": "Qwen3TTSLoader",

@@ -1,8 +1,8 @@
 # RESEARCH_PLAN.md - Strategic Research Areas
 
-**Researcher:** KIMI  
-**Repository:** comfyui-massmediafactory-mcp  
-**Date:** February 2026  
+**Researcher:** KIMI
+**Repository:** comfyui-massmediafactory-mcp
+**Date:** February 2026
 **Estimated Time:** 15 hours
 
 ---

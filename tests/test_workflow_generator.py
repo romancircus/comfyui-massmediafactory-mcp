@@ -8,15 +8,15 @@ import types
 from pathlib import Path
 
 # Set up mocks before importing modules
-if 'comfyui_massmediafactory_mcp.client' not in sys.modules:
-    client_mock = types.ModuleType('comfyui_massmediafactory_mcp.client')
+if "comfyui_massmediafactory_mcp.client" not in sys.modules:
+    client_mock = types.ModuleType("comfyui_massmediafactory_mcp.client")
     client_mock.get_client = lambda: None
-    sys.modules['comfyui_massmediafactory_mcp.client'] = client_mock
+    sys.modules["comfyui_massmediafactory_mcp.client"] = client_mock
 
-if 'comfyui_massmediafactory_mcp' not in sys.modules:
-    pkg = types.ModuleType('comfyui_massmediafactory_mcp')
+if "comfyui_massmediafactory_mcp" not in sys.modules:
+    pkg = types.ModuleType("comfyui_massmediafactory_mcp")
     pkg.__path__ = [str(Path(__file__).parent.parent / "src" / "comfyui_massmediafactory_mcp")]
-    sys.modules['comfyui_massmediafactory_mcp'] = pkg
+    sys.modules["comfyui_massmediafactory_mcp"] = pkg
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -145,7 +145,7 @@ class TestWorkflowTypeAliases:
 
     def test_i2v_alias(self):
         """Test that 'i2v' works as alias for 'img2vid'"""
-        result = workflow_generator.generate_workflow("ltx2", "i2v", "A cat")
+        result = workflow_generator.generate_workflow("ltx2", "i2v", "A cat", image_path="/tmp/claude/test_image.png")
         assert "workflow" in result
 
     def test_t2i_alias(self):
@@ -262,7 +262,18 @@ class TestListSupportedWorkflows:
         """Test that all expected models are in the list"""
         result = workflow_generator.list_supported_workflows()
         models = {w["model"] for w in result["workflows"]}
-        expected = {"ltx", "ltx2", "flux", "flux2", "wan", "wan26", "qwen", "sdxl", "hunyuan", "hunyuan15"}
+        expected = {
+            "ltx",
+            "ltx2",
+            "flux",
+            "flux2",
+            "wan",
+            "wan26",
+            "qwen",
+            "sdxl",
+            "hunyuan",
+            "hunyuan15",
+        }
         for model in expected:
             assert model in models, f"Model {model} not in supported workflows"
 

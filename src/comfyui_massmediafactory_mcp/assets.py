@@ -2,21 +2,27 @@
 Asset Registry for MassMediaFactory MCP
 
 Enables iteration on generated assets without re-prompting.
-Based on patterns from joenorton/comfyui-mcp-server.
+SQLite-backed for persistence across server restarts.
+In-memory dict acts as hot cache.
 """
 
 import os
 import time
 import uuid
 import copy
-import base64
+import json
+import sqlite3
 import threading
-from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Any
+from dataclasses import dataclass
+from typing import Optional, Dict, List
 from pathlib import Path
 
 # Default TTL: 24 hours
 DEFAULT_TTL_HOURS = int(os.environ.get("COMFY_MCP_ASSET_TTL_HOURS", "24"))
+
+# Default DB path
+DEFAULT_DB_DIR = Path.home() / ".massmediafactory"
+DEFAULT_DB_PATH = DEFAULT_DB_DIR / "assets.db"
 
 
 @dataclass
@@ -65,23 +71,180 @@ class AssetRecord:
         return result
 
 
+class _SQLiteStore:
+    """SQLite persistence layer for asset records."""
+
+    def __init__(self, db_path: Path = None):
+        self._db_path = db_path or DEFAULT_DB_PATH
+        self._db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._local = threading.local()
+        self._init_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Get thread-local SQLite connection."""
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = sqlite3.connect(str(self._db_path), timeout=5)
+            self._local.conn.execute("PRAGMA journal_mode=WAL")
+            self._local.conn.execute("PRAGMA synchronous=NORMAL")
+        return self._local.conn
+
+    def _init_db(self):
+        """Create tables if they don't exist."""
+        conn = self._get_conn()
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS assets (
+                asset_id TEXT PRIMARY KEY,
+                filename TEXT NOT NULL,
+                subfolder TEXT DEFAULT '',
+                asset_type TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                workflow TEXT NOT NULL,
+                parameters TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                expires_at REAL NOT NULL,
+                width INTEGER,
+                height INTEGER,
+                node_id TEXT,
+                prompt_preview TEXT
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_assets_identity
+            ON assets (filename, subfolder, asset_type)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_assets_session
+            ON assets (session_id)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_assets_expires
+            ON assets (expires_at)
+        """
+        )
+        conn.commit()
+
+    def save(self, asset: AssetRecord):
+        """Insert or replace an asset record."""
+        conn = self._get_conn()
+        conn.execute(
+            """INSERT OR REPLACE INTO assets
+            (asset_id, filename, subfolder, asset_type, mime_type,
+             workflow, parameters, session_id, created_at, expires_at,
+             width, height, node_id, prompt_preview)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                asset.asset_id,
+                asset.filename,
+                asset.subfolder,
+                asset.asset_type,
+                asset.mime_type,
+                json.dumps(asset.workflow),
+                json.dumps(asset.parameters),
+                asset.session_id,
+                asset.created_at,
+                asset.expires_at,
+                asset.width,
+                asset.height,
+                asset.node_id,
+                asset.prompt_preview,
+            ),
+        )
+        conn.commit()
+
+    def load_all_active(self) -> List[AssetRecord]:
+        """Load all non-expired assets from DB."""
+        conn = self._get_conn()
+        now = time.time()
+        cursor = conn.execute("SELECT * FROM assets WHERE expires_at > ?", (now,))
+        rows = cursor.fetchall()
+        assets = []
+        for row in rows:
+            assets.append(self._row_to_asset(row))
+        return assets
+
+    def delete(self, asset_id: str):
+        """Delete an asset record."""
+        conn = self._get_conn()
+        conn.execute("DELETE FROM assets WHERE asset_id = ?", (asset_id,))
+        conn.commit()
+
+    def cleanup_expired(self) -> int:
+        """Delete expired records. Returns count removed."""
+        conn = self._get_conn()
+        now = time.time()
+        cursor = conn.execute("DELETE FROM assets WHERE expires_at <= ?", (now,))
+        conn.commit()
+        return cursor.rowcount
+
+    def _row_to_asset(self, row) -> AssetRecord:
+        """Convert DB row to AssetRecord."""
+        return AssetRecord(
+            asset_id=row[0],
+            filename=row[1],
+            subfolder=row[2],
+            asset_type=row[3],
+            mime_type=row[4],
+            workflow=json.loads(row[5]),
+            parameters=json.loads(row[6]),
+            session_id=row[7],
+            created_at=row[8],
+            expires_at=row[9],
+            width=row[10],
+            height=row[11],
+            node_id=row[12],
+            prompt_preview=row[13],
+        )
+
+
 class AssetRegistry:
     """
     Thread-safe registry for generated assets with TTL expiration.
 
-    Identity is based on (filename, subfolder, type) tuple for stability
-    across hostname changes.
+    Uses in-memory dict as hot cache, SQLite as persistent store.
+    On startup, loads non-expired assets from SQLite.
+    On register, writes to both cache and SQLite.
     """
 
-    def __init__(self, ttl_hours: int = DEFAULT_TTL_HOURS, comfyui_base_url: str = None):
+    def __init__(
+        self,
+        ttl_hours: int = DEFAULT_TTL_HOURS,
+        comfyui_base_url: str = None,
+        db_path: Path = None,
+    ):
         self._assets: Dict[str, AssetRecord] = {}
         self._identity_to_id: Dict[tuple, str] = {}
         self._lock = threading.RLock()
         self._ttl_seconds = ttl_hours * 3600
-        self._comfyui_base_url = comfyui_base_url or os.environ.get(
-            "COMFYUI_URL", "http://localhost:8188"
-        )
+        self._comfyui_base_url = comfyui_base_url or os.environ.get("COMFYUI_URL", "http://localhost:8188")
         self._default_session_id = str(uuid.uuid4())[:8]
+
+        # Initialize SQLite store
+        self._store = _SQLiteStore(db_path)
+
+        # Load existing assets from SQLite into cache
+        self._load_from_store()
+
+    def _load_from_store(self):
+        """Load non-expired assets from SQLite into memory cache."""
+        try:
+            assets = self._store.load_all_active()
+            for asset in assets:
+                self._assets[asset.asset_id] = asset
+                identity_key = self._make_identity_key(asset.filename, asset.subfolder, asset.asset_type)
+                self._identity_to_id[identity_key] = asset.asset_id
+        except Exception as e:
+            # If DB is corrupted, start fresh but log it
+            import logging
+
+            logging.getLogger("comfyui-mcp").warning(f"Failed to load assets from DB: {e}")
 
     def _make_identity_key(self, filename: str, subfolder: str, asset_type: str) -> tuple:
         """Create stable identity key for deduplication."""
@@ -103,20 +266,7 @@ class AssetRegistry:
         """
         Register a generated asset.
 
-        Args:
-            filename: Output filename from ComfyUI
-            subfolder: Subfolder within ComfyUI output
-            asset_type: Type of asset ("images", "video", "audio")
-            workflow: The workflow JSON used to generate this asset
-            parameters: Template parameters used (for regeneration)
-            session_id: Session identifier for grouping related generations
-            width: Image/video width if known
-            height: Image/video height if known
-            node_id: The node ID that produced this output
-            mime_type: MIME type (auto-detected if not provided)
-
-        Returns:
-            AssetRecord (new or existing if deduplicated)
+        Writes to both in-memory cache and SQLite for persistence.
         """
         with self._lock:
             identity_key = self._make_identity_key(filename, subfolder, asset_type)
@@ -130,6 +280,7 @@ class AssetRegistry:
                         return existing
                     # Expired, remove and create new
                     del self._assets[existing_id]
+                    self._store.delete(existing_id)
                 del self._identity_to_id[identity_key]
 
             # Auto-detect MIME type
@@ -158,8 +309,10 @@ class AssetRegistry:
                 prompt_preview=prompt_preview,
             )
 
+            # Write to both cache and SQLite
             self._assets[asset.asset_id] = asset
             self._identity_to_id[identity_key] = asset.asset_id
+            self._store.save(asset)
 
             return asset
 
@@ -180,9 +333,7 @@ class AssetRegistry:
 
             return asset
 
-    def get_asset_by_identity(
-        self, filename: str, subfolder: str, asset_type: str
-    ) -> Optional[AssetRecord]:
+    def get_asset_by_identity(self, filename: str, subfolder: str, asset_type: str) -> Optional[AssetRecord]:
         """Retrieve asset by stable identity tuple."""
         with self._lock:
             identity_key = self._make_identity_key(filename, subfolder, asset_type)
@@ -227,30 +378,28 @@ class AssetRegistry:
 
     def cleanup_expired(self) -> int:
         """
-        Remove all expired assets.
+        Remove all expired assets from both cache and SQLite.
 
         Returns:
             Number of assets removed
         """
         with self._lock:
-            expired_ids = [
-                asset_id
-                for asset_id, asset in self._assets.items()
-                if asset.is_expired()
-            ]
+            expired_ids = [asset_id for asset_id, asset in self._assets.items() if asset.is_expired()]
             for asset_id in expired_ids:
                 self._remove_asset(asset_id)
-            return len(expired_ids)
+
+            # Also clean SQLite (catches any that were only in DB)
+            db_cleaned = self._store.cleanup_expired()
+            return max(len(expired_ids), db_cleaned)
 
     def _remove_asset(self, asset_id: str) -> None:
-        """Remove asset from both storage dictionaries."""
+        """Remove asset from both cache and SQLite."""
         asset = self._assets.get(asset_id)
         if asset:
-            identity_key = self._make_identity_key(
-                asset.filename, asset.subfolder, asset.asset_type
-            )
+            identity_key = self._make_identity_key(asset.filename, asset.subfolder, asset.asset_type)
             self._identity_to_id.pop(identity_key, None)
             del self._assets[asset_id]
+        self._store.delete(asset_id)
 
     def _detect_mime_type(self, filename: str, asset_type: str) -> str:
         """Auto-detect MIME type from filename and asset type."""
@@ -268,11 +417,9 @@ class AssetRegistry:
             ".wav": "audio/wav",
             ".flac": "audio/flac",
         }
-        return mime_map.get(ext, f"application/octet-stream")
+        return mime_map.get(ext, "application/octet-stream")
 
-    def _extract_prompt_preview(
-        self, workflow: dict, parameters: dict = None
-    ) -> Optional[str]:
+    def _extract_prompt_preview(self, workflow: dict, parameters: dict = None) -> Optional[str]:
         """Extract prompt preview from workflow or parameters."""
         # Try parameters first
         if parameters:
@@ -296,16 +443,18 @@ class AssetRegistry:
 
     def get_asset_url(self, asset: AssetRecord) -> str:
         """Build ComfyUI URL for viewing/downloading asset."""
+        from urllib.parse import quote
+
         base = self._comfyui_base_url.rstrip("/")
+        filename = quote(asset.filename, safe="")
         if asset.subfolder:
-            return f"{base}/view?filename={asset.filename}&subfolder={asset.subfolder}&type=output"
-        return f"{base}/view?filename={asset.filename}&type=output"
+            subfolder = quote(asset.subfolder, safe="")
+            return f"{base}/view?filename={filename}&subfolder={subfolder}&type=output"
+        return f"{base}/view?filename={filename}&type=output"
 
     def get_asset_path(self, asset: AssetRecord, comfyui_output_dir: str = None) -> Path:
         """Build local file path for an asset."""
-        output_dir = comfyui_output_dir or os.environ.get(
-            "COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output"
-        )
+        output_dir = comfyui_output_dir or os.environ.get("COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output")
         if asset.subfolder:
             return Path(output_dir) / asset.subfolder / asset.filename
         return Path(output_dir) / asset.filename

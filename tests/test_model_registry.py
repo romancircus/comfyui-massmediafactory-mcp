@@ -15,16 +15,16 @@ from pathlib import Path
 
 # Set up mocks before importing modules
 # Mock the client module to avoid importing mcp
-if 'comfyui_massmediafactory_mcp.client' not in sys.modules:
-    client_mock = types.ModuleType('comfyui_massmediafactory_mcp.client')
+if "comfyui_massmediafactory_mcp.client" not in sys.modules:
+    client_mock = types.ModuleType("comfyui_massmediafactory_mcp.client")
     client_mock.get_client = lambda: None
-    sys.modules['comfyui_massmediafactory_mcp.client'] = client_mock
+    sys.modules["comfyui_massmediafactory_mcp.client"] = client_mock
 
 # Create package namespace if needed
-if 'comfyui_massmediafactory_mcp' not in sys.modules:
-    pkg = types.ModuleType('comfyui_massmediafactory_mcp')
+if "comfyui_massmediafactory_mcp" not in sys.modules:
+    pkg = types.ModuleType("comfyui_massmediafactory_mcp")
     pkg.__path__ = [str(Path(__file__).parent.parent / "src" / "comfyui_massmediafactory_mcp")]
-    sys.modules['comfyui_massmediafactory_mcp'] = pkg
+    sys.modules["comfyui_massmediafactory_mcp"] = pkg
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

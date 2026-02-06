@@ -10,14 +10,18 @@ All errors follow MCP specification:
 - Include "details" for additional context
 """
 
-from typing import Dict, Any, List, Optional, Type
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 
 
 @dataclass
-class MCPError:
+class RichMCPError:
     """
-    MCP-compliant error response.
+    Rich MCP-compliant error response with actionable guidance.
+
+    Extended version with suggestion + troubleshooting fields.
+    The simpler MCPError in mcp_utils.py is used by @mcp_tool_wrapper.
+    This class is used by domain-specific error subclasses below.
 
     Per MCP spec, tool execution errors should include:
     - isError: true (required)
@@ -48,8 +52,12 @@ class MCPError:
         return result
 
 
+# Backward compatibility alias
+MCPError = RichMCPError
+
+
 @dataclass
-class ModelNotFoundError(MCPError):
+class ModelNotFoundError(RichMCPError):
     """
     Model file not found in ComfyUI models directory.
 
@@ -85,7 +93,7 @@ class ModelNotFoundError(MCPError):
 
 
 @dataclass
-class CustomNodeMissingError(MCPError):
+class CustomNodeMissingError(RichMCPError):
     """
     Required ComfyUI custom node not installed.
 
@@ -104,9 +112,7 @@ class CustomNodeMissingError(MCPError):
     def __post_init__(self):
         self.code = "CUSTOM_NODE_MISSING"
         self.error = f"Custom node '{self.node_type}' not installed or not loaded."
-        self.suggestion = (
-            "Install the required custom node package or restart ComfyUI to reload nodes."
-        )
+        self.suggestion = "Install the required custom node package or restart ComfyUI to reload nodes."
         self.details = {"node_type": self.node_type}
         if self.package:
             self.details["package"] = self.package
@@ -121,7 +127,7 @@ class CustomNodeMissingError(MCPError):
 
 
 @dataclass
-class TemplateMetadataError(MCPError):
+class TemplateMetadataError(RichMCPError):
     """
     Template missing required metadata or has invalid structure.
 
@@ -164,7 +170,7 @@ class TemplateMetadataError(MCPError):
 
 
 @dataclass
-class TemplateParameterError(MCPError):
+class TemplateParameterError(RichMCPError):
     """
     Template parameter validation error (missing required, invalid type, etc.).
 
@@ -188,8 +194,7 @@ class TemplateParameterError(MCPError):
         self.code = "TEMPLATE_PARAMETER"
         self.error = f"Parameter '{self.parameter}' invalid for template '{self.template_name}'."
         self.suggestion = self.suggestion_override or (
-            f"Expected: {self.expected}. "
-            f"Run get_template('{self.template_name}') to see valid parameters."
+            f"Expected: {self.expected}. " f"Run get_template('{self.template_name}') to see valid parameters."
         )
         self.details = {
             "template_name": self.template_name,
@@ -208,11 +213,8 @@ class TemplateParameterError(MCPError):
 # Error Factory Functions (Backward Compatibility)
 # =============================================================================
 
-def format_model_not_found(
-    model_name: str,
-    model_type: str,
-    available_models: List[str]
-) -> Dict[str, Any]:
+
+def format_model_not_found(model_name: str, model_type: str, available_models: List[str]) -> Dict[str, Any]:
     """Format error for model not found with actionable suggestions."""
     error = ModelNotFoundError(
         model_name=model_name,
@@ -235,9 +237,7 @@ def format_model_not_found(
 
 
 def format_custom_node_missing(
-    node_type: str,
-    package: Optional[str] = None,
-    install_cmd: Optional[str] = None
+    node_type: str, package: Optional[str] = None, install_cmd: Optional[str] = None
 ) -> Dict[str, Any]:
     """Format error for missing custom node."""
     error = CustomNodeMissingError(
@@ -265,7 +265,7 @@ def format_template_metadata(
     template_name: str,
     missing_fields: Optional[List[str]] = None,
     errors: Optional[List[str]] = None,
-    template_path: Optional[str] = None
+    template_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Format error for invalid template metadata."""
     error = TemplateMetadataError(
@@ -305,7 +305,7 @@ def format_template_parameter(
     parameter: str,
     expected: str,
     provided: Optional[Any] = None,
-    suggestion_override: Optional[str] = None
+    suggestion_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Format error for invalid template parameter."""
     error = TemplateParameterError(
@@ -318,8 +318,7 @@ def format_template_parameter(
     error.code = "TEMPLATE_PARAMETER"
     error.error = f"Parameter '{parameter}' invalid for template '{template_name}'."
     error.suggestion = suggestion_override or (
-        f"Expected: {expected}. "
-        f"Run get_template('{template_name}') to see valid parameters."
+        f"Expected: {expected}. " f"Run get_template('{template_name}') to see valid parameters."
     )
     error.details = {
         "template_name": template_name,

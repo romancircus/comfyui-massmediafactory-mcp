@@ -52,7 +52,7 @@ All errors follow the MCP specification and include:
    ```python
    # Search Civitai
    search_civitai("flux dev", model_type="checkpoint")
-   
+
    # Download to correct location
    download_model(url, model_type="checkpoint")
    ```
@@ -193,7 +193,7 @@ All errors follow the MCP specification and include:
    ```python
    # Wrong:
    FRAMES=97  # Not divisible by 8
-   
+
    # Right:
    FRAMES=81  # 8n+1 pattern
    FRAMES=89

@@ -40,7 +40,9 @@
       "type:utility",
       "capability:stitch"
     ],
-    "model": "utility"
+    "model": "utility",
+    "version": "1.0.0",
+    "hub_hash": "ed3fccbd140baaa8"
   },
   "1": {
     "class_type": "VHS_LoadVideo",

@@ -3,7 +3,8 @@ Core Error Handling
 """
 
 from .errors import (
-    MCPError,
+    RichMCPError,
+    MCPError,  # backward compat alias for RichMCPError
     ModelNotFoundError,
     CustomNodeMissingError,
     TemplateMetadataError,
@@ -15,6 +16,7 @@ from .errors import (
 )
 
 __all__ = [
+    "RichMCPError",
     "MCPError",
     "ModelNotFoundError",
     "CustomNodeMissingError",

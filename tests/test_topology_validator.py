@@ -127,10 +127,7 @@ class TestModelDetection:
 
     def test_detect_ltx(self):
         """Test detecting LTX model from workflow"""
-        workflow = {
-            "1": {"class_type": "LTXVLoader", "inputs": {}},
-            "2": {"class_type": "LTXVScheduler", "inputs": {}}
-        }
+        workflow = {"1": {"class_type": "LTXVLoader", "inputs": {}}, "2": {"class_type": "LTXVScheduler", "inputs": {}}}
         model = topology_validator.detect_model_type(workflow)
         assert model == "ltx"
 
@@ -139,7 +136,7 @@ class TestModelDetection:
         workflow = {
             "1": {"class_type": "UNETLoader", "inputs": {}},
             "2": {"class_type": "DualCLIPLoader", "inputs": {}},
-            "3": {"class_type": "FluxGuidance", "inputs": {}}
+            "3": {"class_type": "FluxGuidance", "inputs": {}},
         }
         model = topology_validator.detect_model_type(workflow)
         assert model == "flux"
@@ -148,7 +145,7 @@ class TestModelDetection:
         """Test detecting HunyuanVideo model from workflow"""
         workflow = {
             "1": {"class_type": "HunyuanVideoModelLoader", "inputs": {}},
-            "2": {"class_type": "HunyuanVideoSampler", "inputs": {}}
+            "2": {"class_type": "HunyuanVideoSampler", "inputs": {}},
         }
         model = topology_validator.detect_model_type(workflow)
         assert model == "hunyuan"
@@ -157,7 +154,7 @@ class TestModelDetection:
         """Test detecting Wan model from workflow"""
         workflow = {
             "1": {"class_type": "WanVideoModelLoader", "inputs": {}},
-            "2": {"class_type": "WanVAEDecode", "inputs": {}}
+            "2": {"class_type": "WanVAEDecode", "inputs": {}},
         }
         model = topology_validator.detect_model_type(workflow)
         assert model == "wan"
@@ -174,7 +171,7 @@ class TestTopologyValidation:
             "3": {"class_type": "LTXVConditioning", "inputs": {}},
             "4": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"width": 768, "height": 512, "length": 97}},
             "5": {"class_type": "SamplerCustom", "inputs": {"cfg": 3.0}},
-            "6": {"class_type": "VHS_VideoCombine", "inputs": {}}
+            "6": {"class_type": "VHS_VideoCombine", "inputs": {}},
         }
         result = topology_validator.validate_topology(workflow, "ltx")
         assert result["valid"]
@@ -197,7 +194,7 @@ class TestConnectionTypeValidation:
         """Test that valid connections pass"""
         workflow = {
             "1": {"class_type": "CheckpointLoaderSimple", "inputs": {}},
-            "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}}  # CLIP from slot 1
+            "2": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}},  # CLIP from slot 1
         }
         errors = topology_validator.validate_connection_types(workflow)
         assert len(errors) == 0
@@ -217,9 +214,7 @@ class TestAutoCorrection:
 
     def test_auto_correct_resolution(self):
         """Test auto-correction of resolution"""
-        workflow = {
-            "1": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"width": 770, "height": 510}}
-        }
+        workflow = {"1": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"width": 770, "height": 510}}}
         result = topology_validator.auto_correct_parameters(workflow, "ltx")
         corrected = result["workflow"]
         assert corrected["1"]["inputs"]["width"] % 8 == 0
@@ -228,9 +223,7 @@ class TestAutoCorrection:
 
     def test_auto_correct_ltx_frames(self):
         """Test auto-correction of LTX frame count"""
-        workflow = {
-            "1": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"length": 100}}
-        }
+        workflow = {"1": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"length": 100}}}
         result = topology_validator.auto_correct_parameters(workflow, "ltx")
         corrected = result["workflow"]
         frames = corrected["1"]["inputs"]["length"]

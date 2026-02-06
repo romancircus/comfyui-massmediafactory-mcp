@@ -14,7 +14,6 @@ from . import validation
 from . import sota
 from . import templates
 from . import patterns
-from . import workflow_builder
 from . import batch
 from . import pipeline
 from . import publish
@@ -22,28 +21,20 @@ from . import qa
 from . import models
 from . import analysis
 from . import style_learning
-from . import schemas
-from . import annotations
-from . import node_specs
 from . import reference_docs
 from . import topology_validator
 from . import workflow_generator
 from . import websocket_client
 from . import visualization
 from . import rate_limiter
+from . import prompt_enhance
+from . import profiling
+from . import workflow_diff
+from . import compatibility
 from .mcp_utils import (
     mcp_error,
-    mcp_success,
-    not_found_error,
-    validation_error,
-    timeout_error,
-    connection_error,
-    rate_limit_error,
     mcp_tool_wrapper,
     paginate,
-    validate_required,
-    validate_range,
-    logger,
 )
 
 # Initialize MCP server
@@ -69,7 +60,8 @@ def _validate_path(path: str, allowed_base: str) -> tuple[bool, str]:
     try:
         resolved = Path(path).resolve()
         allowed = Path(allowed_base).resolve()
-        if not str(resolved).startswith(str(allowed)):
+        # Use is_relative_to() to prevent prefix attacks like /home/user_evil matching /home/user
+        if not resolved.is_relative_to(allowed):
             return False, f"Path '{path}' is outside allowed directory '{allowed_base}'"
         return True, str(resolved)
     except Exception as e:
@@ -78,12 +70,33 @@ def _validate_path(path: str, allowed_base: str) -> tuple[bool, str]:
 
 def _validate_url(url: str) -> tuple[bool, str]:
     """Validate URL is from allowed domains. Prevents arbitrary downloads."""
-    import re
-    allowed_domains = [r"civitai\.com", r"huggingface\.co", r"github\.com", r"raw\.githubusercontent\.com"]
-    for domain in allowed_domains:
-        if re.search(rf"https?://[^/]*{domain}", url, re.IGNORECASE):
-            return True, ""
-    return False, f"URL '{url}' is not from allowed domains: civitai.com, huggingface.co"
+    from urllib.parse import urlparse
+
+    allowed_domains = [
+        "civitai.com",
+        "huggingface.co",
+        "github.com",
+        "raw.githubusercontent.com",
+    ]
+
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False, f"URL '{url}' has no hostname"
+
+        # Check exact match or subdomain match (e.g., www.civitai.com, api.huggingface.co)
+        hostname_lower = hostname.lower()
+        for domain in allowed_domains:
+            if hostname_lower == domain or hostname_lower.endswith(f".{domain}"):
+                return True, ""
+
+        return (
+            False,
+            f"URL '{url}' is not from allowed domains: {', '.join(allowed_domains)}",
+        )
+    except Exception as e:
+        return False, f"Invalid URL: {e}"
 
 
 def _escape_user_content(text: str) -> str:
@@ -93,6 +106,7 @@ def _escape_user_content(text: str) -> str:
 
 
 # Discovery Tools
+
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -120,12 +134,14 @@ def get_node_info(node_type: str) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def search_nodes(query: str) -> dict:
     """Search ComfyUI nodes by name/category."""
     return discovery.search_nodes(query)
 
 
 # Execution Tools
+
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -135,6 +151,7 @@ def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dic
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_workflow_status(prompt_id: str = None) -> dict:
     """Check workflow/queue status. With prompt_id: single job. Without: all jobs."""
     if prompt_id:
@@ -150,9 +167,10 @@ def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_progress(prompt_id: str) -> dict:
     """Get current progress for a workflow. Returns stage, percent, eta, nodes.
-    
+
     Returns:
         {
             "stage": "queued|running|progress|completed|error",
@@ -170,23 +188,26 @@ def get_progress(prompt_id: str) -> dict:
     return {
         "isError": True,
         "error": f"No progress found for prompt_id: {prompt_id}",
-        "hint": "Check if prompt_id is valid using get_workflow_status()"
+        "hint": "Check if prompt_id is valid using get_workflow_status()",
     }
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_system_stats() -> dict:
     """Get GPU VRAM and system stats."""
     return execution.get_system_stats()
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def free_memory(unload_models: bool = False) -> dict:
     """Free GPU memory. unload_models=True to clear all."""
     return execution.free_memory(unload_models)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def interrupt() -> dict:
     """Stop currently running workflow."""
     return execution.interrupt_execution()
@@ -194,7 +215,9 @@ def interrupt() -> dict:
 
 # Asset Tools
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def regenerate(
     asset_id: str,
     prompt: str = None,
@@ -205,8 +228,12 @@ def regenerate(
 ) -> dict:
     """Re-run workflow with modified params. Returns new prompt_id."""
     return execution.regenerate(
-        asset_id=asset_id, prompt=prompt, negative_prompt=negative_prompt,
-        seed=seed, steps=steps, cfg=cfg,
+        asset_id=asset_id,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        seed=seed,
+        steps=steps,
+        cfg=cfg,
     )
 
 
@@ -224,7 +251,11 @@ def list_assets(
         return _to_mcp_response(result)
     assets = result.get("assets", [])
     paginated = paginate(assets, cursor=cursor, limit=limit)
-    return {"assets": paginated["items"], "nextCursor": paginated["nextCursor"], "total": paginated["total"]}
+    return {
+        "assets": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
@@ -235,18 +266,21 @@ def get_asset_metadata(asset_id: str) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def view_output(asset_id: str, mode: str = "thumb") -> dict:
     """View asset. mode: thumb|metadata"""
     return execution.view_output(asset_id, mode)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def cleanup_assets() -> dict:
     """Remove expired assets (default 24h TTL)."""
     return execution.cleanup_expired_assets()
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def upload_image(
     image_path: str,
     filename: str = None,
@@ -262,6 +296,7 @@ def upload_image(
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def download_output(asset_id: str, output_path: str) -> dict:
     """Download asset to local file."""
     home_dir = os.path.expanduser("~")
@@ -273,7 +308,9 @@ def download_output(asset_id: str, output_path: str) -> dict:
 
 # Publishing Tools
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def publish_asset(
     asset_id: str,
     target_filename: str = None,
@@ -283,24 +320,30 @@ def publish_asset(
 ) -> dict:
     """Publish asset to web dir. Use target_filename or manifest_key."""
     return publish.publish_asset(
-        asset_id=asset_id, target_filename=target_filename,
-        manifest_key=manifest_key, publish_dir=publish_dir, web_optimize=web_optimize,
+        asset_id=asset_id,
+        target_filename=target_filename,
+        manifest_key=manifest_key,
+        publish_dir=publish_dir,
+        web_optimize=web_optimize,
     )
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_publish_info() -> dict:
     """Get current publish directory config."""
     return publish.get_publish_info()
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def set_publish_dir(publish_dir: str) -> dict:
     """Set publish directory path."""
     return publish.set_publish_dir(publish_dir)
 
 
 # Workflow Library
+
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -331,14 +374,21 @@ def workflow_library(
             return _to_mcp_response(result)
         workflows = result.get("workflows", [])
         paginated = paginate(workflows, cursor=cursor, limit=limit)
-        return {"workflows": paginated["items"], "nextCursor": paginated["nextCursor"], "total": paginated["total"]}
+        return {
+            "workflows": paginated["items"],
+            "nextCursor": paginated["nextCursor"],
+            "total": paginated["total"],
+        }
     elif action == "delete":
         if not name:
             return mcp_error("name required for action='delete'", "INVALID_PARAMS")
         return persistence.delete_workflow(name)
     elif action == "duplicate":
         if not source_name or not new_name:
-            return mcp_error("source_name and new_name required for action='duplicate'", "INVALID_PARAMS")
+            return mcp_error(
+                "source_name and new_name required for action='duplicate'",
+                "INVALID_PARAMS",
+            )
         return persistence.duplicate_workflow(source_name, new_name)
     elif action == "export":
         if not name:
@@ -349,24 +399,31 @@ def workflow_library(
             return mcp_error("name and workflow required for action='import'", "INVALID_PARAMS")
         return persistence.import_workflow(name, workflow, description, tags)
     else:
-        return mcp_error(f"Invalid action: {action}. Use: save|load|list|delete|duplicate|export|import", "INVALID_PARAMS")
+        return mcp_error(
+            f"Invalid action: {action}. Use: save|load|list|delete|duplicate|export|import",
+            "INVALID_PARAMS",
+        )
 
 
 # VRAM Tools
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def estimate_vram(workflow: dict) -> dict:
     """Estimate VRAM usage for workflow."""
     return vram.estimate_workflow_vram(workflow)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def check_model_fits(model_name: str, precision: str = "default") -> dict:
     """Check if model fits in VRAM. precision: fp32|fp16|bf16|fp8|default"""
     return vram.check_model_fits(model_name, precision)
 
 
 # Validation Tools
+
 
 @mcp.tool()
 @mcp_tool_wrapper
@@ -378,6 +435,7 @@ def validate_workflow(
 ) -> dict:
     """Validate workflow. auto_fix=True to correct params. check_pattern=True for drift detection."""
     import json
+
     errors = []
     warnings = []
     corrections = []
@@ -439,7 +497,9 @@ def check_connection(source_type: str, source_slot: int, target_type: str, targe
 
 # SOTA Recommendations
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def sota_query(
     mode: str,
     category: str = None,
@@ -467,14 +527,24 @@ def sota_query(
     elif mode == "installed":
         return sota.get_available_sota_models()
     else:
-        return mcp_error(f"Invalid mode: {mode}. Use: category|recommend|check|settings|installed", "INVALID_PARAMS")
+        return mcp_error(
+            f"Invalid mode: {mode}. Use: category|recommend|check|settings|installed",
+            "INVALID_PARAMS",
+        )
 
 
 # Workflow Templates
 
+
 @mcp.tool()
 @mcp_tool_wrapper
-def list_workflow_templates(limit: int = 50, cursor: str = None, only_installed: bool = False, model_type: str = None, tags: List[str] = None) -> dict:
+def list_workflow_templates(
+    limit: int = 50,
+    cursor: str = None,
+    only_installed: bool = False,
+    model_type: str = None,
+    tags: List[str] = None,
+) -> dict:
     """List available workflow templates. Paginated. Supports filtering."""
     if tags is None:
         tags = []
@@ -483,7 +553,11 @@ def list_workflow_templates(limit: int = 50, cursor: str = None, only_installed:
         return _to_mcp_response(result)
     template_list = result.get("templates", [])
     paginated = paginate(template_list, cursor=cursor, limit=limit)
-    return {"templates": paginated["items"], "nextCursor": paginated["nextCursor"], "total": paginated["total"]}
+    return {
+        "templates": paginated["items"],
+        "nextCursor": paginated["nextCursor"],
+        "total": paginated["total"],
+    }
 
 
 @mcp.tool()
@@ -494,6 +568,7 @@ def get_template(name: str) -> dict:
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def create_workflow_from_template(template_name: str, parameters: dict) -> dict:
     """Create workflow from template. Injects {{PLACEHOLDER}} values."""
     template = templates.load_template(template_name)
@@ -502,24 +577,32 @@ def create_workflow_from_template(template_name: str, parameters: dict) -> dict:
     defaults = template.get("_meta", {}).get("defaults", {})
     final_params = {**defaults, **parameters}
     workflow = templates.inject_parameters(template, final_params)
-    return {"workflow": workflow, "template": template_name, "parameters_used": final_params}
+    return {
+        "workflow": workflow,
+        "template": template_name,
+        "parameters_used": final_params,
+    }
 
 
 # Workflow Patterns
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def get_workflow_skeleton(model: str, task: str) -> dict:
     """Get tested workflow structure for model+task."""
     return patterns.get_workflow_skeleton(model, task)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_model_constraints(model: str) -> dict:
     """Get model constraints (CFG, resolution, frames, required nodes)."""
     return patterns.get_model_constraints(model)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_node_chain(model: str, task: str) -> dict:
     """Get ordered nodes with exact connection slots."""
     result = patterns.get_node_chain(model, task)
@@ -533,7 +616,9 @@ def get_node_chain(model: str, task: str) -> dict:
 
 # Batch Execution
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def batch_execute(
     workflow: dict,
     mode: str,
@@ -563,27 +648,49 @@ def batch_execute(
 
 # Pipelines
 
+
 @mcp.tool()
-def execute_pipeline_stages(stages: List[Dict[str, Any]], initial_params: Dict[str, Any], timeout_per_stage: int = 600) -> dict:
+@mcp_tool_wrapper
+def execute_pipeline_stages(
+    stages: List[Dict[str, Any]],
+    initial_params: Dict[str, Any],
+    timeout_per_stage: int = 600,
+) -> dict:
     """Run multi-stage pipeline (e.g., image→upscale→video)."""
     return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
 
 
 @mcp.tool()
-def run_image_to_video_pipeline(image_workflow: dict, video_workflow: dict, prompt: str, video_prompt: str = None, seed: int = 42) -> dict:
+@mcp_tool_wrapper
+def run_image_to_video_pipeline(
+    image_workflow: dict,
+    video_workflow: dict,
+    prompt: str,
+    video_prompt: str = None,
+    seed: int = 42,
+) -> dict:
     """Generate image then animate to video."""
     return pipeline.create_image_to_video_pipeline(image_workflow, video_workflow, prompt, video_prompt, seed)
 
 
 @mcp.tool()
-def run_upscale_pipeline(base_workflow: dict, upscale_workflow: dict, prompt: str, upscale_factor: float = 2.0, seed: int = 42) -> dict:
+@mcp_tool_wrapper
+def run_upscale_pipeline(
+    base_workflow: dict,
+    upscale_workflow: dict,
+    prompt: str,
+    upscale_factor: float = 2.0,
+    seed: int = 42,
+) -> dict:
     """Generate image then upscale."""
     return pipeline.create_upscale_pipeline(base_workflow, upscale_workflow, prompt, upscale_factor, seed)
 
 
 # Model Management Tools
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit: int = 10) -> dict:
     """Search Civitai for models. type: checkpoint|lora|embedding|controlnet|upscaler"""
     return models.search_civitai(query, model_type, nsfw, limit)
@@ -600,12 +707,14 @@ def download_model(url: str, model_type: str, filename: str = None, overwrite: b
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_model_info(model_path: str) -> dict:
     """Get info about installed model."""
     return models.get_model_info(model_path)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def list_installed_models(model_type: str = None) -> dict:
     """List installed models by type."""
     return models.list_installed_models(model_type)
@@ -613,7 +722,9 @@ def list_installed_models(model_type: str = None) -> dict:
 
 # Asset Analysis
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def get_image_dimensions(asset_id: str) -> dict:
     """Get image dimensions and recommended video size."""
     return analysis.get_image_dimensions(asset_id)
@@ -627,6 +738,7 @@ def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] =
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_video_info(asset_id: str) -> dict:
     """Get video duration, fps, frame count."""
     return analysis.get_video_info(asset_id)
@@ -634,15 +746,22 @@ def get_video_info(asset_id: str) -> dict:
 
 # Quality Assurance
 
+
 @mcp.tool()
 @mcp_tool_wrapper
-def qa_output(asset_id: str, prompt: str, checks: Optional[List[str]] = None, vlm_model: Optional[str] = None) -> dict:
+def qa_output(
+    asset_id: str,
+    prompt: str,
+    checks: Optional[List[str]] = None,
+    vlm_model: Optional[str] = None,
+) -> dict:
     """QA check via VLM. checks: prompt_match|artifacts|faces|text|composition"""
     safe_prompt = _escape_user_content(prompt)
     return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=safe_prompt, checks=checks, vlm_model=vlm_model))
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def check_vlm_available(vlm_model: str = None) -> dict:
     """Check if VLM (Ollama) is available for QA."""
     return qa.check_vlm_available(vlm_model)
@@ -650,7 +769,9 @@ def check_vlm_available(vlm_model: str = None) -> dict:
 
 # Style Learning Tools
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def record_generation(
     prompt: str,
     model: str,
@@ -665,20 +786,29 @@ def record_generation(
 ) -> dict:
     """Record a generation for style learning. Returns record_id."""
     record_id = style_learning.record_generation(
-        prompt=prompt, model=model, seed=seed, parameters=parameters,
-        negative_prompt=negative_prompt, rating=rating, tags=tags,
-        outcome=outcome, qa_score=qa_score, notes=notes,
+        prompt=prompt,
+        model=model,
+        seed=seed,
+        parameters=parameters,
+        negative_prompt=negative_prompt,
+        rating=rating,
+        tags=tags,
+        outcome=outcome,
+        qa_score=qa_score,
+        notes=notes,
     )
     return {"record_id": record_id, "success": True}
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
     """Rate a generation 0.0-1.0. Returns success status."""
     return {"success": style_learning.rate_generation(record_id, rating, notes)}
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def style_suggest(
     mode: str,
     prompt: Optional[str] = None,
@@ -707,6 +837,7 @@ def style_suggest(
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def manage_presets(
     action: str,
     name: str = None,
@@ -729,8 +860,11 @@ def manage_presets(
         if not name or not description or not prompt_additions:
             return mcp_error("name, description, prompt_additions required for action=save")
         success = style_learning.save_style_preset(
-            name=name, description=description, prompt_additions=prompt_additions,
-            negative_additions=negative_additions, recommended_model=recommended_model,
+            name=name,
+            description=description,
+            prompt_additions=prompt_additions,
+            negative_additions=negative_additions,
+            recommended_model=recommended_model,
             recommended_params=recommended_params,
         )
         return {"success": success}
@@ -743,21 +877,37 @@ def manage_presets(
         return mcp_error(f"Unknown action: {action}. Use: list|get|save|delete")
 
 
-
-
-
 # Workflow Generation
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def generate_workflow(
-    model: str, workflow_type: str, prompt: str, negative_prompt: str = "",
-    width: int = None, height: int = None, frames: int = None,
-    seed: int = None, steps: int = None, cfg: float = None, guidance: float = None,
+    model: str,
+    workflow_type: str,
+    prompt: str,
+    negative_prompt: str = "",
+    width: int = None,
+    height: int = None,
+    frames: int = None,
+    seed: int = None,
+    steps: int = None,
+    cfg: float = None,
+    guidance: float = None,
 ) -> dict:
     """Generate validated workflow. model: ltx|flux|wan|qwen. type: t2v|i2v|t2i"""
     return workflow_generator.generate_workflow(
-        model=model, workflow_type=workflow_type, prompt=prompt, negative_prompt=negative_prompt,
-        width=width, height=height, frames=frames, seed=seed, steps=steps, cfg=cfg, guidance=guidance,
+        model=model,
+        workflow_type=workflow_type,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        width=width,
+        height=height,
+        frames=frames,
+        seed=seed,
+        steps=steps,
+        cfg=cfg,
+        guidance=guidance,
     )
 
 
@@ -765,13 +915,16 @@ def generate_workflow(
 # Workflow Visualization Tools
 # =============================================================================
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def visualize_workflow(workflow: dict) -> dict:
     """Generate Mermaid diagram from workflow for visualization."""
     return visualization.visualize_workflow(workflow)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_workflow_summary(workflow: dict) -> dict:
     """Get text summary of workflow structure (node types, parameters)."""
     return visualization.get_workflow_summary(workflow)
@@ -781,19 +934,23 @@ def get_workflow_summary(workflow: dict) -> dict:
 # Rate Limiting Dashboard Tools
 # =============================================================================
 
+
 @mcp.tool()
+@mcp_tool_wrapper
 def get_rate_limit_status(tool_name: str = None) -> dict:
     """Get current rate limiting status. Shows requests remaining, reset time, usage."""
     return rate_limiter.get_rate_limit_status(tool_name)
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_all_tools_rate_status() -> dict:
     """Get rate limiting status for all tools."""
     return rate_limiter.get_all_tools_rate_status()
 
 
 @mcp.tool()
+@mcp_tool_wrapper
 def get_rate_limit_summary() -> dict:
     """Get brief summary of rate limit status for dashboard display."""
     return rate_limiter.get_rate_limit_summary()
@@ -804,11 +961,12 @@ def get_rate_limit_summary() -> dict:
 
 # MCP Resources
 
+
 @mcp.resource(
     "comfyui://docs/patterns/ltx",
     name="LTX Video Pattern",
     description="LLM reference pattern for LTX-Video workflow generation",
-    mime_type="text/markdown"
+    mime_type="text/markdown",
 )
 def resource_pattern_ltx() -> str:
     """LTX Video pattern documentation."""
@@ -820,7 +978,7 @@ def resource_pattern_ltx() -> str:
     "comfyui://docs/patterns/flux",
     name="FLUX Pattern",
     description="LLM reference pattern for FLUX workflow generation",
-    mime_type="text/markdown"
+    mime_type="text/markdown",
 )
 def resource_pattern_flux() -> str:
     """FLUX pattern documentation."""
@@ -830,12 +988,12 @@ def resource_pattern_flux() -> str:
 
 @mcp.resource(
     "comfyui://docs/patterns/wan",
-    name="Wan 2.1 Pattern",
-    description="LLM reference pattern for Wan 2.1 workflow generation",
-    mime_type="text/markdown"
+    name="Wan 2.6 Pattern",
+    description="LLM reference pattern for Wan 2.6 workflow generation",
+    mime_type="text/markdown",
 )
 def resource_pattern_wan() -> str:
-    """Wan 2.1 pattern documentation."""
+    """Wan 2.6 pattern documentation."""
     result = reference_docs.get_model_pattern("wan")
     return result.get("pattern", json.dumps(result))
 
@@ -844,7 +1002,7 @@ def resource_pattern_wan() -> str:
     "comfyui://docs/patterns/qwen",
     name="Qwen Pattern",
     description="LLM reference pattern for Qwen workflow generation",
-    mime_type="text/markdown"
+    mime_type="text/markdown",
 )
 def resource_pattern_qwen() -> str:
     """Qwen pattern documentation."""
@@ -856,7 +1014,7 @@ def resource_pattern_qwen() -> str:
     "comfyui://docs/rules",
     name="Parameter Rules",
     description="Validation constraints for LLM-generated workflows",
-    mime_type="text/markdown"
+    mime_type="text/markdown",
 )
 def resource_parameter_rules() -> str:
     """Parameter validation rules."""
@@ -868,7 +1026,7 @@ def resource_parameter_rules() -> str:
     "comfyui://docs/system-prompt",
     name="LLM System Prompt",
     description="System prompt guide for LLM workflow generation",
-    mime_type="text/markdown"
+    mime_type="text/markdown",
 )
 def resource_system_prompt() -> str:
     """System prompt for LLM workflow generation."""
@@ -880,7 +1038,7 @@ def resource_system_prompt() -> str:
     "comfyui://docs/skeletons/ltx-t2v",
     name="LTX T2V Skeleton",
     description="Token-optimized skeleton for LTX text-to-video",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_skeleton_ltx_t2v() -> str:
     """LTX text-to-video skeleton."""
@@ -892,7 +1050,7 @@ def resource_skeleton_ltx_t2v() -> str:
     "comfyui://docs/skeletons/ltx-i2v",
     name="LTX I2V Skeleton",
     description="Token-optimized skeleton for LTX image-to-video",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_skeleton_ltx_i2v() -> str:
     """LTX image-to-video skeleton."""
@@ -904,7 +1062,7 @@ def resource_skeleton_ltx_i2v() -> str:
     "comfyui://docs/skeletons/flux-t2i",
     name="FLUX T2I Skeleton",
     description="Token-optimized skeleton for FLUX text-to-image",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_skeleton_flux_t2i() -> str:
     """FLUX text-to-image skeleton."""
@@ -916,7 +1074,7 @@ def resource_skeleton_flux_t2i() -> str:
     "comfyui://docs/skeletons/wan-t2v",
     name="Wan T2V Skeleton",
     description="Token-optimized skeleton for Wan text-to-video",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_skeleton_wan_t2v() -> str:
     """Wan text-to-video skeleton."""
@@ -928,7 +1086,7 @@ def resource_skeleton_wan_t2v() -> str:
     "comfyui://docs/skeletons/qwen-t2i",
     name="Qwen T2I Skeleton",
     description="Token-optimized skeleton for Qwen text-to-image",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_skeleton_qwen_t2i() -> str:
     """Qwen text-to-image skeleton."""
@@ -940,7 +1098,7 @@ def resource_skeleton_qwen_t2i() -> str:
     "comfyui://patterns/available",
     name="Available Patterns",
     description="List of all workflow patterns and supported models",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_available_patterns() -> str:
     """All available workflow patterns."""
@@ -952,12 +1110,88 @@ def resource_available_patterns() -> str:
     "comfyui://workflows/supported",
     name="Supported Workflows",
     description="List of supported model+workflow_type combinations",
-    mime_type="application/json"
+    mime_type="application/json",
 )
 def resource_supported_workflows() -> str:
     """Supported workflow types."""
     result = workflow_generator.list_supported_workflows()
     return json.dumps(result, indent=2)
+
+
+# =============================================================================
+# SOTA Feature Tools
+# =============================================================================
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def enhance_prompt(
+    prompt: str,
+    model: str = "flux",
+    style: str = None,
+    use_llm: bool = True,
+    llm_model: str = None,
+) -> dict:
+    """Enhance a generation prompt with model-specific quality tokens and optional LLM rewriting.
+
+    Uses local Ollama LLM to intelligently rewrite prompts for better generation results.
+    Falls back to token injection if LLM unavailable.
+
+    Args:
+        prompt: The original prompt to enhance.
+        model: Target generation model (flux, sdxl, qwen, wan, ltx).
+        style: Optional style preset (cinematic, anime, photorealistic).
+        use_llm: Use Ollama LLM for intelligent rewriting (default True).
+        llm_model: Ollama model to use (default: qwen3:8b).
+    """
+    return _to_mcp_response(
+        prompt_enhance.enhance_prompt(
+            prompt=prompt,
+            model=model,
+            style=style,
+            use_llm=use_llm,
+            llm_model=llm_model,
+        )
+    )
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def get_execution_profile(prompt_id: str) -> dict:
+    """Get per-node execution timing for a completed workflow.
+
+    Shows which nodes took the longest, helping optimize workflow performance.
+
+    Args:
+        prompt_id: The prompt_id to profile.
+    """
+    return _to_mcp_response(profiling.get_execution_profile(prompt_id))
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def diff_workflows(workflow_a: dict, workflow_b: dict) -> dict:
+    """Compare two workflows and show node/parameter differences.
+
+    Useful for comparing template versions, debugging parameter changes,
+    or understanding what changed between generations.
+
+    Args:
+        workflow_a: First workflow JSON.
+        workflow_b: Second workflow JSON.
+    """
+    return _to_mcp_response(workflow_diff.diff_workflows(workflow_a, workflow_b))
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def get_compatibility_matrix() -> dict:
+    """Get model compatibility matrix showing installed models, VRAM fit, and supported workflow types.
+
+    Cross-references installed models, available VRAM, and model constraints
+    to show what's ready to use vs what needs setup.
+    """
+    return _to_mcp_response(compatibility.get_compatibility_matrix())
 
 
 def main():

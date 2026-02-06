@@ -8,21 +8,18 @@ NOTE: Model constraints and defaults are centralized in model_registry.py.
 This module imports from there for workflow generation.
 """
 
-import json
 import random
 import copy
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
 from . import topology_validator
-from . import reference_docs
 from . import patterns
+from .param_inject import inject_placeholders
 from .model_registry import (
     MODEL_SKELETON_MAP,
-    MODEL_DEFAULTS,
     get_model_defaults,
     get_canonical_model_key,
-    resolve_model_name,
 )
 
 # Module paths
@@ -50,7 +47,10 @@ def load_skeleton(model: str, workflow_type: str) -> Tuple[Optional[dict], Optio
         # List available patterns
         available = list(set(MODEL_SKELETON_MAP.values()))
         available_str = [f"{m}/{t}" for m, t in available]
-        return None, f"No skeleton for model={model}, type={workflow_type}. Available: {available_str}"
+        return (
+            None,
+            f"No skeleton for model={model}, type={workflow_type}. Available: {available_str}",
+        )
 
     cache_key = f"{canonical_key[0]}:{canonical_key[1]}"
     skeleton_name = f"{canonical_key[0]}_{canonical_key[1]}"
@@ -91,7 +91,7 @@ def resolve_parameters(
     steps: int = None,
     cfg: float = None,
     guidance: float = None,
-    **extra_params
+    **extra_params,
 ) -> Dict[str, Any]:
     """
     Resolve final parameters from user input, skeleton defaults, and model defaults.
@@ -105,7 +105,7 @@ def resolve_parameters(
     defaults = get_model_defaults(model)
 
     # Get skeleton defaults
-    skeleton_defaults = skeleton.get("defaults", {})
+    _skeleton_defaults = skeleton.get("defaults", {})
 
     # Build parameter dict
     params = {
@@ -211,11 +211,18 @@ def expand_skeleton_to_workflow(skeleton: dict, params: Dict[str, Any]) -> dict:
             # Determine output slot index
             output_slot = 0
             output_mappings = {
-                "MODEL": 0, "CLIP": 1, "VAE": 2,
-                "CONDITIONING": 0, "CONDITIONING+": 0, "CONDITIONING-": 1,
-                "LATENT": 0, "LATENT_DENOISED": 1,
-                "IMAGE": 0, "MASK": 1,
-                "SIGMAS": 0, "SAMPLER": 0,
+                "MODEL": 0,
+                "CLIP": 1,
+                "VAE": 2,
+                "CONDITIONING": 0,
+                "CONDITIONING+": 0,
+                "CONDITIONING-": 1,
+                "LATENT": 0,
+                "LATENT_DENOISED": 1,
+                "IMAGE": 0,
+                "MASK": 1,
+                "SIGMAS": 0,
+                "SAMPLER": 0,
             }
             if from_output.upper() in output_mappings:
                 output_slot = output_mappings[from_output.upper()]
@@ -232,7 +239,10 @@ def expand_skeleton_to_workflow(skeleton: dict, params: Dict[str, Any]) -> dict:
             inputs = {}
 
             # Add connections as inputs
-            for (target_node, target_input), (source_node, source_slot) in connection_map.items():
+            for (target_node, target_input), (
+                source_node,
+                source_slot,
+            ) in connection_map.items():
                 if target_node == node_id:
                     inputs[target_input] = [str(source_node), source_slot]
 
@@ -242,23 +252,10 @@ def expand_skeleton_to_workflow(skeleton: dict, params: Dict[str, Any]) -> dict:
                     input_name = key.split(".", 1)[1]
                     inputs[input_name] = value
 
-            workflow[node_id] = {
-                "class_type": class_type,
-                "inputs": inputs
-            }
+            workflow[node_id] = {"class_type": class_type, "inputs": inputs}
 
     # Inject parameters (replace {{PLACEHOLDER}} values)
-    workflow_str = json.dumps(workflow)
-    for param_name, param_value in params.items():
-        placeholder = f"{{{{{param_name}}}}}"
-        if isinstance(param_value, str):
-            workflow_str = workflow_str.replace(f'"{placeholder}"', json.dumps(param_value))
-            workflow_str = workflow_str.replace(placeholder, param_value)
-        else:
-            workflow_str = workflow_str.replace(f'"{placeholder}"', str(param_value))
-            workflow_str = workflow_str.replace(placeholder, str(param_value))
-
-    return json.loads(workflow_str)
+    return inject_placeholders(workflow, params)
 
 
 def auto_correct_params(params: Dict[str, Any], model: str) -> Tuple[Dict[str, Any], List[dict]]:
@@ -283,12 +280,14 @@ def auto_correct_params(params: Dict[str, Any], model: str) -> Tuple[Dict[str, A
             if value % divisor != 0:
                 new_value = (value // divisor) * divisor
                 new_value = max(min_res, min(max_res, new_value))
-                corrections.append({
-                    "field": dim,
-                    "from": value,
-                    "to": new_value,
-                    "reason": f"Rounded to nearest {divisor}"
-                })
+                corrections.append(
+                    {
+                        "field": dim,
+                        "from": value,
+                        "to": new_value,
+                        "reason": f"Rounded to nearest {divisor}",
+                    }
+                )
                 corrected[dim] = new_value
 
     # Correct LTX frames
@@ -300,12 +299,14 @@ def auto_correct_params(params: Dict[str, Any], model: str) -> Tuple[Dict[str, A
                     new_value = ((value - 1) // 8) * 8 + 1
                     if new_value < 9:
                         new_value = 9
-                    corrections.append({
-                        "field": dim,
-                        "from": value,
-                        "to": new_value,
-                        "reason": "LTX requires 8n+1 frames"
-                    })
+                    corrections.append(
+                        {
+                            "field": dim,
+                            "from": value,
+                            "to": new_value,
+                            "reason": "LTX requires 8n+1 frames",
+                        }
+                    )
                     corrected[dim] = new_value
 
     # Correct CFG
@@ -316,12 +317,14 @@ def auto_correct_params(params: Dict[str, Any], model: str) -> Tuple[Dict[str, A
             value = corrected["CFG"]
             if value < min_cfg or value > max_cfg:
                 new_value = constraints.get("cfg_default", min_cfg)
-                corrections.append({
-                    "field": "CFG",
-                    "from": value,
-                    "to": new_value,
-                    "reason": f"CFG clamped to model range [{min_cfg}, {max_cfg}]"
-                })
+                corrections.append(
+                    {
+                        "field": "CFG",
+                        "from": value,
+                        "to": new_value,
+                        "reason": f"CFG clamped to model range [{min_cfg}, {max_cfg}]",
+                    }
+                )
                 corrected["CFG"] = new_value
 
     return corrected, corrections
@@ -341,7 +344,7 @@ def generate_workflow(
     guidance: float = None,
     auto_correct: bool = True,
     validate: bool = True,
-    **extra_params
+    **extra_params,
 ) -> dict:
     """
     Generate a complete, validated ComfyUI workflow from high-level parameters.
@@ -400,9 +403,13 @@ def generate_workflow(
     # Resolution limit check
     MAX_RESOLUTION = 4096
     if width is not None and width > MAX_RESOLUTION:
-        return {"error": f"Resolution {width}x{height or 'auto'} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"}
+        return {
+            "error": f"Resolution {width}x{height or 'auto'} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"
+        }
     if height is not None and height > MAX_RESOLUTION:
-        return {"error": f"Resolution {width or 'auto'}x{height} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"}
+        return {
+            "error": f"Resolution {width or 'auto'}x{height} exceeds maximum {MAX_RESOLUTION}x{MAX_RESOLUTION} for {model.upper()}"
+        }
 
     # I2V workflow requires IMAGE_PATH
     workflow_type_lower = workflow_type.lower() if workflow_type else ""
@@ -422,9 +429,18 @@ def generate_workflow(
 
     # Resolve parameters
     params = resolve_parameters(
-        skeleton, model, prompt, negative_prompt,
-        width, height, frames, seed, steps, cfg, guidance,
-        **extra_params
+        skeleton,
+        model,
+        prompt,
+        negative_prompt,
+        width,
+        height,
+        frames,
+        seed,
+        steps,
+        cfg,
+        guidance,
+        **extra_params,
     )
 
     # Auto-correct if enabled
@@ -446,7 +462,7 @@ def generate_workflow(
                 "error": "Workflow validation failed",
                 "validation": validation_result,
                 "parameters_used": params,
-                "skeleton_used": skeleton_name
+                "skeleton_used": skeleton_name,
             }
 
     return {
@@ -456,7 +472,7 @@ def generate_workflow(
         "validation": validation_result,
         "skeleton_used": skeleton_name,
         "model": model,
-        "workflow_type": workflow_type
+        "workflow_type": workflow_type,
     }
 
 
@@ -475,12 +491,14 @@ def list_supported_workflows() -> dict:
         if key not in seen:
             seen.add(key)
             canonical_model, canonical_type = canonical_key
-            workflows.append({
-                "model": model,
-                "workflow_type": wf_type,
-                "canonical_model": canonical_model,
-                "canonical_type": canonical_type,
-                "defaults": get_model_defaults(model)
-            })
+            workflows.append(
+                {
+                    "model": model,
+                    "workflow_type": wf_type,
+                    "canonical_model": canonical_model,
+                    "canonical_type": canonical_type,
+                    "defaults": get_model_defaults(model),
+                }
+            )
 
     return {"workflows": workflows, "count": len(workflows)}

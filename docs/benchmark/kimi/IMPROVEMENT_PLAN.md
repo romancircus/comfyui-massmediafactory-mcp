@@ -1,8 +1,8 @@
 # IMPROVEMENT_PLAN.md - Prioritized Improvements
 
-**Author:** KIMI  
-**Repository:** comfyui-massmediafactory-mcp  
-**Date:** February 2026  
+**Author:** KIMI
+**Repository:** comfyui-massmediafactory-mcp
+**Date:** February 2026
 **Total Effort:** 95 hours
 
 ---
@@ -257,7 +257,7 @@ enhance_prompt(
     style_target="photorealistic",
     enhance_level="moderate"  # subtle|moderate|aggressive
 )
-# Returns: "Professional pet photography of a fluffy domestic cat, 
+# Returns: "Professional pet photography of a fluffy domestic cat,
 #           soft natural lighting, shallow depth of field, 85mm lens"
 ```
 
@@ -315,7 +315,7 @@ from pathlib import Path
 def load_skeleton(model: str, workflow_type: str) -> dict:
     cache_key = f"{model}:{workflow_type}"
     file_path = SKELETONS_DIR / f"{cache_key}.json"
-    
+
     # Check file modification time
     mtime = file_path.stat().st_mtime
     # ... cache invalidation logic
@@ -388,7 +388,7 @@ class Config(BaseSettings):
     model_cache_dir: Path = Path("~/.cache/comfyui-models")
     max_concurrent_jobs: int = 3
     default_timeout_seconds: int = 600
-    
+
     class Config:
         env_prefix = "COMFYUI_MCP_"
 ```
@@ -422,7 +422,7 @@ Allow third-party extensions:
 class MCPPlugin:
     def register_tools(self, mcp_server):
         pass
-    
+
     def register_resources(self, mcp_server):
         pass
 

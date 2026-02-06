@@ -16,7 +16,6 @@ Usage:
 """
 
 import os
-import json
 import requests
 from typing import Optional
 
@@ -29,10 +28,7 @@ def linear_query(query: str, variables: dict = None) -> dict:
     if not LINEAR_API_KEY:
         raise ValueError("LINEAR_API_KEY environment variable not set")
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": LINEAR_API_KEY
-    }
+    headers = {"Content-Type": "application/json", "Authorization": LINEAR_API_KEY}
 
     payload = {"query": query}
     if variables:
@@ -153,10 +149,7 @@ def add_issue_label(issue_uuid: str, label_id: str) -> bool:
 
 
 def update_linear_on_complete(
-    issue_id: str,
-    status: str = "done",
-    output_path: Optional[str] = None,
-    notes: Optional[str] = None
+    issue_id: str, status: str = "done", output_path: Optional[str] = None, notes: Optional[str] = None
 ) -> bool:
     """
     Update Linear issue when a ComfyUI job completes.
@@ -171,7 +164,7 @@ def update_linear_on_complete(
         True if update was successful
     """
     if not LINEAR_API_KEY:
-        print(f"[Linear Hook] Skipping - no API key configured")
+        print("[Linear Hook] Skipping - no API key configured")
         return False
 
     try:
@@ -225,6 +218,7 @@ def update_linear_on_complete(
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 3:
         print("Usage: python linear_hook.py ISSUE_ID STATUS [OUTPUT_PATH] [NOTES]")
         sys.exit(1)

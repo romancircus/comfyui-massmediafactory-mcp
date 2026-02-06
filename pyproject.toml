@@ -41,6 +41,17 @@ Repository = "https://github.com/romancircus/comfyui-massmediafactory-mcp"
 [tool.hatch.build.targets.wheel]
 packages = ["src/comfyui_massmediafactory_mcp"]
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E402"]
+"tests/**/*.py" = ["E402"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

@@ -45,7 +45,9 @@
     "tags": [
       "model:flux",
       "capability:inpaint"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "7e1b34dd15973e07"
   },
   "1": {
     "class_type": "LoadImage",

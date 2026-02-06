@@ -37,7 +37,9 @@
       "type:audio",
       "capability:tts"
     ],
-    "model": "audio"
+    "model": "audio",
+    "version": "1.0.0",
+    "hub_hash": "40088b5c5bb5ec33"
   },
   "1": {
     "class_type": "Qwen3TTSLoader",

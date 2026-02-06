@@ -1,7 +1,7 @@
 # ComfyUI MCP vs Direct API - Performance Benchmark Report
 
-**Date:** 2026-02-04 14:21:12  
-**Test Suites:** 4  
+**Date:** 2026-02-04 14:21:12
+**Test Suites:** 4
 **Phase:** 6 of ComfyUI MCP Comprehensive Audit
 
 ---

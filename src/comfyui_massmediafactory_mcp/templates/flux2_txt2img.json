@@ -22,7 +22,9 @@
     "tags": [
       "model:flux",
       "priority:recommended"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "b25d2cc1546b22a0"
   },
   "1": {
     "class_type": "UNETLoader",

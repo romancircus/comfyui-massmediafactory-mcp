@@ -28,7 +28,9 @@
     "vram_min": 12,
     "tags": [
       "model:sdxl"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "6a24f2c82c486a2a"
   },
   "1": {
     "class_type": "CheckpointLoaderSimple",

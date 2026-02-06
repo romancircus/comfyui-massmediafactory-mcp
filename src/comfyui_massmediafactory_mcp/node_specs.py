@@ -10,48 +10,37 @@ NODE_SPECS = {
     # Core Loading Nodes
     "CheckpointLoaderSimple": {
         "class": "CheckpointLoaderSimple",
-        "inputs": {
-            "ckpt_name": "STRING (filename)"
-        },
+        "inputs": {"ckpt_name": "STRING (filename)"},
         "outputs": ["MODEL", "CLIP", "VAE"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "UNETLoader": {
         "class": "UNETLoader",
-        "inputs": {
-            "unet_name": "STRING (filename)",
-            "weight_dtype": "STRING (default|fp8_e4m3fn|fp8_e5m2|fp16)"
-        },
+        "inputs": {"unet_name": "STRING (filename)", "weight_dtype": "STRING (default|fp8_e4m3fn|fp8_e5m2|fp16)"},
         "outputs": ["MODEL"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "CLIPLoader": {
         "class": "CLIPLoader",
         "inputs": {
             "clip_name": "STRING (filename)",
             "type": "STRING (sd1|sd2|sdxl|flux|qwen_image|hunyuan_video)",
-            "device": "STRING (default|cpu)"
+            "device": "STRING (default|cpu)",
         },
         "outputs": ["CLIP"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "DualCLIPLoader": {
         "class": "DualCLIPLoader",
-        "inputs": {
-            "clip_name1": "STRING (CLIP L)",
-            "clip_name2": "STRING (T5 XXL)",
-            "type": "STRING (flux|sd3)"
-        },
+        "inputs": {"clip_name1": "STRING (CLIP L)", "clip_name2": "STRING (T5 XXL)", "type": "STRING (flux|sd3)"},
         "outputs": ["CLIP"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "VAELoader": {
         "class": "VAELoader",
-        "inputs": {
-            "vae_name": "STRING (filename)"
-        },
+        "inputs": {"vae_name": "STRING (filename)"},
         "outputs": ["VAE"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "LoraLoader": {
         "class": "LoraLoader",
@@ -60,54 +49,42 @@ NODE_SPECS = {
             "clip": "CLIP",
             "lora_name": "STRING (filename)",
             "strength_model": "FLOAT (0.0-2.0, default: 1.0)",
-            "strength_clip": "FLOAT (0.0-2.0, default: 1.0)"
+            "strength_clip": "FLOAT (0.0-2.0, default: 1.0)",
         },
         "outputs": ["MODEL", "CLIP"],
-        "category": "loaders"
+        "category": "loaders",
     },
     "LoraLoaderModelOnly": {
         "class": "LoraLoaderModelOnly",
         "inputs": {
             "model": "MODEL",
             "lora_name": "STRING (filename)",
-            "strength_model": "FLOAT (0.0-2.0, default: 1.0)"
+            "strength_model": "FLOAT (0.0-2.0, default: 1.0)",
         },
         "outputs": ["MODEL"],
-        "category": "loaders"
+        "category": "loaders",
     },
-
     # Text Encoding Nodes
     "CLIPTextEncode": {
         "class": "CLIPTextEncode",
-        "inputs": {
-            "clip": "CLIP",
-            "text": "STRING (prompt)"
-        },
+        "inputs": {"clip": "CLIP", "text": "STRING (prompt)"},
         "outputs": ["CONDITIONING"],
-        "category": "conditioning"
+        "category": "conditioning",
     },
     "FluxGuidance": {
         "class": "FluxGuidance",
-        "inputs": {
-            "conditioning": "CONDITIONING",
-            "guidance": "FLOAT (0.0-100.0, default: 3.5)"
-        },
+        "inputs": {"conditioning": "CONDITIONING", "guidance": "FLOAT (0.0-100.0, default: 3.5)"},
         "outputs": ["CONDITIONING"],
         "category": "conditioning",
-        "notes": "FLUX-specific. Replaces CFG parameter."
+        "notes": "FLUX-specific. Replaces CFG parameter.",
     },
-
     # LTX-Video Specific Nodes
     "LTXVConditioning": {
         "class": "LTXVConditioning",
-        "inputs": {
-            "positive": "CONDITIONING",
-            "negative": "CONDITIONING",
-            "frame_rate": "FLOAT (default: 24)"
-        },
+        "inputs": {"positive": "CONDITIONING", "negative": "CONDITIONING", "frame_rate": "FLOAT (default: 24)"},
         "outputs": ["CONDITIONING (positive)", "CONDITIONING (negative)"],
         "category": "ltx",
-        "notes": "Required wrapper for LTX conditioning."
+        "notes": "Required wrapper for LTX conditioning.",
     },
     "LTXVScheduler": {
         "class": "LTXVScheduler",
@@ -116,10 +93,10 @@ NODE_SPECS = {
             "max_shift": "FLOAT (default: 2.05)",
             "base_shift": "FLOAT (default: 0.95)",
             "stretch": "BOOLEAN (default: true)",
-            "terminal": "FLOAT (default: 0.1)"
+            "terminal": "FLOAT (default: 0.1)",
         },
         "outputs": ["SIGMAS"],
-        "category": "ltx"
+        "category": "ltx",
     },
     "EmptyLTXVLatentVideo": {
         "class": "EmptyLTXVLatentVideo",
@@ -127,59 +104,42 @@ NODE_SPECS = {
             "width": "INT (divisible by 8, default: 768)",
             "height": "INT (divisible by 8, default: 512)",
             "length": "INT (must be 8n+1: 9,17,25,...97,...121)",
-            "batch_size": "INT (default: 1)"
+            "batch_size": "INT (default: 1)",
         },
         "outputs": ["LATENT"],
         "category": "ltx",
-        "notes": "Frame count MUST be 8n+1 (e.g., 97, 121)."
+        "notes": "Frame count MUST be 8n+1 (e.g., 97, 121).",
     },
     "LTXVImgToVideo": {
         "class": "LTXVImgToVideo",
-        "inputs": {
-            "image": "IMAGE",
-            "vae": "VAE",
-            "width": "INT",
-            "height": "INT",
-            "length": "INT (8n+1)"
-        },
+        "inputs": {"image": "IMAGE", "vae": "VAE", "width": "INT", "height": "INT", "length": "INT (8n+1)"},
         "outputs": ["LATENT"],
-        "category": "ltx"
+        "category": "ltx",
     },
     "LTXVPreprocess": {
         "class": "LTXVPreprocess",
-        "inputs": {
-            "image": "IMAGE",
-            "strength": "INT (0-100, default: 40)"
-        },
+        "inputs": {"image": "IMAGE", "strength": "INT (0-100, default: 40)"},
         "outputs": ["IMAGE"],
-        "category": "ltx"
+        "category": "ltx",
     },
     "LTXVGemmaCLIPModelLoader": {
         "class": "LTXVGemmaCLIPModelLoader",
-        "inputs": {
-            "model_name": "STRING (gemma_3_12B_it_fp8)"
-        },
+        "inputs": {"model_name": "STRING (gemma_3_12B_it_fp8)"},
         "outputs": ["GEMMA_MODEL"],
-        "category": "ltx"
+        "category": "ltx",
     },
     "LTXVGemmaEnhancePrompt": {
         "class": "LTXVGemmaEnhancePrompt",
-        "inputs": {
-            "gemma_model": "GEMMA_MODEL",
-            "prompt": "STRING"
-        },
+        "inputs": {"gemma_model": "GEMMA_MODEL", "prompt": "STRING"},
         "outputs": ["STRING (enhanced prompt)"],
-        "category": "ltx"
+        "category": "ltx",
     },
-
     # Wan 2.1 Specific Nodes
     "WanVideoModelLoader": {
         "class": "WanVideoModelLoader",
-        "inputs": {
-            "model_name": "STRING (wan_2.1_*.safetensors)"
-        },
+        "inputs": {"model_name": "STRING (wan_2.1_*.safetensors)"},
         "outputs": ["MODEL", "VAE"],
-        "category": "wan"
+        "category": "wan",
     },
     "EmptyWanLatentVideo": {
         "class": "EmptyWanLatentVideo",
@@ -187,40 +147,33 @@ NODE_SPECS = {
             "width": "INT (480p: 832, 720p: 1280)",
             "height": "INT (480p: 480, 720p: 720)",
             "frames": "INT (default: 81)",
-            "batch_size": "INT (default: 1)"
+            "batch_size": "INT (default: 1)",
         },
         "outputs": ["LATENT"],
-        "category": "wan"
+        "category": "wan",
     },
     "WanImageEncode": {
         "class": "WanImageEncode",
-        "inputs": {
-            "image": "IMAGE",
-            "vae": "VAE"
-        },
+        "inputs": {"image": "IMAGE", "vae": "VAE"},
         "outputs": ["LATENT"],
-        "category": "wan"
+        "category": "wan",
     },
     "WanVAEDecode": {
         "class": "WanVAEDecode",
-        "inputs": {
-            "samples": "LATENT",
-            "vae": "VAE"
-        },
+        "inputs": {"samples": "LATENT", "vae": "VAE"},
         "outputs": ["IMAGE"],
-        "category": "wan"
+        "category": "wan",
     },
-
     # HunyuanVideo Specific Nodes
     "HunyuanVideoModelLoader": {
         "class": "HunyuanVideoModelLoader",
         "inputs": {
             "model_name": "STRING (hunyuanvideo_t2v_720p_bf16.safetensors)",
-            "precision": "STRING (bf16|fp16|fp8)"
+            "precision": "STRING (bf16|fp16|fp8)",
         },
         "outputs": ["MODEL", "VAE"],
         "category": "hunyuan",
-        "notes": "Load HunyuanVideo model and VAE together."
+        "notes": "Load HunyuanVideo model and VAE together.",
     },
     "EmptyHunyuanLatentVideo": {
         "class": "EmptyHunyuanLatentVideo",
@@ -228,11 +181,11 @@ NODE_SPECS = {
             "width": "INT (divisible by 16, default: 1280)",
             "height": "INT (divisible by 16, default: 720)",
             "length": "INT (frames 81-129, default: 81)",
-            "batch_size": "INT (default: 1)"
+            "batch_size": "INT (default: 1)",
         },
         "outputs": ["LATENT"],
         "category": "hunyuan",
-        "notes": "Create empty latent for HunyuanVideo. Resolution must be divisible by 16."
+        "notes": "Create empty latent for HunyuanVideo. Resolution must be divisible by 16.",
     },
     "HunyuanVideoSampler": {
         "class": "HunyuanVideoSampler",
@@ -245,79 +198,58 @@ NODE_SPECS = {
             "steps": "INT (20-50, default: 30)",
             "cfg": "FLOAT (4.0-8.0, default: 6.0)",
             "sampler": "STRING (euler|dpmpp_2m)",
-            "scheduler": "STRING (normal|karras)"
+            "scheduler": "STRING (normal|karras)",
         },
         "outputs": ["LATENT"],
         "category": "hunyuan",
-        "notes": "Main sampler for HunyuanVideo. Uses standard CFG (not FluxGuidance)."
+        "notes": "Main sampler for HunyuanVideo. Uses standard CFG (not FluxGuidance).",
     },
     "HunyuanVideoVAEDecode": {
         "class": "HunyuanVideoVAEDecode",
-        "inputs": {
-            "samples": "LATENT",
-            "vae": "VAE"
-        },
+        "inputs": {"samples": "LATENT", "vae": "VAE"},
         "outputs": ["IMAGE"],
         "category": "hunyuan",
-        "notes": "Decode HunyuanVideo latent to video frames."
+        "notes": "Decode HunyuanVideo latent to video frames.",
     },
     "HunyuanVideoImageEncode": {
         "class": "HunyuanVideoImageEncode",
-        "inputs": {
-            "image": "IMAGE",
-            "vae": "VAE"
-        },
+        "inputs": {"image": "IMAGE", "vae": "VAE"},
         "outputs": ["IMAGE_EMBEDS"],
         "category": "hunyuan",
-        "notes": "Encode reference image for I2V workflows."
+        "notes": "Encode reference image for I2V workflows.",
     },
-
     # FLUX Specific Nodes
     "ModelSamplingFlux": {
         "class": "ModelSamplingFlux",
-        "inputs": {
-            "model": "MODEL",
-            "width": "INT",
-            "height": "INT"
-        },
+        "inputs": {"model": "MODEL", "width": "INT", "height": "INT"},
         "outputs": ["MODEL"],
-        "category": "flux"
+        "category": "flux",
     },
-
     # Qwen Specific Nodes
     "ModelSamplingAuraFlow": {
         "class": "ModelSamplingAuraFlow",
-        "inputs": {
-            "model": "MODEL",
-            "shift": "FLOAT (default: 3.1)"
-        },
+        "inputs": {"model": "MODEL", "shift": "FLOAT (default: 3.1)"},
         "outputs": ["MODEL"],
-        "category": "qwen"
+        "category": "qwen",
     },
-
     # Latent Generation Nodes
     "EmptyLatentImage": {
         "class": "EmptyLatentImage",
-        "inputs": {
-            "width": "INT (divisible by 8)",
-            "height": "INT (divisible by 8)",
-            "batch_size": "INT (default: 1)"
-        },
+        "inputs": {"width": "INT (divisible by 8)", "height": "INT (divisible by 8)", "batch_size": "INT (default: 1)"},
         "outputs": ["LATENT"],
-        "category": "latent"
+        "category": "latent",
     },
     "EmptySD3LatentImage": {
         "class": "EmptySD3LatentImage",
         "inputs": {
             "width": "INT (divisible by 16 for FLUX)",
             "height": "INT (divisible by 16 for FLUX)",
-            "batch_size": "INT (default: 1)"
+            "batch_size": "INT (default: 1)",
         },
         "outputs": ["LATENT"],
         "category": "latent",
-        "notes": "Use for FLUX (divisible by 16) and SD3."
+        "notes": "Use for FLUX (divisible by 16) and SD3.",
     },
-
     # Sampler Nodes
     "KSampler": {
         "class": "KSampler",
@@ -331,19 +263,17 @@ NODE_SPECS = {
             "cfg": "FLOAT (1.0-30.0)",
             "sampler_name": "STRING (euler|euler_ancestral|dpmpp_2m|...)",
             "scheduler": "STRING (normal|karras|exponential|simple|...)",
-            "denoise": "FLOAT (0.0-1.0, default: 1.0)"
+            "denoise": "FLOAT (0.0-1.0, default: 1.0)",
         },
         "outputs": ["LATENT"],
         "category": "sampling",
-        "notes": "Do NOT use for video models. Use SamplerCustom instead."
+        "notes": "Do NOT use for video models. Use SamplerCustom instead.",
     },
     "KSamplerSelect": {
         "class": "KSamplerSelect",
-        "inputs": {
-            "sampler_name": "STRING (euler|dpmpp_2m|res_multistep|...)"
-        },
+        "inputs": {"sampler_name": "STRING (euler|dpmpp_2m|res_multistep|...)"},
         "outputs": ["SAMPLER"],
-        "category": "sampling"
+        "category": "sampling",
     },
     "SamplerCustom": {
         "class": "SamplerCustom",
@@ -355,11 +285,11 @@ NODE_SPECS = {
             "sigmas": "SIGMAS",
             "latent_image": "LATENT",
             "add_noise": "BOOLEAN (default: true)",
-            "noise_seed": "INT"
+            "noise_seed": "INT",
         },
         "outputs": ["LATENT", "LATENT (denoised)"],
         "category": "sampling",
-        "notes": "REQUIRED for video models (LTX, Wan)."
+        "notes": "REQUIRED for video models (LTX, Wan).",
     },
     "BasicScheduler": {
         "class": "BasicScheduler",
@@ -367,41 +297,30 @@ NODE_SPECS = {
             "model": "MODEL",
             "scheduler": "STRING (normal|karras|exponential|simple|sgm_uniform)",
             "steps": "INT (1-100)",
-            "denoise": "FLOAT (0.0-1.0, default: 1.0)"
+            "denoise": "FLOAT (0.0-1.0, default: 1.0)",
         },
         "outputs": ["SIGMAS"],
-        "category": "sampling"
+        "category": "sampling",
     },
-
     # Decode/Encode Nodes
     "VAEDecode": {
         "class": "VAEDecode",
-        "inputs": {
-            "samples": "LATENT",
-            "vae": "VAE"
-        },
+        "inputs": {"samples": "LATENT", "vae": "VAE"},
         "outputs": ["IMAGE"],
-        "category": "vae"
+        "category": "vae",
     },
     "VAEEncode": {
         "class": "VAEEncode",
-        "inputs": {
-            "pixels": "IMAGE",
-            "vae": "VAE"
-        },
+        "inputs": {"pixels": "IMAGE", "vae": "VAE"},
         "outputs": ["LATENT"],
-        "category": "vae"
+        "category": "vae",
     },
-
     # Output Nodes
     "SaveImage": {
         "class": "SaveImage",
-        "inputs": {
-            "images": "IMAGE",
-            "filename_prefix": "STRING (default: ComfyUI)"
-        },
+        "inputs": {"images": "IMAGE", "filename_prefix": "STRING (default: ComfyUI)"},
         "outputs": [],
-        "category": "output"
+        "category": "output",
     },
     "SaveAnimatedWEBP": {
         "class": "SaveAnimatedWEBP",
@@ -410,30 +329,27 @@ NODE_SPECS = {
             "filename_prefix": "STRING",
             "fps": "INT (default: 24)",
             "lossless": "BOOLEAN (default: false)",
-            "quality": "INT (0-100, default: 80)"
+            "quality": "INT (0-100, default: 80)",
         },
         "outputs": [],
-        "category": "output"
+        "category": "output",
     },
     "VHS_VideoCombine": {
         "class": "VHS_VideoCombine",
         "inputs": {
             "images": "IMAGE",
             "frame_rate": "FLOAT (default: 24)",
-            "format": "STRING (webm_video|mp4_video|...)"
+            "format": "STRING (webm_video|mp4_video|...)",
         },
         "outputs": ["VHS_FILENAMES"],
-        "category": "output"
+        "category": "output",
     },
-
     # Image Input Nodes
     "LoadImage": {
         "class": "LoadImage",
-        "inputs": {
-            "image": "STRING (filename)"
-        },
+        "inputs": {"image": "STRING (filename)"},
         "outputs": ["IMAGE", "MASK"],
-        "category": "input"
+        "category": "input",
     },
     "ImageScale": {
         "class": "ImageScale",
@@ -442,10 +358,10 @@ NODE_SPECS = {
             "upscale_method": "STRING (nearest|bilinear|bicubic|lanczos)",
             "width": "INT",
             "height": "INT",
-            "crop": "STRING (disabled|center)"
+            "crop": "STRING (disabled|center)",
         },
         "outputs": ["IMAGE"],
-        "category": "image"
+        "category": "image",
     },
 }
 
@@ -477,11 +393,7 @@ def list_node_specs(category: str = None) -> list:
         List of node specifications.
     """
     if category:
-        return [
-            {"class": k, **v}
-            for k, v in NODE_SPECS.items()
-            if v.get("category") == category
-        ]
+        return [{"class": k, **v} for k, v in NODE_SPECS.items() if v.get("category") == category]
     return [{"class": k, **v} for k, v in NODE_SPECS.items()]
 
 

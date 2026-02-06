@@ -10,8 +10,7 @@ import os
 import base64
 import urllib.request
 import json
-from typing import Optional, List, Dict, Any
-from pathlib import Path
+from typing import List
 
 # ComfyUI connection
 COMFYUI_URL = os.environ.get("COMFYUI_URL", "http://localhost:8188")
@@ -56,8 +55,10 @@ def get_image_dimensions(asset_id: str) -> dict:
     else:
         # Fetch from ComfyUI to get actual dimensions
         try:
-            view_url = f"{COMFYUI_URL}/view?filename={asset.filename}&subfolder={asset.subfolder}&type={asset.asset_type}"
-            req = urllib.request.Request(view_url, method="HEAD")
+            view_url = (
+                f"{COMFYUI_URL}/view?filename={asset.filename}&subfolder={asset.subfolder}&type={asset.asset_type}"
+            )
+            _req = urllib.request.Request(view_url, method="HEAD")
             # Note: ComfyUI doesn't return dimensions in HEAD, need to fetch image
             # For now, return cached or estimate from workflow
             width = asset.width or 1024
@@ -67,6 +68,7 @@ def get_image_dimensions(asset_id: str) -> dict:
 
     # Calculate aspect ratio
     from math import gcd
+
     divisor = gcd(width, height)
     aspect_w = width // divisor
     aspect_h = height // divisor
@@ -266,7 +268,7 @@ def get_video_info(asset_id: str) -> dict:
 
     # Extract video info from workflow parameters if available
     params = asset.parameters or {}
-    workflow = asset.workflow or {}
+    _workflow = asset.workflow or {}
 
     # Try to find frame count and fps from workflow
     frame_count = params.get("FRAMES", 120)
@@ -278,6 +280,7 @@ def get_video_info(asset_id: str) -> dict:
 
     # Calculate aspect ratio
     from math import gcd
+
     divisor = gcd(width, height)
     aspect_w = width // divisor
     aspect_h = height // divisor

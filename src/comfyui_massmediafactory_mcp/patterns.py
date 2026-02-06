@@ -14,17 +14,14 @@ NOTE: Model constraints are now centralized in model_registry.py.
 This module imports from there for backwards compatibility.
 """
 
-import json
 import copy
 import time
-import os
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 # Import model constraints from centralized registry
 from .model_registry import (
     MODEL_CONSTRAINTS,
     get_model_constraints as _get_registry_constraints,
-    resolve_model_name,
 )
 
 # =============================================================================
@@ -45,26 +42,26 @@ def _get_cache_key(model: str, task: str) -> str:
 def _get_skeleton_from_cache(model: str, task: str) -> Optional[Dict[str, Any]]:
     """
     Get skeleton from cache if valid.
-    
+
     Returns cached skeleton if it exists and hasn't expired.
     Updates cache metrics for monitoring.
     """
     global _CACHE_HITS, _CACHE_MISSES
-    
+
     cache_key = _get_cache_key(model, task)
     cached = _SKELETON_CACHE.get(cache_key)
-    
+
     if cached is None:
         _CACHE_MISSES += 1
         return None
-    
+
     # Check TTL
     if time.time() - cached["loaded_at"] > _CACHE_TTL_SECONDS:
         # Expired - remove from cache
         del _SKELETON_CACHE[cache_key]
         _CACHE_MISSES += 1
         return None
-    
+
     _CACHE_HITS += 1
     return copy.deepcopy(cached["data"])
 
@@ -81,7 +78,7 @@ def _store_skeleton_in_cache(model: str, task: str, data: Dict[str, Any]) -> Non
 def get_cache_stats() -> Dict[str, Any]:
     """
     Get skeleton cache statistics.
-    
+
     Returns:
         {
             "hits": int,
@@ -93,7 +90,7 @@ def get_cache_stats() -> Dict[str, Any]:
     """
     total = _CACHE_HITS + _CACHE_MISSES
     hit_rate = _CACHE_HITS / total if total > 0 else 0.0
-    
+
     return {
         "hits": _CACHE_HITS,
         "misses": _CACHE_MISSES,
@@ -123,70 +120,83 @@ WORKFLOW_SKELETONS = {
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS"],
             "defaults": {
-                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24,
-                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
-            }
+                "WIDTH": 768,
+                "HEIGHT": 512,
+                "SEED": 42,
+                "FRAMES": 97,
+                "FPS": 24,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+            },
         },
         "1": {
             "class_type": "LTXVLoader",
             "_meta": {"title": "Load LTX-2 Model"},
-            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"}
+            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"},
         },
         "2": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"},
         },
         "3": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"},
         },
         "4": {
             "class_type": "LTXVConditioning",
             "_meta": {"title": "Apply Frame Rate Conditioning"},
-            "inputs": {"positive": ["2", 0], "negative": ["3", 0], "frame_rate": "{{FPS}}"}
+            "inputs": {"positive": ["2", 0], "negative": ["3", 0], "frame_rate": "{{FPS}}"},
         },
         "5": {
             "class_type": "EmptyLTXVLatentVideo",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1},
         },
         "6": {
             "class_type": "LTXVScheduler",
             "_meta": {"title": "LTX Scheduler"},
-            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True},
         },
         "7": {
             "class_type": "KSamplerSelect",
             "_meta": {"title": "Select Sampler"},
-            "inputs": {"sampler_name": "euler"}
+            "inputs": {"sampler_name": "euler"},
         },
         "8": {
             "class_type": "SamplerCustom",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 3.0,
-                "positive": ["4", 0], "negative": ["4", 1],
-                "sampler": ["7", 0], "sigmas": ["6", 0], "latent_image": ["5", 0]
-            }
+                "model": ["1", 0],
+                "add_noise": True,
+                "noise_seed": "{{SEED}}",
+                "cfg": 3.0,
+                "positive": ["4", 0],
+                "negative": ["4", 1],
+                "sampler": ["7", 0],
+                "sigmas": ["6", 0],
+                "latent_image": ["5", 0],
+            },
         },
         "9": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["8", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["8", 0], "vae": ["1", 2]},
         },
         "10": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["9", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
-                "filename_prefix": "ltx2_output", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["9", 0],
+                "frame_rate": "{{FPS}}",
+                "loop_count": 0,
+                "filename_prefix": "ltx2_output",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("ltx2", "txt2vid_distilled"): {
         "_meta": {
             "description": "LTX-2 text-to-video (distilled, 3-4x faster)",
@@ -194,14 +204,19 @@ WORKFLOW_SKELETONS = {
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS"],
             "defaults": {
-                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24, "STEPS": 10,
-                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
-            }
+                "WIDTH": 768,
+                "HEIGHT": 512,
+                "SEED": 42,
+                "FRAMES": 97,
+                "FPS": 24,
+                "STEPS": 10,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+            },
         },
         "1": {
             "class_type": "CheckpointLoaderSimple",
             "_meta": {"title": "Load LTX-2 Distilled Model"},
-            "inputs": {"ckpt_name": "ltx-2-19b-distilled-fp8.safetensors"}
+            "inputs": {"ckpt_name": "ltx-2-19b-distilled-fp8.safetensors"},
         },
         "2": {
             "class_type": "LTXVGemmaCLIPModelLoader",
@@ -209,69 +224,84 @@ WORKFLOW_SKELETONS = {
             "inputs": {
                 "gemma_path": "gemma_3_12B_it_fp8_e4m3fn.safetensors",
                 "ltxv_path": "ltx-2-19b-distilled-fp8.safetensors",
-                "max_length": 1024
-            }
+                "max_length": 1024,
+            },
         },
         "3": {
             "class_type": "LTXVGemmaEnhancePrompt",
             "_meta": {"title": "Enhance Prompt with AI"},
-            "inputs": {"clip": ["2", 0], "prompt": "{{PROMPT}}", "max_tokens": 512, "bypass_i2v": False, "seed": "{{SEED}}"}
+            "inputs": {
+                "clip": ["2", 0],
+                "prompt": "{{PROMPT}}",
+                "max_tokens": 512,
+                "bypass_i2v": False,
+                "seed": "{{SEED}}",
+            },
         },
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Enhanced Prompt"},
-            "inputs": {"clip": ["2", 0], "text": ["3", 0]}
+            "inputs": {"clip": ["2", 0], "text": ["3", 0]},
         },
         "5": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"},
         },
         "6": {
             "class_type": "LTXVConditioning",
             "_meta": {"title": "Apply Frame Rate Conditioning"},
-            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"}
+            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"},
         },
         "7": {
             "class_type": "EmptyLTXVLatentVideo",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1},
         },
         "8": {
             "class_type": "LTXVScheduler",
             "_meta": {"title": "LTX Scheduler (Distilled)"},
-            "inputs": {"steps": "{{STEPS}}", "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+            "inputs": {"steps": "{{STEPS}}", "max_shift": 2.05, "base_shift": 0.95, "stretch": True},
         },
         "9": {
             "class_type": "KSamplerSelect",
             "_meta": {"title": "Select Sampler"},
-            "inputs": {"sampler_name": "euler"}
+            "inputs": {"sampler_name": "euler"},
         },
         "10": {
             "class_type": "SamplerCustom",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 2.5,
-                "positive": ["6", 0], "negative": ["6", 1],
-                "sampler": ["9", 0], "sigmas": ["8", 0], "latent_image": ["7", 0]
-            }
+                "model": ["1", 0],
+                "add_noise": True,
+                "noise_seed": "{{SEED}}",
+                "cfg": 2.5,
+                "positive": ["6", 0],
+                "negative": ["6", 1],
+                "sampler": ["9", 0],
+                "sigmas": ["8", 0],
+                "latent_image": ["7", 0],
+            },
         },
         "11": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["10", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["10", 0], "vae": ["1", 2]},
         },
         "12": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["11", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
-                "filename_prefix": "ltx2_distilled", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["11", 0],
+                "frame_rate": "{{FPS}}",
+                "loop_count": 0,
+                "filename_prefix": "ltx2_distilled",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("ltx2", "img2vid"): {
         "_meta": {
             "description": "LTX-2 image-to-video",
@@ -279,162 +309,171 @@ WORKFLOW_SKELETONS = {
             "type": "img2vid",
             "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STRENGTH"],
             "defaults": {
-                "WIDTH": 768, "HEIGHT": 512, "SEED": 42, "FRAMES": 97, "FPS": 24, "STRENGTH": 40,
-                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
-            }
+                "WIDTH": 768,
+                "HEIGHT": 512,
+                "SEED": 42,
+                "FRAMES": 97,
+                "FPS": 24,
+                "STRENGTH": 40,
+                "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+            },
         },
         "1": {
             "class_type": "LTXVLoader",
             "_meta": {"title": "Load LTX-2 Model"},
-            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"}
+            "inputs": {"ckpt_name": "ltx-2-19b-dev-fp8.safetensors", "dtype": "bfloat16"},
         },
-        "2": {
-            "class_type": "LoadImage",
-            "_meta": {"title": "Load Input Image"},
-            "inputs": {"image": "{{IMAGE_PATH}}"}
-        },
+        "2": {"class_type": "LoadImage", "_meta": {"title": "Load Input Image"}, "inputs": {"image": "{{IMAGE_PATH}}"}},
         "3": {
             "class_type": "LTXVPreprocess",
             "_meta": {"title": "Preprocess Image for Video"},
-            "inputs": {"image": ["2", 0], "strength": "{{STRENGTH}}"}
+            "inputs": {"image": ["2", 0], "strength": "{{STRENGTH}}"},
         },
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"},
         },
         "5": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"},
         },
         "6": {
             "class_type": "LTXVConditioning",
             "_meta": {"title": "Apply Frame Rate Conditioning"},
-            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"}
+            "inputs": {"positive": ["4", 0], "negative": ["5", 0], "frame_rate": "{{FPS}}"},
         },
         "7": {
             "class_type": "LTXVImgToVideo",
             "_meta": {"title": "Create I2V Latent"},
             "inputs": {
-                "positive": ["6", 0], "negative": ["6", 1], "vae": ["1", 2],
-                "image": ["3", 0], "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
-                "length": "{{FRAMES}}", "batch_size": 1
-            }
+                "positive": ["6", 0],
+                "negative": ["6", 1],
+                "vae": ["1", 2],
+                "image": ["3", 0],
+                "width": "{{WIDTH}}",
+                "height": "{{HEIGHT}}",
+                "length": "{{FRAMES}}",
+                "batch_size": 1,
+            },
         },
         "8": {
             "class_type": "LTXVScheduler",
             "_meta": {"title": "LTX Scheduler"},
-            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True}
+            "inputs": {"steps": 30, "max_shift": 2.05, "base_shift": 0.95, "stretch": True},
         },
         "9": {
             "class_type": "KSamplerSelect",
             "_meta": {"title": "Select Sampler"},
-            "inputs": {"sampler_name": "euler"}
+            "inputs": {"sampler_name": "euler"},
         },
         "10": {
             "class_type": "SamplerCustom",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "add_noise": True, "noise_seed": "{{SEED}}", "cfg": 3.0,
-                "positive": ["7", 0], "negative": ["7", 1],
-                "sampler": ["9", 0], "sigmas": ["8", 0], "latent_image": ["7", 2]
-            }
+                "model": ["1", 0],
+                "add_noise": True,
+                "noise_seed": "{{SEED}}",
+                "cfg": 3.0,
+                "positive": ["7", 0],
+                "negative": ["7", 1],
+                "sampler": ["9", 0],
+                "sigmas": ["8", 0],
+                "latent_image": ["7", 2],
+            },
         },
         "11": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["10", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["10", 0], "vae": ["1", 2]},
         },
         "12": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["11", 0], "frame_rate": "{{FPS}}", "loop_count": 0,
-                "filename_prefix": "ltx2_i2v", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["11", 0],
+                "frame_rate": "{{FPS}}",
+                "loop_count": 0,
+                "filename_prefix": "ltx2_i2v",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("flux2", "txt2img"): {
         "_meta": {
             "description": "FLUX.2-dev text-to-image",
             "model": "FLUX.2-dev",
             "type": "txt2img",
             "parameters": ["PROMPT", "SEED", "WIDTH", "HEIGHT", "STEPS", "GUIDANCE"],
-            "defaults": {"WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 20, "GUIDANCE": 3.5}
+            "defaults": {"WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 20, "GUIDANCE": 3.5},
         },
         "1": {
             "class_type": "UNETLoader",
             "_meta": {"title": "Load FLUX UNET"},
-            "inputs": {"unet_name": "flux2-dev-fp8.safetensors", "weight_dtype": "fp8_e4m3fn"}
+            "inputs": {"unet_name": "flux2-dev-fp8.safetensors", "weight_dtype": "fp8_e4m3fn"},
         },
         "2": {
             "class_type": "DualCLIPLoader",
             "_meta": {"title": "Load Dual CLIP"},
-            "inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"}
+            "inputs": {"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"},
         },
-        "3": {
-            "class_type": "VAELoader",
-            "_meta": {"title": "Load VAE"},
-            "inputs": {"vae_name": "ae.safetensors"}
-        },
+        "3": {"class_type": "VAELoader", "_meta": {"title": "Load VAE"}, "inputs": {"vae_name": "ae.safetensors"}},
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"},
         },
         "5": {
             "class_type": "FluxGuidance",
             "_meta": {"title": "Apply Guidance"},
-            "inputs": {"conditioning": ["4", 0], "guidance": "{{GUIDANCE}}"}
+            "inputs": {"conditioning": ["4", 0], "guidance": "{{GUIDANCE}}"},
         },
         "6": {
             "class_type": "EmptySD3LatentImage",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1},
         },
         "7": {
             "class_type": "KSamplerSelect",
             "_meta": {"title": "Select Sampler"},
-            "inputs": {"sampler_name": "euler"}
+            "inputs": {"sampler_name": "euler"},
         },
         "8": {
             "class_type": "BasicScheduler",
             "_meta": {"title": "Basic Scheduler"},
-            "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": "{{STEPS}}", "denoise": 1.0}
+            "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": "{{STEPS}}", "denoise": 1.0},
         },
-        "9": {
-            "class_type": "RandomNoise",
-            "_meta": {"title": "Generate Noise"},
-            "inputs": {"noise_seed": "{{SEED}}"}
-        },
+        "9": {"class_type": "RandomNoise", "_meta": {"title": "Generate Noise"}, "inputs": {"noise_seed": "{{SEED}}"}},
         "10": {
             "class_type": "BasicGuider",
             "_meta": {"title": "Basic Guider"},
-            "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}
+            "inputs": {"model": ["1", 0], "conditioning": ["5", 0]},
         },
         "11": {
             "class_type": "SamplerCustomAdvanced",
             "_meta": {"title": "Advanced Sampler"},
             "inputs": {
-                "noise": ["9", 0], "guider": ["10", 0], "sampler": ["7", 0],
-                "sigmas": ["8", 0], "latent_image": ["6", 0]
-            }
+                "noise": ["9", 0],
+                "guider": ["10", 0],
+                "sampler": ["7", 0],
+                "sigmas": ["8", 0],
+                "latent_image": ["6", 0],
+            },
         },
         "12": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent"},
-            "inputs": {"samples": ["11", 0], "vae": ["3", 0]}
+            "inputs": {"samples": ["11", 0], "vae": ["3", 0]},
         },
         "13": {
             "class_type": "SaveImage",
             "_meta": {"title": "Save Image"},
-            "inputs": {"images": ["12", 0], "filename_prefix": "flux2_output"}
-        }
+            "inputs": {"images": ["12", 0], "filename_prefix": "flux2_output"},
+        },
     },
-
     ("wan26", "img2vid"): {
         "_meta": {
             "description": "Wan 2.6 image-to-video",
@@ -442,51 +481,61 @@ WORKFLOW_SKELETONS = {
             "type": "img2vid",
             "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
             "defaults": {
-                "WIDTH": 832, "HEIGHT": 480, "SEED": 42, "FRAMES": 81,
-                "NEGATIVE": "worst quality, blurry, distorted"
-            }
+                "WIDTH": 832,
+                "HEIGHT": 480,
+                "SEED": 42,
+                "FRAMES": 81,
+                "NEGATIVE": "worst quality, blurry, distorted",
+            },
         },
         "1": {
             "class_type": "DownloadAndLoadWanModel",
             "_meta": {"title": "Load Wan Model"},
-            "inputs": {"model": "Wan-AI/Wan2.6-I2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"}
+            "inputs": {"model": "Wan-AI/Wan2.6-I2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"},
         },
-        "2": {
-            "class_type": "LoadImage",
-            "_meta": {"title": "Load Input Image"},
-            "inputs": {"image": "{{IMAGE_PATH}}"}
-        },
+        "2": {"class_type": "LoadImage", "_meta": {"title": "Load Input Image"}, "inputs": {"image": "{{IMAGE_PATH}}"}},
         "3": {
             "class_type": "WanImageEncode",
             "_meta": {"title": "Encode Image for Video"},
-            "inputs": {"wan_model": ["1", 0], "image": ["2", 0], "image_strength": 1.0, "enable_tiling": False}
+            "inputs": {"wan_model": ["1", 0], "image": ["2", 0], "image_strength": 1.0, "enable_tiling": False},
         },
         "4": {
             "class_type": "WanSampler",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "wan_model": ["3", 0], "positive": "{{PROMPT}}", "negative": "{{NEGATIVE}}",
-                "image_embeds": ["3", 1], "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
-                "num_frames": "{{FRAMES}}", "steps": 30, "cfg": 5.0, "seed": "{{SEED}}",
-                "shift": 8.0, "scheduler": "unipc"
-            }
+                "wan_model": ["3", 0],
+                "positive": "{{PROMPT}}",
+                "negative": "{{NEGATIVE}}",
+                "image_embeds": ["3", 1],
+                "width": "{{WIDTH}}",
+                "height": "{{HEIGHT}}",
+                "num_frames": "{{FRAMES}}",
+                "steps": 30,
+                "cfg": 5.0,
+                "seed": "{{SEED}}",
+                "shift": 8.0,
+                "scheduler": "unipc",
+            },
         },
         "5": {
             "class_type": "WanVAEDecode",
             "_meta": {"title": "Decode Video"},
-            "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]}
+            "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]},
         },
         "6": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["5", 0], "frame_rate": 24, "loop_count": 0,
-                "filename_prefix": "wan26_output", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["5", 0],
+                "frame_rate": 24,
+                "loop_count": 0,
+                "filename_prefix": "wan26_output",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("wan26", "txt2vid"): {
         "_meta": {
             "description": "Wan 2.6 text-to-video",
@@ -494,41 +543,54 @@ WORKFLOW_SKELETONS = {
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
             "defaults": {
-                "WIDTH": 832, "HEIGHT": 480, "SEED": 42, "FRAMES": 81,
-                "NEGATIVE": "worst quality, blurry, distorted"
-            }
+                "WIDTH": 832,
+                "HEIGHT": 480,
+                "SEED": 42,
+                "FRAMES": 81,
+                "NEGATIVE": "worst quality, blurry, distorted",
+            },
         },
         "1": {
             "class_type": "DownloadAndLoadWanModel",
             "_meta": {"title": "Load Wan Model"},
-            "inputs": {"model": "Wan-AI/Wan2.6-T2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"}
+            "inputs": {"model": "Wan-AI/Wan2.6-T2V-14B-480P", "base_precision": "bf16", "quantization": "disabled"},
         },
         "2": {
             "class_type": "WanSampler",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "wan_model": ["1", 0], "positive": "{{PROMPT}}", "negative": "{{NEGATIVE}}",
-                "width": "{{WIDTH}}", "height": "{{HEIGHT}}",
-                "num_frames": "{{FRAMES}}", "steps": 30, "cfg": 5.0, "seed": "{{SEED}}",
-                "shift": 8.0, "scheduler": "unipc"
-            }
+                "wan_model": ["1", 0],
+                "positive": "{{PROMPT}}",
+                "negative": "{{NEGATIVE}}",
+                "width": "{{WIDTH}}",
+                "height": "{{HEIGHT}}",
+                "num_frames": "{{FRAMES}}",
+                "steps": 30,
+                "cfg": 5.0,
+                "seed": "{{SEED}}",
+                "shift": 8.0,
+                "scheduler": "unipc",
+            },
         },
         "3": {
             "class_type": "WanVAEDecode",
             "_meta": {"title": "Decode Video"},
-            "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]}
+            "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]},
         },
         "4": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["3", 0], "frame_rate": 24, "loop_count": 0,
-                "filename_prefix": "wan26_t2v", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["3", 0],
+                "frame_rate": 24,
+                "loop_count": 0,
+                "filename_prefix": "wan26_t2v",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("qwen", "txt2img"): {
         "_meta": {
             "description": "Qwen text-to-image (best for text rendering and photorealistic portraits)",
@@ -536,66 +598,77 @@ WORKFLOW_SKELETONS = {
             "type": "txt2img",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG", "SHIFT"],
             "defaults": {
-                "WIDTH": 1296, "HEIGHT": 1296, "SEED": 42, "STEPS": 50, "CFG": 3.5, "SHIFT": 7.0,
-                "NEGATIVE": "worst quality, blurry, distorted"
-            }
+                "WIDTH": 1296,
+                "HEIGHT": 1296,
+                "SEED": 42,
+                "STEPS": 50,
+                "CFG": 3.5,
+                "SHIFT": 7.0,
+                "NEGATIVE": "worst quality, blurry, distorted",
+            },
         },
         "1": {
             "class_type": "UNETLoader",
             "_meta": {"title": "Load Qwen UNET"},
-            "inputs": {"unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors", "weight_dtype": "default"}
+            "inputs": {"unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors", "weight_dtype": "default"},
         },
         "2": {
             "class_type": "CLIPLoader",
             "_meta": {"title": "Load Qwen CLIP"},
-            "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default"}
+            "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default"},
         },
         "3": {
             "class_type": "VAELoader",
             "_meta": {"title": "Load Qwen VAE"},
-            "inputs": {"vae_name": "qwen_image_vae.safetensors"}
+            "inputs": {"vae_name": "qwen_image_vae.safetensors"},
         },
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"},
         },
         "5": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"},
         },
         "6": {
             "class_type": "ModelSamplingAuraFlow",
             "_meta": {"title": "Apply Shift (CRITICAL: 7.0 for sharp output)"},
-            "inputs": {"model": ["1", 0], "shift": "{{SHIFT}}"}
+            "inputs": {"model": ["1", 0], "shift": "{{SHIFT}}"},
         },
         "7": {
             "class_type": "EmptySD3LatentImage",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1},
         },
         "8": {
             "class_type": "KSampler",
             "_meta": {"title": "Sample Image"},
             "inputs": {
-                "model": ["6", 0], "positive": ["4", 0], "negative": ["5", 0],
-                "latent_image": ["7", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0
-            }
+                "model": ["6", 0],
+                "positive": ["4", 0],
+                "negative": ["5", 0],
+                "latent_image": ["7", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1.0,
+            },
         },
         "9": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent"},
-            "inputs": {"samples": ["8", 0], "vae": ["3", 0]}
+            "inputs": {"samples": ["8", 0], "vae": ["3", 0]},
         },
         "10": {
             "class_type": "SaveImage",
             "_meta": {"title": "Save Image"},
-            "inputs": {"images": ["9", 0], "filename_prefix": "qwen_output"}
-        }
+            "inputs": {"images": ["9", 0], "filename_prefix": "qwen_output"},
+        },
     },
-
     ("sdxl", "txt2img"): {
         "_meta": {
             "description": "SDXL text-to-image",
@@ -603,51 +676,61 @@ WORKFLOW_SKELETONS = {
             "type": "txt2img",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
             "defaults": {
-                "WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 25, "CFG": 7.0,
-                "NEGATIVE": "worst quality, low quality, blurry"
-            }
+                "WIDTH": 1024,
+                "HEIGHT": 1024,
+                "SEED": 42,
+                "STEPS": 25,
+                "CFG": 7.0,
+                "NEGATIVE": "worst quality, low quality, blurry",
+            },
         },
         "1": {
             "class_type": "CheckpointLoaderSimple",
             "_meta": {"title": "Load SDXL Model"},
-            "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"}
+            "inputs": {"ckpt_name": "sd_xl_base_1.0.safetensors"},
         },
         "2": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"},
         },
         "3": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"},
         },
         "4": {
             "class_type": "EmptyLatentImage",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1},
         },
         "5": {
             "class_type": "KSampler",
             "_meta": {"title": "Sample Image"},
             "inputs": {
-                "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
-                "latent_image": ["4", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0
-            }
+                "model": ["1", 0],
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "latent_image": ["4", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1.0,
+            },
         },
         "6": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent"},
-            "inputs": {"samples": ["5", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
         },
         "7": {
             "class_type": "SaveImage",
             "_meta": {"title": "Save Image"},
-            "inputs": {"images": ["6", 0], "filename_prefix": "sdxl_output"}
-        }
+            "inputs": {"images": ["6", 0], "filename_prefix": "sdxl_output"},
+        },
     },
-
     ("hunyuan15", "txt2vid"): {
         "_meta": {
             "description": "HunyuanVideo 1.5 text-to-video",
@@ -655,60 +738,74 @@ WORKFLOW_SKELETONS = {
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
             "defaults": {
-                "WIDTH": 1280, "HEIGHT": 720, "SEED": 42, "FRAMES": 81, "STEPS": 30, "CFG": 6.0,
-                "NEGATIVE": "worst quality, blurry, distorted, low resolution"
-            }
+                "WIDTH": 1280,
+                "HEIGHT": 720,
+                "SEED": 42,
+                "FRAMES": 81,
+                "STEPS": 30,
+                "CFG": 6.0,
+                "NEGATIVE": "worst quality, blurry, distorted, low resolution",
+            },
         },
         "1": {
             "class_type": "HunyuanVideoModelLoader",
             "_meta": {"title": "Load HunyuanVideo Model"},
-            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"}
+            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"},
         },
         "2": {
             "class_type": "CLIPLoader",
             "_meta": {"title": "Load CLIP Text Encoder"},
-            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"}
+            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"},
         },
         "3": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"},
         },
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"},
         },
         "5": {
             "class_type": "EmptyHunyuanLatentVideo",
             "_meta": {"title": "Create Empty Video Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1},
         },
         "6": {
             "class_type": "HunyuanVideoSampler",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0],
-                "latent": ["5", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler": "euler", "scheduler": "normal"
-            }
+                "model": ["1", 0],
+                "positive": ["3", 0],
+                "negative": ["4", 0],
+                "latent": ["5", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler": "euler",
+                "scheduler": "normal",
+            },
         },
         "7": {
             "class_type": "HunyuanVideoVAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["6", 0], "vae": ["1", 1]}
+            "inputs": {"samples": ["6", 0], "vae": ["1", 1]},
         },
         "8": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["7", 0], "frame_rate": 24, "loop_count": 0,
-                "filename_prefix": "hunyuan_output", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["7", 0],
+                "frame_rate": 24,
+                "loop_count": 0,
+                "filename_prefix": "hunyuan_output",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("hunyuan15", "img2vid"): {
         "_meta": {
             "description": "HunyuanVideo 1.5 image-to-video",
@@ -716,71 +813,81 @@ WORKFLOW_SKELETONS = {
             "type": "img2vid",
             "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
             "defaults": {
-                "WIDTH": 1280, "HEIGHT": 720, "SEED": 42, "FRAMES": 81, "STEPS": 30, "CFG": 6.0,
-                "NEGATIVE": "worst quality, blurry, distorted, low resolution"
-            }
+                "WIDTH": 1280,
+                "HEIGHT": 720,
+                "SEED": 42,
+                "FRAMES": 81,
+                "STEPS": 30,
+                "CFG": 6.0,
+                "NEGATIVE": "worst quality, blurry, distorted, low resolution",
+            },
         },
         "1": {
             "class_type": "HunyuanVideoModelLoader",
             "_meta": {"title": "Load HunyuanVideo Model"},
-            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"}
+            "inputs": {"model_name": "hunyuanvideo_t2v_720p_bf16.safetensors", "precision": "bf16"},
         },
         "2": {
             "class_type": "CLIPLoader",
             "_meta": {"title": "Load CLIP Text Encoder"},
-            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"}
+            "inputs": {"clip_name": "clip_l.safetensors", "type": "hunyuan_video"},
         },
-        "3": {
-            "class_type": "LoadImage",
-            "_meta": {"title": "Load Input Image"},
-            "inputs": {"image": "{{IMAGE_PATH}}"}
-        },
+        "3": {"class_type": "LoadImage", "_meta": {"title": "Load Input Image"}, "inputs": {"image": "{{IMAGE_PATH}}"}},
         "4": {
             "class_type": "HunyuanVideoImageEncode",
             "_meta": {"title": "Encode Reference Image"},
-            "inputs": {"image": ["3", 0], "vae": ["1", 1]}
+            "inputs": {"image": ["3", 0], "vae": ["1", 1]},
         },
         "5": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"},
         },
         "6": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"},
         },
         "7": {
             "class_type": "EmptyHunyuanLatentVideo",
             "_meta": {"title": "Create Empty Video Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1},
         },
         "8": {
             "class_type": "HunyuanVideoSampler",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0],
-                "latent": ["7", 0], "image_embeds": ["4", 0],
-                "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler": "euler", "scheduler": "normal"
-            }
+                "model": ["1", 0],
+                "positive": ["5", 0],
+                "negative": ["6", 0],
+                "latent": ["7", 0],
+                "image_embeds": ["4", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler": "euler",
+                "scheduler": "normal",
+            },
         },
         "9": {
             "class_type": "HunyuanVideoVAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["8", 0], "vae": ["1", 1]}
+            "inputs": {"samples": ["8", 0], "vae": ["1", 1]},
         },
         "10": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["9", 0], "frame_rate": 24, "loop_count": 0,
-                "filename_prefix": "hunyuan_i2v", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
+                "images": ["9", 0],
+                "frame_rate": 24,
+                "loop_count": 0,
+                "filename_prefix": "hunyuan_i2v",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
     },
-
     ("z_turbo", "txt2img"): {
         "_meta": {
             "description": "Z-Image-Turbo fast text-to-image (4-step inference)",
@@ -788,51 +895,61 @@ WORKFLOW_SKELETONS = {
             "type": "txt2img",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "STEPS", "CFG"],
             "defaults": {
-                "WIDTH": 1024, "HEIGHT": 1024, "SEED": 42, "STEPS": 4, "CFG": 3.0,
-                "NEGATIVE": "worst quality, blurry, distorted"
-            }
+                "WIDTH": 1024,
+                "HEIGHT": 1024,
+                "SEED": 42,
+                "STEPS": 4,
+                "CFG": 3.0,
+                "NEGATIVE": "worst quality, blurry, distorted",
+            },
         },
         "1": {
             "class_type": "CheckpointLoaderSimple",
             "_meta": {"title": "Load Z-Turbo Model"},
-            "inputs": {"ckpt_name": "z_image_turbo.safetensors"}
+            "inputs": {"ckpt_name": "z_image_turbo.safetensors"},
         },
         "2": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{PROMPT}}"},
         },
         "3": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["1", 1], "text": "{{NEGATIVE}}"},
         },
         "4": {
             "class_type": "EmptyLatentImage",
             "_meta": {"title": "Create Empty Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "batch_size": 1},
         },
         "5": {
             "class_type": "KSampler",
             "_meta": {"title": "Sample Image"},
             "inputs": {
-                "model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0],
-                "latent_image": ["4", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0
-            }
+                "model": ["1", 0],
+                "positive": ["2", 0],
+                "negative": ["3", 0],
+                "latent_image": ["4", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1.0,
+            },
         },
         "6": {
             "class_type": "VAEDecode",
             "_meta": {"title": "Decode Latent"},
-            "inputs": {"samples": ["5", 0], "vae": ["1", 2]}
+            "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
         },
         "7": {
             "class_type": "SaveImage",
             "_meta": {"title": "Save Image"},
-            "inputs": {"images": ["6", 0], "filename_prefix": "zturbo_output"}
-        }
+            "inputs": {"images": ["6", 0], "filename_prefix": "zturbo_output"},
+        },
     },
-
     ("cogvideox_5b", "txt2vid"): {
         "_meta": {
             "description": "CogVideoX-5B text-to-video from Tsinghua",
@@ -840,59 +957,74 @@ WORKFLOW_SKELETONS = {
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG"],
             "defaults": {
-                "WIDTH": 720, "HEIGHT": 480, "SEED": 42, "FRAMES": 49, "STEPS": 50, "CFG": 6.0,
-                "NEGATIVE": "worst quality, blurry, distorted, low resolution"
-            }
+                "WIDTH": 720,
+                "HEIGHT": 480,
+                "SEED": 42,
+                "FRAMES": 49,
+                "STEPS": 50,
+                "CFG": 6.0,
+                "NEGATIVE": "worst quality, blurry, distorted, low resolution",
+            },
         },
         "1": {
             "class_type": "CogVideoLoader",
             "_meta": {"title": "Load CogVideoX Model"},
-            "inputs": {"model_name": "cogvideox_5b_bf16.safetensors", "precision": "bf16"}
+            "inputs": {"model_name": "cogvideox_5b_bf16.safetensors", "precision": "bf16"},
         },
         "2": {
             "class_type": "CLIPLoader",
             "_meta": {"title": "Load CLIP Text Encoder"},
-            "inputs": {"clip_name": "clip_l.safetensors", "type": "cogvideo"}
+            "inputs": {"clip_name": "clip_l.safetensors", "type": "cogvideo"},
         },
         "3": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Positive Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{PROMPT}}"},
         },
         "4": {
             "class_type": "CLIPTextEncode",
             "_meta": {"title": "Encode Negative Prompt"},
-            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"}
+            "inputs": {"clip": ["2", 0], "text": "{{NEGATIVE}}"},
         },
         "5": {
             "class_type": "EmptyCogVideoLatent",
             "_meta": {"title": "Create Empty Video Latent"},
-            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1}
+            "inputs": {"width": "{{WIDTH}}", "height": "{{HEIGHT}}", "length": "{{FRAMES}}", "batch_size": 1},
         },
         "6": {
             "class_type": "CogVideoSampler",
             "_meta": {"title": "Sample Video"},
             "inputs": {
-                "model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0],
-                "latent": ["5", 0], "seed": "{{SEED}}", "steps": "{{STEPS}}",
-                "cfg": "{{CFG}}", "sampler": "euler", "scheduler": "normal"
-            }
+                "model": ["1", 0],
+                "positive": ["3", 0],
+                "negative": ["4", 0],
+                "latent": ["5", 0],
+                "seed": "{{SEED}}",
+                "steps": "{{STEPS}}",
+                "cfg": "{{CFG}}",
+                "sampler": "euler",
+                "scheduler": "normal",
+            },
         },
         "7": {
             "class_type": "CogVideoVAEDecode",
             "_meta": {"title": "Decode Latent to Video"},
-            "inputs": {"samples": ["6", 0], "vae": ["1", 1]}
+            "inputs": {"samples": ["6", 0], "vae": ["1", 1]},
         },
         "8": {
             "class_type": "VHS_VideoCombine",
             "_meta": {"title": "Save Video"},
             "inputs": {
-                "images": ["7", 0], "frame_rate": 24, "loop_count": 0,
-                "filename_prefix": "cogvideo_output", "format": "video/h264-mp4",
-                "pingpong": False, "save_output": True
-            }
-        }
-    }
+                "images": ["7", 0],
+                "frame_rate": 24,
+                "loop_count": 0,
+                "filename_prefix": "cogvideo_output",
+                "format": "video/h264-mp4",
+                "pingpong": False,
+                "save_output": True,
+            },
+        },
+    },
 }
 
 
@@ -905,15 +1037,36 @@ NODE_CHAINS = {
         {"id": "1", "class_type": "LTXVLoader", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
         {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
         {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
-        {"id": "4", "class_type": "LTXVConditioning", "inputs": {"positive": ["2", 0], "negative": ["3", 0]}, "outputs": {"POSITIVE": 0, "NEGATIVE": 1}},
+        {
+            "id": "4",
+            "class_type": "LTXVConditioning",
+            "inputs": {"positive": ["2", 0], "negative": ["3", 0]},
+            "outputs": {"POSITIVE": 0, "NEGATIVE": 1},
+        },
         {"id": "5", "class_type": "EmptyLTXVLatentVideo", "outputs": {"LATENT": 0}},
         {"id": "6", "class_type": "LTXVScheduler", "outputs": {"SIGMAS": 0}},
         {"id": "7", "class_type": "KSamplerSelect", "outputs": {"SAMPLER": 0}},
-        {"id": "8", "class_type": "SamplerCustom", "inputs": {"model": ["1", 0], "positive": ["4", 0], "negative": ["4", 1], "sampler": ["7", 0], "sigmas": ["6", 0], "latent_image": ["5", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "9", "class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
-        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}}
+        {
+            "id": "8",
+            "class_type": "SamplerCustom",
+            "inputs": {
+                "model": ["1", 0],
+                "positive": ["4", 0],
+                "negative": ["4", 1],
+                "sampler": ["7", 0],
+                "sigmas": ["6", 0],
+                "latent_image": ["5", 0],
+            },
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "9",
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["8", 0], "vae": ["1", 2]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}},
     ],
-
     ("flux2", "txt2img"): [
         {"id": "1", "class_type": "UNETLoader", "outputs": {"MODEL": 0}},
         {"id": "2", "class_type": "DualCLIPLoader", "outputs": {"CLIP": 0}},
@@ -924,74 +1077,166 @@ NODE_CHAINS = {
         {"id": "7", "class_type": "KSamplerSelect", "outputs": {"SAMPLER": 0}},
         {"id": "8", "class_type": "BasicScheduler", "inputs": {"model": ["1", 0]}, "outputs": {"SIGMAS": 0}},
         {"id": "9", "class_type": "RandomNoise", "outputs": {"NOISE": 0}},
-        {"id": "10", "class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["5", 0]}, "outputs": {"GUIDER": 0}},
-        {"id": "11", "class_type": "SamplerCustomAdvanced", "inputs": {"noise": ["9", 0], "guider": ["10", 0], "sampler": ["7", 0], "sigmas": ["8", 0], "latent_image": ["6", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "12", "class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}, "outputs": {"IMAGE": 0}},
-        {"id": "13", "class_type": "SaveImage", "inputs": {"images": ["12", 0]}, "outputs": {}}
+        {
+            "id": "10",
+            "class_type": "BasicGuider",
+            "inputs": {"model": ["1", 0], "conditioning": ["5", 0]},
+            "outputs": {"GUIDER": 0},
+        },
+        {
+            "id": "11",
+            "class_type": "SamplerCustomAdvanced",
+            "inputs": {
+                "noise": ["9", 0],
+                "guider": ["10", 0],
+                "sampler": ["7", 0],
+                "sigmas": ["8", 0],
+                "latent_image": ["6", 0],
+            },
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "12",
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["11", 0], "vae": ["3", 0]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "13", "class_type": "SaveImage", "inputs": {"images": ["12", 0]}, "outputs": {}},
     ],
-
     ("wan26", "img2vid"): [
         {"id": "1", "class_type": "DownloadAndLoadWanModel", "outputs": {"WANMODEL": 0}},
         {"id": "2", "class_type": "LoadImage", "outputs": {"IMAGE": 0, "MASK": 1}},
-        {"id": "3", "class_type": "WanImageEncode", "inputs": {"wan_model": ["1", 0], "image": ["2", 0]}, "outputs": {"WANMODEL": 0, "IMAGEEMBEDS": 1}},
-        {"id": "4", "class_type": "WanSampler", "inputs": {"wan_model": ["3", 0], "image_embeds": ["3", 1]}, "outputs": {"LATENT": 0}},
-        {"id": "5", "class_type": "WanVAEDecode", "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]}, "outputs": {"IMAGE": 0}},
-        {"id": "6", "class_type": "VHS_VideoCombine", "inputs": {"images": ["5", 0]}, "outputs": {"FILENAMES": 0}}
+        {
+            "id": "3",
+            "class_type": "WanImageEncode",
+            "inputs": {"wan_model": ["1", 0], "image": ["2", 0]},
+            "outputs": {"WANMODEL": 0, "IMAGEEMBEDS": 1},
+        },
+        {
+            "id": "4",
+            "class_type": "WanSampler",
+            "inputs": {"wan_model": ["3", 0], "image_embeds": ["3", 1]},
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "5",
+            "class_type": "WanVAEDecode",
+            "inputs": {"samples": ["4", 0], "wan_model": ["1", 0]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "6", "class_type": "VHS_VideoCombine", "inputs": {"images": ["5", 0]}, "outputs": {"FILENAMES": 0}},
     ],
-
     ("wan26", "txt2vid"): [
         {"id": "1", "class_type": "DownloadAndLoadWanModel", "outputs": {"WANMODEL": 0}},
         {"id": "2", "class_type": "WanSampler", "inputs": {"wan_model": ["1", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "3", "class_type": "WanVAEDecode", "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]}, "outputs": {"IMAGE": 0}},
-        {"id": "4", "class_type": "VHS_VideoCombine", "inputs": {"images": ["3", 0]}, "outputs": {"FILENAMES": 0}}
+        {
+            "id": "3",
+            "class_type": "WanVAEDecode",
+            "inputs": {"samples": ["2", 0], "wan_model": ["1", 0]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "4", "class_type": "VHS_VideoCombine", "inputs": {"images": ["3", 0]}, "outputs": {"FILENAMES": 0}},
     ],
-
     ("sdxl", "txt2img"): [
         {"id": "1", "class_type": "CheckpointLoaderSimple", "outputs": {"MODEL": 0, "CLIP": 1, "VAE": 2}},
         {"id": "2", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
         {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["1", 1]}, "outputs": {"CONDITIONING": 0}},
         {"id": "4", "class_type": "EmptyLatentImage", "outputs": {"LATENT": 0}},
-        {"id": "5", "class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "6", "class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}, "outputs": {"IMAGE": 0}},
-        {"id": "7", "class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "outputs": {}}
+        {
+            "id": "5",
+            "class_type": "KSampler",
+            "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0]},
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "6",
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["5", 0], "vae": ["1", 2]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "7", "class_type": "SaveImage", "inputs": {"images": ["6", 0]}, "outputs": {}},
     ],
-
     ("qwen", "txt2img"): [
         {"id": "1", "class_type": "UNETLoader", "outputs": {"MODEL": 0}},
         {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
         {"id": "3", "class_type": "VAELoader", "outputs": {"VAE": 0}},
         {"id": "4", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
         {"id": "5", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
-        {"id": "6", "class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["1", 0]}, "outputs": {"MODEL": 0}, "note": "CRITICAL: shift=7.0 for sharp output"},
+        {
+            "id": "6",
+            "class_type": "ModelSamplingAuraFlow",
+            "inputs": {"model": ["1", 0]},
+            "outputs": {"MODEL": 0},
+            "note": "CRITICAL: shift=7.0 for sharp output",
+        },
         {"id": "7", "class_type": "EmptySD3LatentImage", "outputs": {"LATENT": 0}},
-        {"id": "8", "class_type": "KSampler", "inputs": {"model": ["6", 0], "positive": ["4", 0], "negative": ["5", 0], "latent_image": ["7", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "9", "class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["3", 0]}, "outputs": {"IMAGE": 0}},
-        {"id": "10", "class_type": "SaveImage", "inputs": {"images": ["9", 0]}, "outputs": {}}
+        {
+            "id": "8",
+            "class_type": "KSampler",
+            "inputs": {"model": ["6", 0], "positive": ["4", 0], "negative": ["5", 0], "latent_image": ["7", 0]},
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "9",
+            "class_type": "VAEDecode",
+            "inputs": {"samples": ["8", 0], "vae": ["3", 0]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "10", "class_type": "SaveImage", "inputs": {"images": ["9", 0]}, "outputs": {}},
     ],
-
     ("hunyuan15", "txt2vid"): [
         {"id": "1", "class_type": "HunyuanVideoModelLoader", "outputs": {"MODEL": 0, "VAE": 1}},
         {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
         {"id": "3", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
         {"id": "4", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
         {"id": "5", "class_type": "EmptyHunyuanLatentVideo", "outputs": {"LATENT": 0}},
-        {"id": "6", "class_type": "HunyuanVideoSampler", "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent": ["5", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "7", "class_type": "HunyuanVideoVAEDecode", "inputs": {"samples": ["6", 0], "vae": ["1", 1]}, "outputs": {"IMAGE": 0}},
-        {"id": "8", "class_type": "VHS_VideoCombine", "inputs": {"images": ["7", 0]}, "outputs": {"FILENAMES": 0}}
+        {
+            "id": "6",
+            "class_type": "HunyuanVideoSampler",
+            "inputs": {"model": ["1", 0], "positive": ["3", 0], "negative": ["4", 0], "latent": ["5", 0]},
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "7",
+            "class_type": "HunyuanVideoVAEDecode",
+            "inputs": {"samples": ["6", 0], "vae": ["1", 1]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "8", "class_type": "VHS_VideoCombine", "inputs": {"images": ["7", 0]}, "outputs": {"FILENAMES": 0}},
     ],
-
     ("hunyuan15", "img2vid"): [
         {"id": "1", "class_type": "HunyuanVideoModelLoader", "outputs": {"MODEL": 0, "VAE": 1}},
         {"id": "2", "class_type": "CLIPLoader", "outputs": {"CLIP": 0}},
         {"id": "3", "class_type": "LoadImage", "outputs": {"IMAGE": 0, "MASK": 1}},
-        {"id": "4", "class_type": "HunyuanVideoImageEncode", "inputs": {"image": ["3", 0], "vae": ["1", 1]}, "outputs": {"IMAGE_EMBEDS": 0}},
+        {
+            "id": "4",
+            "class_type": "HunyuanVideoImageEncode",
+            "inputs": {"image": ["3", 0], "vae": ["1", 1]},
+            "outputs": {"IMAGE_EMBEDS": 0},
+        },
         {"id": "5", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
         {"id": "6", "class_type": "CLIPTextEncode", "inputs": {"clip": ["2", 0]}, "outputs": {"CONDITIONING": 0}},
         {"id": "7", "class_type": "EmptyHunyuanLatentVideo", "outputs": {"LATENT": 0}},
-        {"id": "8", "class_type": "HunyuanVideoSampler", "inputs": {"model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0], "latent": ["7", 0], "image_embeds": ["4", 0]}, "outputs": {"LATENT": 0}},
-        {"id": "9", "class_type": "HunyuanVideoVAEDecode", "inputs": {"samples": ["8", 0], "vae": ["1", 1]}, "outputs": {"IMAGE": 0}},
-        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}}
-    ]
+        {
+            "id": "8",
+            "class_type": "HunyuanVideoSampler",
+            "inputs": {
+                "model": ["1", 0],
+                "positive": ["5", 0],
+                "negative": ["6", 0],
+                "latent": ["7", 0],
+                "image_embeds": ["4", 0],
+            },
+            "outputs": {"LATENT": 0},
+        },
+        {
+            "id": "9",
+            "class_type": "HunyuanVideoVAEDecode",
+            "inputs": {"samples": ["8", 0], "vae": ["1", 1]},
+            "outputs": {"IMAGE": 0},
+        },
+        {"id": "10", "class_type": "VHS_VideoCombine", "inputs": {"images": ["9", 0]}, "outputs": {"FILENAMES": 0}},
+    ],
 }
 
 
@@ -999,10 +1244,11 @@ NODE_CHAINS = {
 # API Functions
 # =============================================================================
 
+
 def get_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
     """
     Get exact working workflow JSON for model+task.
-    
+
     Uses in-memory caching to reduce overhead (~10ms speedup per call).
     Cache TTL: 5 minutes. Cache stats available via get_cache_stats().
 
@@ -1017,17 +1263,14 @@ def get_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
     cached = _get_skeleton_from_cache(model, task)
     if cached is not None:
         return cached
-    
+
     # Load from registry
     key = (model.lower(), task.lower())
 
     if key not in WORKFLOW_SKELETONS:
         # Try to find partial matches
         available = [f"{m}/{t}" for m, t in WORKFLOW_SKELETONS.keys()]
-        return {
-            "error": f"No skeleton for {model}/{task}",
-            "available": available
-        }
+        return {"error": f"No skeleton for {model}/{task}", "available": available}
 
     # Deep copy and cache
     result = copy.deepcopy(WORKFLOW_SKELETONS[key])
@@ -1065,10 +1308,7 @@ def get_node_chain(model: str, task: str) -> List[Dict[str, Any]]:
 
     if key not in NODE_CHAINS:
         available = [f"{m}/{t}" for m, t in NODE_CHAINS.keys()]
-        return {
-            "error": f"No node chain for {model}/{task}",
-            "available": available
-        }
+        return {"error": f"No node chain for {model}/{task}", "available": available}
 
     return copy.deepcopy(NODE_CHAINS[key])
 
@@ -1101,7 +1341,7 @@ def validate_against_pattern(workflow: Dict[str, Any], model: str) -> Dict[str, 
             "valid": True,
             "errors": [],
             "warnings": [f"No constraints defined for model '{model}', skipping validation"],
-            "suggestions": []
+            "suggestions": [],
         }
 
     # Check for forbidden nodes
@@ -1149,7 +1389,9 @@ def validate_against_pattern(workflow: Dict[str, Any], model: str) -> Dict[str, 
                 guidance_val = inputs["guidance"]
                 if isinstance(guidance_val, (int, float)):
                     if cfg_constraints.get("min") and guidance_val < cfg_constraints["min"]:
-                        warnings.append(f"Guidance {guidance_val} is low for FLUX (typical: {cfg_constraints.get('default', 3.5)})")
+                        warnings.append(
+                            f"Guidance {guidance_val} is low for FLUX (typical: {cfg_constraints.get('default', 3.5)})"
+                        )
 
     # Check resolution constraints
     res_constraints = constraints.get("resolution", {})
@@ -1180,12 +1422,7 @@ def validate_against_pattern(workflow: Dict[str, Any], model: str) -> Dict[str, 
                     valid_examples = frame_constraints.get("valid_examples", [])
                     errors.append(f"Frame count {frames} doesn't follow 8n+1 rule. Valid: {valid_examples}")
 
-    return {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings,
-        "suggestions": suggestions
-    }
+    return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings, "suggestions": suggestions}
 
 
 def list_available_patterns() -> Dict[str, Any]:
@@ -1202,16 +1439,14 @@ def list_available_patterns() -> Dict[str, Any]:
     skeletons = []
     for (model, task), workflow in WORKFLOW_SKELETONS.items():
         meta = workflow.get("_meta", {})
-        skeletons.append({
-            "model": model,
-            "task": task,
-            "description": meta.get("description", ""),
-            "type": meta.get("type", ""),
-            "parameters": meta.get("parameters", [])
-        })
+        skeletons.append(
+            {
+                "model": model,
+                "task": task,
+                "description": meta.get("description", ""),
+                "type": meta.get("type", ""),
+                "parameters": meta.get("parameters", []),
+            }
+        )
 
-    return {
-        "skeletons": skeletons,
-        "models": list(MODEL_CONSTRAINTS.keys()),
-        "total": len(skeletons)
-    }
+    return {"skeletons": skeletons, "models": list(MODEL_CONSTRAINTS.keys()), "total": len(skeletons)}

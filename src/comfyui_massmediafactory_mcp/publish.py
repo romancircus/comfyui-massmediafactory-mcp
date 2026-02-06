@@ -19,7 +19,13 @@ from .assets import get_registry
 SAFE_FILENAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}\.(webp|png|jpg|jpeg|mp4|webm|gif)$")
 
 # Default publish directories to auto-detect
-AUTO_DETECT_DIRS = ["public/gen", "static/gen", "assets/gen", "public/images", "static/images"]
+AUTO_DETECT_DIRS = [
+    "public/gen",
+    "static/gen",
+    "assets/gen",
+    "public/images",
+    "static/images",
+]
 
 
 class PublishManager:
@@ -58,7 +64,10 @@ class PublishManager:
 
         filename_lower = filename.lower()
         if not SAFE_FILENAME_PATTERN.match(filename_lower):
-            return False, f"Invalid filename format: {filename}. Must match pattern: lowercase alphanumeric, dots, dashes, underscores, with valid extension."
+            return (
+                False,
+                f"Invalid filename format: {filename}. Must match pattern: lowercase alphanumeric, dots, dashes, underscores, with valid extension.",
+            )
 
         return True, ""
 
@@ -73,7 +82,7 @@ class PublishManager:
         try:
             source_real = source.resolve()
             output_real = Path(self._comfyui_output_dir).resolve()
-            if not str(source_real).startswith(str(output_real)):
+            if not source_real.is_relative_to(output_real):
                 return None
         except Exception:
             return None
@@ -218,12 +227,25 @@ def publish_asset(
     if source is None:
         return {
             "error": "SOURCE_NOT_FOUND",
-            "message": f"Asset file not found at expected location",
+            "message": "Asset file not found at expected location",
             "asset_id": asset_id,
         }
 
     # Copy to destination
     dest = dest_dir / filename
+
+    # Security: validate destination doesn't escape publish dir (filename with ../ attack)
+    try:
+        dest_resolved = dest.resolve()
+        dir_resolved = dest_dir.resolve()
+        if not dest_resolved.is_relative_to(dir_resolved):
+            return {
+                "error": "PATH_TRAVERSAL",
+                "message": "Target filename escapes publish directory",
+            }
+    except Exception as e:
+        return {"error": "INVALID_PATH", "message": str(e)}
+
     result = manager.copy_asset(source, dest, web_optimize)
 
     if not result.get("success"):
@@ -272,8 +294,43 @@ def get_publish_info() -> dict:
 
 def set_publish_dir(publish_dir: str) -> dict:
     """Set the publish directory."""
+    BLOCKED_PUBLISH_PATHS = [
+        "/etc",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/boot",
+        "/proc",
+        "/sys",
+        "/dev",
+        "/root",
+    ]
+
     manager = get_publish_manager()
     path = Path(publish_dir)
+
+    # Security: validate against sensitive system directories
+    try:
+        resolved = path.resolve()
+        resolved_str = str(resolved)
+
+        # Check if path is under any blocked directory
+        for blocked in BLOCKED_PUBLISH_PATHS:
+            if resolved_str == blocked or resolved_str.startswith(blocked + "/"):
+                return {
+                    "error": "FORBIDDEN_PATH",
+                    "message": f"Cannot set publish directory under system path: {blocked}",
+                }
+
+        # Ensure it's a directory (or will be)
+        if resolved.exists() and not resolved.is_dir():
+            return {
+                "error": "NOT_A_DIRECTORY",
+                "message": f"Path '{publish_dir}' exists but is not a directory",
+            }
+
+    except Exception as e:
+        return {"error": "INVALID_PATH", "message": str(e)}
 
     if not path.exists():
         try:

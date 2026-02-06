@@ -5,9 +5,8 @@ Helper tools for constructing ComfyUI workflows programmatically.
 Helps agents build workflows from scratch without drifting from working patterns.
 """
 
-import json
 import copy
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from .patterns import WORKFLOW_SKELETONS, MODEL_CONSTRAINTS, NODE_CHAINS
 
@@ -33,7 +32,7 @@ def create_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
         return {
             "error": f"No skeleton for {model}/{task}",
             "available": available,
-            "suggestion": "Use list_available_patterns() to see all options"
+            "suggestion": "Use list_available_patterns() to see all options",
         }
 
     return copy.deepcopy(WORKFLOW_SKELETONS[key])
@@ -56,10 +55,7 @@ def get_node_sequence(model: str, task: str) -> List[Dict[str, Any]]:
 
     if key not in NODE_CHAINS:
         available = [f"{m}/{t}" for m, t in NODE_CHAINS.keys()]
-        return {
-            "error": f"No node chain for {model}/{task}",
-            "available": available
-        }
+        return {"error": f"No node chain for {model}/{task}", "available": available}
 
     return copy.deepcopy(NODE_CHAINS[key])
 
@@ -135,10 +131,7 @@ def get_required_nodes_for_model(model: str) -> Dict[str, Any]:
     constraints = MODEL_CONSTRAINTS.get(model_lower, {})
 
     if not constraints:
-        return {
-            "error": f"No constraints for model '{model}'",
-            "available": list(MODEL_CONSTRAINTS.keys())
-        }
+        return {"error": f"No constraints for model '{model}'", "available": list(MODEL_CONSTRAINTS.keys())}
 
     return {
         "model": model,
@@ -146,7 +139,7 @@ def get_required_nodes_for_model(model: str) -> Dict[str, Any]:
         "type": constraints.get("type", "unknown"),
         "required_nodes": constraints.get("required_nodes", {}),
         "forbidden_nodes": constraints.get("forbidden_nodes", {}),
-        "note": "Use required_nodes, avoid forbidden_nodes"
+        "note": "Use required_nodes, avoid forbidden_nodes",
     }
 
 
@@ -167,58 +160,68 @@ def get_connection_pattern(source_node: str, target_node: str, model: str = None
         ("LTXVLoader", "CLIPTextEncode"): {"output_slot": 1, "input_name": "clip", "note": "CLIP is at slot 1"},
         ("LTXVLoader", "SamplerCustom"): {"output_slot": 0, "input_name": "model", "note": "MODEL is at slot 0"},
         ("LTXVLoader", "VAEDecode"): {"output_slot": 2, "input_name": "vae", "note": "VAE is at slot 2"},
-
         ("UNETLoader", "BasicScheduler"): {"output_slot": 0, "input_name": "model", "note": "MODEL only output"},
         ("UNETLoader", "BasicGuider"): {"output_slot": 0, "input_name": "model", "note": "MODEL only output"},
-
         ("DualCLIPLoader", "CLIPTextEncode"): {"output_slot": 0, "input_name": "clip", "note": "CLIP at slot 0"},
-
-        ("CLIPTextEncode", "LTXVConditioning"): {"output_slot": 0, "input_name": "positive/negative", "note": "CONDITIONING output"},
-        ("CLIPTextEncode", "FluxGuidance"): {"output_slot": 0, "input_name": "conditioning", "note": "CONDITIONING output"},
-        ("CLIPTextEncode", "KSampler"): {"output_slot": 0, "input_name": "positive/negative", "note": "CONDITIONING output"},
-
-        ("LTXVConditioning", "SamplerCustom"): {"output_slots": [0, 1], "input_names": ["positive", "negative"], "note": "Dual conditioning output"},
-
-        ("FluxGuidance", "BasicGuider"): {"output_slot": 0, "input_name": "conditioning", "note": "Modified conditioning"},
-
+        ("CLIPTextEncode", "LTXVConditioning"): {
+            "output_slot": 0,
+            "input_name": "positive/negative",
+            "note": "CONDITIONING output",
+        },
+        ("CLIPTextEncode", "FluxGuidance"): {
+            "output_slot": 0,
+            "input_name": "conditioning",
+            "note": "CONDITIONING output",
+        },
+        ("CLIPTextEncode", "KSampler"): {
+            "output_slot": 0,
+            "input_name": "positive/negative",
+            "note": "CONDITIONING output",
+        },
+        ("LTXVConditioning", "SamplerCustom"): {
+            "output_slots": [0, 1],
+            "input_names": ["positive", "negative"],
+            "note": "Dual conditioning output",
+        },
+        ("FluxGuidance", "BasicGuider"): {
+            "output_slot": 0,
+            "input_name": "conditioning",
+            "note": "Modified conditioning",
+        },
         ("LTXVScheduler", "SamplerCustom"): {"output_slot": 0, "input_name": "sigmas", "note": "SIGMAS output"},
-        ("BasicScheduler", "SamplerCustomAdvanced"): {"output_slot": 0, "input_name": "sigmas", "note": "SIGMAS output"},
-
+        ("BasicScheduler", "SamplerCustomAdvanced"): {
+            "output_slot": 0,
+            "input_name": "sigmas",
+            "note": "SIGMAS output",
+        },
         ("KSamplerSelect", "SamplerCustom"): {"output_slot": 0, "input_name": "sampler", "note": "SAMPLER output"},
-        ("KSamplerSelect", "SamplerCustomAdvanced"): {"output_slot": 0, "input_name": "sampler", "note": "SAMPLER output"},
-
+        ("KSamplerSelect", "SamplerCustomAdvanced"): {
+            "output_slot": 0,
+            "input_name": "sampler",
+            "note": "SAMPLER output",
+        },
         ("RandomNoise", "SamplerCustomAdvanced"): {"output_slot": 0, "input_name": "noise", "note": "NOISE output"},
-
         ("BasicGuider", "SamplerCustomAdvanced"): {"output_slot": 0, "input_name": "guider", "note": "GUIDER output"},
-
         ("SamplerCustom", "VAEDecode"): {"output_slot": 0, "input_name": "samples", "note": "LATENT output"},
         ("SamplerCustomAdvanced", "VAEDecode"): {"output_slot": 0, "input_name": "samples", "note": "LATENT output"},
-
         ("VAEDecode", "SaveImage"): {"output_slot": 0, "input_name": "images", "note": "IMAGE output"},
         ("VAEDecode", "VHS_VideoCombine"): {"output_slot": 0, "input_name": "images", "note": "IMAGE output"},
     }
 
     key = (source_node, target_node)
     if key in COMMON_PATTERNS:
-        return {
-            "source": source_node,
-            "target": target_node,
-            **COMMON_PATTERNS[key]
-        }
+        return {"source": source_node, "target": target_node, **COMMON_PATTERNS[key]}
 
     return {
         "source": source_node,
         "target": target_node,
         "error": "Unknown connection pattern",
-        "suggestion": "Check the node documentation or use get_node_chain() for complete patterns"
+        "suggestion": "Check the node documentation or use get_node_chain() for complete patterns",
     }
 
 
 def modify_workflow_parameter(
-    workflow: Dict[str, Any],
-    node_id: str,
-    param_name: str,
-    new_value: Any
+    workflow: Dict[str, Any], node_id: str, param_name: str, new_value: Any
 ) -> Dict[str, Any]:
     """
     Safely modify a parameter in a workflow.
@@ -247,11 +250,7 @@ def modify_workflow_parameter(
 
 
 def add_node_to_workflow(
-    workflow: Dict[str, Any],
-    class_type: str,
-    inputs: Dict[str, Any],
-    node_id: str = None,
-    title: str = None
+    workflow: Dict[str, Any], class_type: str, inputs: Dict[str, Any], node_id: str = None, title: str = None
 ) -> Dict[str, Any]:
     """
     Add a new node to a workflow.
@@ -273,10 +272,7 @@ def add_node_to_workflow(
         existing_ids = [int(k) for k in result.keys() if k.isdigit()]
         node_id = str(max(existing_ids, default=0) + 1)
 
-    new_node = {
-        "class_type": class_type,
-        "inputs": inputs
-    }
+    new_node = {"class_type": class_type, "inputs": inputs}
 
     if title:
         new_node["_meta"] = {"title": title}
@@ -308,15 +304,11 @@ def get_workflow_diff(workflow1: Dict[str, Any], workflow2: Dict[str, Any]) -> D
     modified = []
     for node_id in common:
         if workflow1[node_id] != workflow2[node_id]:
-            modified.append({
-                "node_id": node_id,
-                "before": workflow1[node_id],
-                "after": workflow2[node_id]
-            })
+            modified.append({"node_id": node_id, "before": workflow1[node_id], "after": workflow2[node_id]})
 
     return {
         "added_nodes": list(added),
         "removed_nodes": list(removed),
         "modified_nodes": modified,
-        "summary": f"{len(added)} added, {len(removed)} removed, {len(modified)} modified"
+        "summary": f"{len(added)} added, {len(removed)} removed, {len(modified)} modified",
     }

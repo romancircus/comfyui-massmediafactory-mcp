@@ -11,7 +11,6 @@ import json
 import urllib.request
 import urllib.parse
 from pathlib import Path
-from typing import Optional
 
 
 # Default ComfyUI paths
@@ -119,18 +118,20 @@ def search_civitai(
         if not primary_file:
             continue
 
-        models.append({
-            "name": item.get("name"),
-            "type": item.get("type"),
-            "download_url": primary_file.get("downloadUrl"),
-            "filename": primary_file.get("name"),
-            "size_mb": round(primary_file.get("sizeKB", 0) / 1024, 1),
-            "trigger_words": version.get("trainedWords", []),
-            "base_model": version.get("baseModel"),
-            "rating": item.get("stats", {}).get("rating"),
-            "downloads": item.get("stats", {}).get("downloadCount"),
-            "civitai_url": f"https://civitai.com/models/{item.get('id')}",
-        })
+        models.append(
+            {
+                "name": item.get("name"),
+                "type": item.get("type"),
+                "download_url": primary_file.get("downloadUrl"),
+                "filename": primary_file.get("name"),
+                "size_mb": round(primary_file.get("sizeKB", 0) / 1024, 1),
+                "trigger_words": version.get("trainedWords", []),
+                "base_model": version.get("baseModel"),
+                "rating": item.get("stats", {}).get("rating"),
+                "downloads": item.get("stats", {}).get("downloadCount"),
+                "civitai_url": f"https://civitai.com/models/{item.get('id')}",
+            }
+        )
 
     return {
         "models": models,
@@ -229,7 +230,7 @@ def download_model(
                     filename = match.group(1)
                     target_path = target_dir / filename
 
-            total_size = int(response.headers.get("Content-Length", 0))
+            _total_size = int(response.headers.get("Content-Length", 0))
             downloaded = 0
             chunk_size = 8192 * 16  # 128KB chunks
 
@@ -362,11 +363,13 @@ def list_installed_models(model_type: str = None) -> dict:
 
         for f in model_dir.glob("*"):
             if f.is_file() and f.suffix in (".safetensors", ".ckpt", ".pt", ".pth", ".bin"):
-                models.append({
-                    "name": f.name,
-                    "type": mtype,
-                    "size_mb": round(f.stat().st_size / (1024 * 1024), 1),
-                })
+                models.append(
+                    {
+                        "name": f.name,
+                        "type": mtype,
+                        "size_mb": round(f.stat().st_size / (1024 * 1024), 1),
+                    }
+                )
 
     return {
         "models": sorted(models, key=lambda x: x["name"]),

@@ -13,8 +13,6 @@ from typing import Dict, List, Tuple, Any, Optional
 
 from .model_registry import (
     MODEL_CONSTRAINTS as REGISTRY_CONSTRAINTS,
-    resolve_model_name,
-    list_supported_models,
 )
 
 
@@ -32,7 +30,9 @@ def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
         constraint = {
             "resolution_divisor": resolution.get("divisible_by", 8),
             "resolution_min": resolution.get("min", 256),
-            "resolution_max": max(resolution.get("max", [2048, 2048])) if isinstance(resolution.get("max"), list) else resolution.get("max", 2048),
+            "resolution_max": max(resolution.get("max", [2048, 2048]))
+            if isinstance(resolution.get("max"), list)
+            else resolution.get("max", 2048),
             "cfg_range": (cfg.get("min", 1.0), cfg.get("max", 15.0)) if cfg.get("min") else None,
             "cfg_default": cfg.get("default"),
             "requires_flux_guidance": cfg.get("via") == "FluxGuidance",
@@ -52,9 +52,14 @@ def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
     # Add sd15 model (not in registry as it's deprecated)
     if "sd15" not in result:
         result["sd15"] = {
-            "resolution_divisor": 8, "resolution_min": 256, "resolution_max": 1024,
-            "cfg_range": (5.0, 15.0), "cfg_default": 7.5, "sampler_type": "KSampler",
-            "required_nodes": [], "forbidden_nodes": [],
+            "resolution_divisor": 8,
+            "resolution_min": 256,
+            "resolution_max": 1024,
+            "cfg_range": (5.0, 15.0),
+            "cfg_default": 7.5,
+            "sampler_type": "KSampler",
+            "required_nodes": [],
+            "forbidden_nodes": [],
         }
 
     return result
@@ -85,7 +90,6 @@ TYPE_COMPATIBILITY = {
     "CONDITIONING": ["positive", "negative", "conditioning"],
     "LATENT": ["latent_image", "samples", "latent"],
     "IMAGE": ["image", "images", "pixels"],
-    "SIGMAS": ["sigmas"],
     "SIGMAS": ["sigmas"],
     "SAMPLER": ["sampler"],
     "MASK": ["mask"],
@@ -171,7 +175,7 @@ def validate_connection_types(workflow: dict) -> List[str]:
         if not isinstance(node_data, dict) or "class_type" not in node_data:
             continue
 
-        class_type = node_data.get("class_type")
+        _class_type = node_data.get("class_type")
         inputs = node_data.get("inputs", {})
 
         for input_name, input_value in inputs.items():
@@ -198,7 +202,9 @@ def validate_connection_types(workflow: dict) -> List[str]:
 
                 # Check slot index
                 if source_slot >= len(output_types):
-                    errors.append(f"Node {node_id}: Input '{input_name}' references slot {source_slot} of {source_class}, but it only has {len(output_types)} outputs")
+                    errors.append(
+                        f"Node {node_id}: Input '{input_name}' references slot {source_slot} of {source_class}, but it only has {len(output_types)} outputs"
+                    )
                     continue
 
                 # Get the output type
@@ -211,10 +217,10 @@ def validate_connection_types(workflow: dict) -> List[str]:
                 # Check if input name matches any compatible input
                 if compatible_inputs and input_name_lower not in compatible_inputs:
                     # Check if it's a known mismatch (not just an unknown input)
-                    known_input = False
+                    _known_input = False
                     for type_name, type_inputs in TYPE_COMPATIBILITY.items():
                         if input_name_lower in type_inputs:
-                            known_input = True
+                            _known_input = True
                             if type_name != output_type:
                                 errors.append(
                                     f"Node {node_id}: Input '{input_name}' expects {type_name} but receives {output_type} from {source_class}[{source_slot}]"
@@ -387,7 +393,7 @@ def validate_topology(workflow_json: str, model: str = None) -> dict:
             "errors": [f"Invalid JSON: {e}"],
             "warnings": [],
             "suggestions": ["Check JSON syntax"],
-            "model_detected": None
+            "model_detected": None,
         }
 
     # Detect model type
@@ -404,7 +410,7 @@ def validate_topology(workflow_json: str, model: str = None) -> dict:
     nodes_present = set()
     sampler_nodes = []
     latent_nodes = []
-    conditioning_nodes = []
+    _conditioning_nodes = []
 
     for node_id, node_data in workflow.items():
         if node_id.startswith("_"):
@@ -501,7 +507,7 @@ def validate_topology(workflow_json: str, model: str = None) -> dict:
         "suggestions": suggestions,
         "model_detected": detected_model,
         "model_used": model,
-        "nodes_found": list(nodes_present)
+        "nodes_found": list(nodes_present),
     }
 
 
@@ -516,6 +522,7 @@ def auto_correct_parameters(workflow: dict, model: str = None) -> dict:
         }
     """
     import copy
+
     corrected = copy.deepcopy(workflow)
     corrections = []
 
@@ -543,12 +550,14 @@ def auto_correct_parameters(workflow: dict, model: str = None) -> dict:
                         if corrected_value < constraints.get("resolution_min", 256):
                             corrected_value = constraints.get("resolution_min", 256)
                         inputs[dim] = corrected_value
-                        corrections.append({
-                            "field": f"{node_id}.{dim}",
-                            "from": value,
-                            "to": corrected_value,
-                            "reason": f"Rounded to nearest {divisor}"
-                        })
+                        corrections.append(
+                            {
+                                "field": f"{node_id}.{dim}",
+                                "from": value,
+                                "to": corrected_value,
+                                "reason": f"Rounded to nearest {divisor}",
+                            }
+                        )
                 except (ValueError, TypeError):
                     pass
 
@@ -562,17 +571,15 @@ def auto_correct_parameters(workflow: dict, model: str = None) -> dict:
                         if corrected_frames < 9:
                             corrected_frames = 9
                         inputs["length"] = corrected_frames
-                        corrections.append({
-                            "field": f"{node_id}.length",
-                            "from": frames,
-                            "to": corrected_frames,
-                            "reason": "LTX requires 8n+1 frames"
-                        })
+                        corrections.append(
+                            {
+                                "field": f"{node_id}.length",
+                                "from": frames,
+                                "to": corrected_frames,
+                                "reason": "LTX requires 8n+1 frames",
+                            }
+                        )
                 except (ValueError, TypeError):
                     pass
 
-    return {
-        "workflow": corrected,
-        "corrections": corrections,
-        "model": model
-    }
+    return {"workflow": corrected, "corrections": corrections, "model": model}

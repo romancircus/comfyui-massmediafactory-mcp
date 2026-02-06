@@ -32,7 +32,9 @@
     "tags": [
       "model:wan",
       "priority:recommended"
-    ]
+    ],
+    "version": "1.0.0",
+    "hub_hash": "23ee430ad64ec06a"
   },
   "1": {
     "class_type": "DownloadAndLoadWanModel",

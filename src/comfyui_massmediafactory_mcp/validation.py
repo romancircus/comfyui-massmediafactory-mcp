@@ -7,7 +7,7 @@ NOTE: Model resolution specs are now centralized in model_registry.py.
 This module imports from there for backwards compatibility.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import List, Set
 from .client import get_client
 from .model_registry import MODEL_RESOLUTION_SPECS
 
@@ -77,18 +77,20 @@ def validate_workflow(workflow: dict) -> dict:
 
         # Check node type exists
         if class_type not in available_nodes:
-            errors.append({
-                "node_id": node_id,
-                "type": "unknown_node",
-                "message": f"Unknown node type: {class_type}",
-            })
+            errors.append(
+                {
+                    "node_id": node_id,
+                    "type": "unknown_node",
+                    "message": f"Unknown node type: {class_type}",
+                }
+            )
             continue
 
         # Get node schema
         node_schema = object_info[class_type]
         required_inputs = node_schema.get("input", {}).get("required", {})
         optional_inputs = node_schema.get("input", {}).get("optional", {})
-        all_inputs = {**required_inputs, **optional_inputs}
+        _all_inputs = {**required_inputs, **optional_inputs}
 
         # Check required inputs are provided
         for input_name, input_spec in required_inputs.items():
@@ -96,17 +98,21 @@ def validate_workflow(workflow: dict) -> dict:
                 # Check if it's a connection type (usually uppercase)
                 if isinstance(input_spec, list) and len(input_spec) > 0:
                     if isinstance(input_spec[0], str) and input_spec[0].isupper():
-                        errors.append({
-                            "node_id": node_id,
-                            "type": "missing_connection",
-                            "message": f"Missing required input '{input_name}' (type: {input_spec[0]})",
-                        })
+                        errors.append(
+                            {
+                                "node_id": node_id,
+                                "type": "missing_connection",
+                                "message": f"Missing required input '{input_name}' (type: {input_spec[0]})",
+                            }
+                        )
                     else:
-                        errors.append({
-                            "node_id": node_id,
-                            "type": "missing_input",
-                            "message": f"Missing required input '{input_name}'",
-                        })
+                        errors.append(
+                            {
+                                "node_id": node_id,
+                                "type": "missing_input",
+                                "message": f"Missing required input '{input_name}'",
+                            }
+                        )
 
         # Validate each input
         for input_name, input_value in inputs.items():
@@ -117,11 +123,13 @@ def validate_workflow(workflow: dict) -> dict:
 
                 # Check source node exists
                 if source_node_id not in node_ids:
-                    errors.append({
-                        "node_id": node_id,
-                        "type": "invalid_connection",
-                        "message": f"Input '{input_name}' references non-existent node '{source_node_id}'",
-                    })
+                    errors.append(
+                        {
+                            "node_id": node_id,
+                            "type": "invalid_connection",
+                            "message": f"Input '{input_name}' references non-existent node '{source_node_id}'",
+                        }
+                    )
                 else:
                     # Check output slot is valid
                     source_node = workflow[source_node_id]
@@ -130,30 +138,44 @@ def validate_workflow(workflow: dict) -> dict:
                     if source_type in object_info:
                         source_outputs = object_info[source_type].get("output", [])
                         if source_slot >= len(source_outputs):
-                            errors.append({
-                                "node_id": node_id,
-                                "type": "invalid_slot",
-                                "message": f"Input '{input_name}' references invalid output slot {source_slot} on node '{source_node_id}' (max: {len(source_outputs) - 1})",
-                            })
+                            errors.append(
+                                {
+                                    "node_id": node_id,
+                                    "type": "invalid_slot",
+                                    "message": f"Input '{input_name}' references invalid output slot {source_slot} on node '{source_node_id}' (max: {len(source_outputs) - 1})",
+                                }
+                            )
 
             # Check model file exists (for model loader nodes)
-            elif input_name in ["ckpt_name", "unet_name", "vae_name", "lora_name", "clip_name",
-                                "clip_name1", "clip_name2", "control_net_name"]:
+            elif input_name in [
+                "ckpt_name",
+                "unet_name",
+                "vae_name",
+                "lora_name",
+                "clip_name",
+                "clip_name1",
+                "clip_name2",
+                "control_net_name",
+            ]:
                 available = get_available_models(class_type, input_name)
                 if available and input_value not in available:
                     # Check for placeholder
                     if "{{" in str(input_value) and "}}" in str(input_value):
-                        warnings.append({
-                            "node_id": node_id,
-                            "type": "placeholder",
-                            "message": f"Input '{input_name}' contains placeholder: {input_value}",
-                        })
+                        warnings.append(
+                            {
+                                "node_id": node_id,
+                                "type": "placeholder",
+                                "message": f"Input '{input_name}' contains placeholder: {input_value}",
+                            }
+                        )
                     else:
-                        errors.append({
-                            "node_id": node_id,
-                            "type": "model_not_found",
-                            "message": f"Model '{input_value}' not found for input '{input_name}'",
-                        })
+                        errors.append(
+                            {
+                                "node_id": node_id,
+                                "type": "model_not_found",
+                                "message": f"Model '{input_value}' not found for input '{input_name}'",
+                            }
+                        )
 
     # Check for orphaned nodes (nodes with no connections to output)
     output_nodes = set()
@@ -163,8 +185,7 @@ def validate_workflow(workflow: dict) -> dict:
         class_type = node.get("class_type", "")
 
         # Identify output nodes
-        if class_type in ["SaveImage", "SaveVideo", "PreviewImage", "VHS_SaveVideo",
-                          "SaveAudio", "VHS_SaveAudio"]:
+        if class_type in ["SaveImage", "SaveVideo", "PreviewImage", "VHS_SaveVideo", "SaveAudio", "VHS_SaveAudio"]:
             output_nodes.add(node_id)
 
         # Track connections
@@ -173,21 +194,25 @@ def validate_workflow(workflow: dict) -> dict:
                 connected_nodes.add(str(input_value[0]))
 
     if not output_nodes:
-        warnings.append({
-            "node_id": None,
-            "type": "no_output",
-            "message": "No output node found (SaveImage, SaveVideo, etc.)",
-        })
+        warnings.append(
+            {
+                "node_id": None,
+                "type": "no_output",
+                "message": "No output node found (SaveImage, SaveVideo, etc.)",
+            }
+        )
 
     # Check for cycles in the workflow graph
     cycles = _detect_cycles(workflow)
     for cycle in cycles:
-        errors.append({
-            "node_id": cycle[0],
-            "type": "cycle_detected",
-            "message": f"Circular dependency detected: {' → '.join(cycle)}",
-            "cycle": cycle,
-        })
+        errors.append(
+            {
+                "node_id": cycle[0],
+                "type": "cycle_detected",
+                "message": f"Circular dependency detected: {' → '.join(cycle)}",
+                "cycle": cycle,
+            }
+        )
 
     # Check for resolution compatibility issues
     resolution_warnings = _check_resolution_compatibility(workflow, object_info)
@@ -199,11 +224,13 @@ def validate_workflow(workflow: dict) -> dict:
             node_type = workflow[node_id].get("class_type", "")
             # Skip loader nodes as they're often at the start of the chain
             if not any(x in node_type.lower() for x in ["loader", "load"]):
-                warnings.append({
-                    "node_id": node_id,
-                    "type": "orphaned_node",
-                    "message": f"Node '{node_id}' ({node_type}) is not connected to any output",
-                })
+                warnings.append(
+                    {
+                        "node_id": node_id,
+                        "type": "orphaned_node",
+                        "message": f"Node '{node_id}' ({node_type}) is not connected to any output",
+                    }
+                )
 
     return {
         "valid": len(errors) == 0,
@@ -372,43 +399,53 @@ def _check_resolution_compatibility(workflow: dict, object_info: dict) -> List[d
 
                 # Check divisibility
                 if width % spec["divisible_by"] != 0:
-                    warnings.append({
-                        "node_id": node_id,
-                        "type": "resolution_divisibility",
-                        "message": f"Width {width} not divisible by {spec['divisible_by']} (required for {detected_model})",
-                    })
+                    warnings.append(
+                        {
+                            "node_id": node_id,
+                            "type": "resolution_divisibility",
+                            "message": f"Width {width} not divisible by {spec['divisible_by']} (required for {detected_model})",
+                        }
+                    )
 
                 if height % spec["divisible_by"] != 0:
-                    warnings.append({
-                        "node_id": node_id,
-                        "type": "resolution_divisibility",
-                        "message": f"Height {height} not divisible by {spec['divisible_by']} (required for {detected_model})",
-                    })
+                    warnings.append(
+                        {
+                            "node_id": node_id,
+                            "type": "resolution_divisibility",
+                            "message": f"Height {height} not divisible by {spec['divisible_by']} (required for {detected_model})",
+                        }
+                    )
 
                 # Check bounds
                 if width < spec["min"] or width > spec["max"]:
-                    warnings.append({
-                        "node_id": node_id,
-                        "type": "resolution_bounds",
-                        "message": f"Width {width} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
-                    })
+                    warnings.append(
+                        {
+                            "node_id": node_id,
+                            "type": "resolution_bounds",
+                            "message": f"Width {width} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
+                        }
+                    )
 
                 if height < spec["min"] or height > spec["max"]:
-                    warnings.append({
-                        "node_id": node_id,
-                        "type": "resolution_bounds",
-                        "message": f"Height {height} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
-                    })
+                    warnings.append(
+                        {
+                            "node_id": node_id,
+                            "type": "resolution_bounds",
+                            "message": f"Height {height} outside recommended range [{spec['min']}-{spec['max']}] for {detected_model}",
+                        }
+                    )
 
                 # Check if significantly different from native
                 native = spec["native"]
                 max_dim = max(width, height)
                 if max_dim > native * 1.5 or max_dim < native * 0.5:
-                    warnings.append({
-                        "node_id": node_id,
-                        "type": "resolution_native",
-                        "message": f"Resolution {width}x{height} differs significantly from native {native}x{native} for {detected_model}",
-                    })
+                    warnings.append(
+                        {
+                            "node_id": node_id,
+                            "type": "resolution_native",
+                            "message": f"Resolution {width}x{height} differs significantly from native {native}x{native} for {detected_model}",
+                        }
+                    )
 
     return warnings
 

@@ -5,8 +5,6 @@ Exposes documentation files for LLM agents to read patterns,
 node specifications, and parameter rules.
 """
 
-import os
-import json
 from pathlib import Path
 
 # Get the docs directory relative to this module
@@ -43,9 +41,9 @@ def get_model_pattern(model: str) -> dict:
         "ltx2-distilled": "Pattern: LTX-2 Distilled",
         "flux": "Pattern: FLUX",
         "flux2": "Pattern: FLUX",
-        "wan": "Pattern: Wan 2.1",
-        "wan2": "Pattern: Wan 2.1",
-        "wan26": "Pattern: Wan 2.1",
+        "wan": "Pattern: Wan 2.6",
+        "wan2": "Pattern: Wan 2.6",
+        "wan26": "Pattern: Wan 2.6",
         "qwen": "Pattern: Qwen",
     }
 
@@ -53,7 +51,7 @@ def get_model_pattern(model: str) -> dict:
     if not pattern_header:
         return {
             "error": f"Unknown model: {model}",
-            "available": list(set(model_map.values()))
+            "available": list(set(model_map.values())),
         }
 
     # Find the section
@@ -77,7 +75,7 @@ def get_model_pattern(model: str) -> dict:
         return {
             "model": model,
             "pattern": "\n".join(section_lines),
-            "source": "01_MODEL_PATTERNS.md"
+            "source": "01_MODEL_PATTERNS.md",
         }
 
     return {"error": f"Pattern section not found for: {model}"}
@@ -94,38 +92,25 @@ def get_parameter_rules() -> dict:
     if not rules_file.exists():
         return {"error": f"Rules file not found: {rules_file}"}
 
-    return {
-        "rules": rules_file.read_text(),
-        "source": "03_PARAMETER_RULES.md"
-    }
+    return {"rules": rules_file.read_text(), "source": "03_PARAMETER_RULES.md"}
 
 
 def get_skeleton(model: str, task: str = None) -> dict:
     """
     Get a workflow skeleton for a model.
 
+    Uses patterns.py as canonical source (not deprecated JSON files).
+
     Args:
         model: Model identifier (ltx, flux, wan, qwen)
-        task: Task type (t2v, i2v, t2i) - optional, will try to find matching
+        task: Task type (t2v, i2v, t2i) - optional
 
     Returns:
         Skeleton JSON or error.
     """
-    model_lower = model.lower().replace("-", "_").replace("2", "")
+    from . import patterns
 
-    # Map common model names
-    name_map = {
-        "ltx": "ltx_video",
-        "ltxvideo": "ltx_video",
-        "flux": "flux_dev",
-        "fluxdev": "flux_dev",
-        "wan": "wan",
-        "qwen": "qwen",
-    }
-
-    base_name = name_map.get(model_lower, model_lower)
-
-    # Map task types
+    # Map task types to canonical form
     task_map = {
         "t2v": "t2v",
         "txt2vid": "t2v",
@@ -138,38 +123,16 @@ def get_skeleton(model: str, task: str = None) -> dict:
         "text-to-image": "t2i",
     }
 
-    task_suffix = task_map.get(task.lower() if task else "", "")
+    canonical_task = task_map.get(task.lower() if task else "", task or "t2i")
 
-    # Try to find matching skeleton
-    if task_suffix:
-        skeleton_name = f"{base_name}_{task_suffix}.json"
-    else:
-        # Find any skeleton for this model
-        for f in SKELETONS_DIR.glob(f"{base_name}*.json"):
-            skeleton_name = f.name
-            break
-        else:
-            skeleton_name = None
-
-    if not skeleton_name:
-        available = [f.stem for f in SKELETONS_DIR.glob("*.json")]
-        return {
-            "error": f"No skeleton found for model={model}, task={task}",
-            "available": available
-        }
-
-    skeleton_file = SKELETONS_DIR / skeleton_name
-    if not skeleton_file.exists():
-        available = [f.stem for f in SKELETONS_DIR.glob("*.json")]
-        return {
-            "error": f"Skeleton file not found: {skeleton_name}",
-            "available": available
-        }
+    result = patterns.get_workflow_skeleton(model, canonical_task)
+    if "error" in result:
+        return result
 
     return {
-        "skeleton": json.loads(skeleton_file.read_text()),
-        "name": skeleton_name,
-        "source": f"library/skeletons/{skeleton_name}"
+        "skeleton": result,
+        "name": f"{model}_{canonical_task}",
+        "source": "patterns.py (canonical)",
     }
 
 
@@ -186,7 +149,7 @@ def get_system_prompt() -> dict:
 
     return {
         "system_prompt": prompt_file.read_text(),
-        "source": "prompt_guides/SYSTEM_PROMPT.md"
+        "source": "prompt_guides/SYSTEM_PROMPT.md",
     }
 
 
@@ -194,24 +157,15 @@ def list_available_skeletons() -> dict:
     """
     List all available workflow skeletons.
 
+    Uses patterns.py as canonical source.
+
     Returns:
         List of skeleton names with metadata.
     """
-    skeletons = []
-    for f in SKELETONS_DIR.glob("*.json"):
-        try:
-            data = json.loads(f.read_text())
-            meta = data.get("_meta", {})
-            skeletons.append({
-                "name": f.stem,
-                "model": meta.get("model", "unknown"),
-                "workflow": meta.get("workflow", "unknown"),
-                "sampler_type": meta.get("sampler_type", "unknown"),
-            })
-        except Exception:
-            skeletons.append({"name": f.stem, "error": "Failed to parse"})
+    from . import patterns
 
-    return {"skeletons": skeletons, "count": len(skeletons)}
+    result = patterns.list_available_patterns()
+    return result
 
 
 def search_patterns(query: str) -> dict:
@@ -245,11 +199,13 @@ def search_patterns(query: str) -> dict:
                 section_text = "\n".join(current_section)
                 score = sum(1 for kw in keywords if kw in section_text.lower())
                 if score > 0:
-                    matches.append({
-                        "header": current_header,
-                        "score": score,
-                        "preview": section_text[:500] + "..." if len(section_text) > 500 else section_text
-                    })
+                    matches.append(
+                        {
+                            "header": current_header,
+                            "score": score,
+                            "preview": section_text[:500] + "..." if len(section_text) > 500 else section_text,
+                        }
+                    )
             current_header = line
             current_section = [line]
         else:
@@ -260,17 +216,15 @@ def search_patterns(query: str) -> dict:
         section_text = "\n".join(current_section)
         score = sum(1 for kw in keywords if kw in section_text.lower())
         if score > 0:
-            matches.append({
-                "header": current_header,
-                "score": score,
-                "preview": section_text[:500] + "..." if len(section_text) > 500 else section_text
-            })
+            matches.append(
+                {
+                    "header": current_header,
+                    "score": score,
+                    "preview": section_text[:500] + "..." if len(section_text) > 500 else section_text,
+                }
+            )
 
     # Sort by score descending
     matches.sort(key=lambda x: x["score"], reverse=True)
 
-    return {
-        "query": query,
-        "matches": matches[:5],
-        "total_matches": len(matches)
-    }
+    return {"query": query, "matches": matches[:5], "total_matches": len(matches)}

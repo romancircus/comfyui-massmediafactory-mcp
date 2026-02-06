@@ -39,7 +39,9 @@
       "capability:tts",
       "model:chatterbox"
     ],
-    "model": "audio"
+    "model": "audio",
+    "version": "1.0.0",
+    "hub_hash": "02066fec0e476770"
   },
   "1": {
     "class_type": "FL_ChatterBox_Loader",

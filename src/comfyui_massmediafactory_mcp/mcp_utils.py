@@ -21,22 +21,16 @@ from contextvars import ContextVar
 logger = logging.getLogger("comfyui-mcp")
 logger.setLevel(logging.INFO)
 
-# Add handler if none exists
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    ))
-    logger.addHandler(handler)
-
 
 class JSONFormatter(logging.Formatter):
     """Format log records as JSON for machine parseability."""
+
     def format(self, record):
         # Create ISO 8601 timestamp with microseconds
         from datetime import datetime
+
         timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-        
+
         log_entry = {
             "timestamp": timestamp,
             "level": record.levelname,
@@ -49,10 +43,10 @@ class JSONFormatter(logging.Formatter):
             log_entry.update(record.custom_fields)
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)
-        return json.dumps(log_entry, separators=(',', ':'))
+        return json.dumps(log_entry, separators=(",", ":"))
 
 
-# Replace basic handler with JSON handler
+# Set up JSON handler
 logger.handlers.clear()
 handler = logging.StreamHandler()
 handler.setFormatter(JSONFormatter())
@@ -95,6 +89,7 @@ def log_structured(level: str, message: str, **kwargs):
 @dataclass
 class ToolInvocation:
     """Track a tool invocation for logging with correlation support."""
+
     tool_name: str
     invocation_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     correlation_id: str = field(default_factory=get_correlation_id)
@@ -131,13 +126,19 @@ class ToolInvocation:
 # MCP-Compliant Error Responses
 # =============================================================================
 
+
 @dataclass
 class MCPError:
     """
-    MCP-compliant error response.
+    MCP-compliant error response (lightweight).
 
-    Per MCP spec, tool execution errors should include isError: true
+    Per MCP spec, tool execution errors should include isError: true.
+    Used by mcp_error() and @mcp_tool_wrapper for all 58 tools.
+
+    See also: core.errors.RichMCPError for the extended version with
+    suggestion + troubleshooting fields (used by template error subclasses).
     """
+
     message: str
     code: str = "TOOL_ERROR"
     details: Optional[Dict[str, Any]] = None
@@ -182,7 +183,7 @@ def not_found_error(resource_type: str, identifier: str) -> Dict[str, Any]:
     return mcp_error(
         f"{resource_type} not found: {identifier}",
         "NOT_FOUND",
-        {resource_type.lower(): identifier}
+        {resource_type.lower(): identifier},
     )
 
 
@@ -197,7 +198,7 @@ def timeout_error(operation: str, timeout_seconds: int) -> Dict[str, Any]:
     return mcp_error(
         f"{operation} timed out after {timeout_seconds}s",
         "TIMEOUT",
-        {"timeout_seconds": timeout_seconds}
+        {"timeout_seconds": timeout_seconds},
     )
 
 
@@ -210,6 +211,7 @@ def connection_error(service: str, url: str = None) -> Dict[str, Any]:
 # =============================================================================
 # MCP-Compliant Success Responses
 # =============================================================================
+
 
 def mcp_success(
     data: Any,
@@ -244,6 +246,7 @@ def mcp_success(
 # =============================================================================
 # Rate Limiting
 # =============================================================================
+
 
 class RateLimiter:
     """
@@ -285,10 +288,7 @@ class RateLimiter:
         now = time.time()
 
         # Clean old entries
-        self._calls[key] = [
-            t for t in self._calls[key]
-            if now - t < self.window_seconds
-        ]
+        self._calls[key] = [t for t in self._calls[key] if now - t < self.window_seconds]
 
         # Check limit
         if len(self._calls[key]) >= self.max_calls:
@@ -303,10 +303,7 @@ class RateLimiter:
         key = tool_name if self.per_tool else "global"
         now = time.time()
 
-        self._calls[key] = [
-            t for t in self._calls[key]
-            if now - t < self.window_seconds
-        ]
+        self._calls[key] = [t for t in self._calls[key] if now - t < self.window_seconds]
 
         return max(0, self.max_calls - len(self._calls[key]))
 
@@ -334,13 +331,14 @@ def rate_limit_error(tool_name: str) -> Dict[str, Any]:
             "retry_after_seconds": round(reset_time, 1),
             "limit": _rate_limiter.max_calls,
             "window_seconds": _rate_limiter.window_seconds,
-        }
+        },
     )
 
 
 # =============================================================================
 # Tool Decorator with Logging and Rate Limiting
 # =============================================================================
+
 
 def mcp_tool_wrapper(func):
     """
@@ -357,6 +355,7 @@ def mcp_tool_wrapper(func):
         def my_tool(param: str) -> dict:
             ...
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         tool_name = func.__name__
@@ -388,6 +387,7 @@ def mcp_tool_wrapper(func):
 # =============================================================================
 # Pagination Utilities
 # =============================================================================
+
 
 def paginate(
     items: List[Any],
@@ -441,6 +441,7 @@ def paginate(
 # Input Validation Helpers
 # =============================================================================
 
+
 def validate_required(params: Dict[str, Any], required: List[str]) -> Optional[Dict[str, Any]]:
     """
     Validate required parameters are present.
@@ -449,10 +450,7 @@ def validate_required(params: Dict[str, Any], required: List[str]) -> Optional[D
     """
     missing = [p for p in required if p not in params or params[p] is None]
     if missing:
-        return validation_error(
-            f"Missing required parameters: {', '.join(missing)}",
-            field=missing[0]
-        )
+        return validation_error(f"Missing required parameters: {', '.join(missing)}", field=missing[0])
     return None
 
 
@@ -465,7 +463,7 @@ def validate_type(value: Any, expected_type: type, param_name: str) -> Optional[
     if not isinstance(value, expected_type):
         return validation_error(
             f"Parameter '{param_name}' must be {expected_type.__name__}, got {type(value).__name__}",
-            field=param_name
+            field=param_name,
         )
     return None
 
@@ -484,11 +482,11 @@ def validate_range(
     if min_val is not None and value < min_val:
         return validation_error(
             f"Parameter '{param_name}' must be >= {min_val}, got {value}",
-            field=param_name
+            field=param_name,
         )
     if max_val is not None and value > max_val:
         return validation_error(
             f"Parameter '{param_name}' must be <= {max_val}, got {value}",
-            field=param_name
+            field=param_name,
         )
     return None
