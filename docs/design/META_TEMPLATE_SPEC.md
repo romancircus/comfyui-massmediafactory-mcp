@@ -160,11 +160,12 @@ Before returning, run through `topology_validator.validate_topology()`:
 - Uses `LTXVConditioning` wrapper
 - CFG around 3.0
 
-### Wan 2.1
+### Wan 2.1/2.6
 - Uses `WanVideoModelLoader`
-- Uses `WanVAEDecode`
-- Uses `SamplerCustom`
+- Uses `WanVideoDecode` (NOT `WanVAEDecode`)
+- Uses `WanVideoSampler` (NOT `SamplerCustom`)
 - CFG around 5.0
+- `negative_default` from model_registry: temporal negatives (anti-static, anti-morph)
 
 ### Qwen
 - Uses `ModelSamplingAuraFlow`
