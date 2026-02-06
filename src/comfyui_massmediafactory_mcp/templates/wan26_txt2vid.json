@@ -1,9 +1,8 @@
 {
   "_meta": {
-    "description": "Wan 2.6 14B text-to-video generation",
-    "model": "Wan 2.6 14B",
+    "description": "Wan 2.1 T2V workflow using WanVideoWrapper nodes",
+    "model": "Wan 2.1 T2V",
     "type": "txt2vid",
-    "source": "Based on Kijai ComfyUI-WanVideoWrapper",
     "parameters": [
       "PROMPT",
       "NEGATIVE",
@@ -12,7 +11,9 @@
       "HEIGHT",
       "FRAMES",
       "STEPS",
-      "CFG"
+      "CFG",
+      "SHIFT",
+      "FPS"
     ],
     "defaults": {
       "WIDTH": 832,
@@ -21,86 +22,100 @@
       "FRAMES": 81,
       "STEPS": 30,
       "CFG": 5.0,
+      "SHIFT": 5.0,
+      "FPS": 16,
       "NEGATIVE": "worst quality, blurry, distorted, low resolution"
     },
-    "performance": {
-      "vram_gb": 16,
-      "resolution": "480p (832x480) or 720p (1280x720)",
-      "duration": "~3.4 seconds at 24fps"
-    },
-    "vram_min": 16,
+    "vram_min": 12,
     "tags": [
       "model:wan",
       "priority:recommended"
     ],
-    "version": "1.0.0",
-    "hub_hash": "23ee430ad64ec06a"
+    "version": "2.0.0",
+    "notes": "v2: Rewritten from DownloadAndLoadWanModel (non-existent) to WanVideoWrapper nodes (installed). Uses WanVideoEmptyEmbeds for T2V (no image input). Model: Wan2.1-T2V-1.3B (only T2V model currently installed)."
   },
   "1": {
-    "class_type": "DownloadAndLoadWanModel",
-    "_meta": {
-      "title": "Load Wan 2.6 T2V Model"
-    },
+    "class_type": "WanVideoModelLoader",
     "inputs": {
-      "model": "Wan-AI/Wan2.6-T2V-14B-480P",
+      "model": "Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors",
       "base_precision": "bf16",
-      "quantization": "disabled"
+      "quantization": "disabled",
+      "load_device": "offload_device"
     }
   },
   "2": {
-    "class_type": "WanSampler",
-    "_meta": {
-      "title": "Sample Video"
-    },
+    "class_type": "WanVideoVAELoader",
     "inputs": {
-      "wan_model": [
-        "1",
-        0
-      ],
-      "positive": "{{PROMPT}}",
-      "negative": "{{NEGATIVE}}",
-      "width": "{{WIDTH}}",
-      "height": "{{HEIGHT}}",
-      "num_frames": "{{FRAMES}}",
-      "steps": "{{STEPS}}",
-      "cfg": "{{CFG}}",
-      "seed": "{{SEED}}",
-      "shift": 8.0,
-      "scheduler": "unipc"
+      "model_name": "wan_2.1_vae.safetensors",
+      "precision": "bf16"
     }
   },
   "3": {
-    "class_type": "WanVAEDecode",
-    "_meta": {
-      "title": "Decode Video"
-    },
+    "class_type": "LoadWanVideoT5TextEncoder",
     "inputs": {
-      "samples": [
-        "2",
-        0
-      ],
-      "wan_model": [
-        "1",
-        0
-      ]
+      "model_name": "umt5_xxl_fp16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device"
     }
   },
   "4": {
-    "class_type": "VHS_VideoCombine",
-    "_meta": {
-      "title": "Save Video"
-    },
+    "class_type": "WanVideoTextEncode",
     "inputs": {
-      "images": [
-        "3",
-        0
-      ],
-      "frame_rate": 24,
-      "loop_count": 0,
+      "positive_prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "t5": ["3", 0],
+      "force_offload": true
+    }
+  },
+  "5": {
+    "class_type": "WanVideoEmptyEmbeds",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "num_frames": "{{FRAMES}}"
+    }
+  },
+  "6": {
+    "class_type": "WanVideoSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "image_embeds": ["5", 0],
+      "text_embeds": ["4", 0],
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "shift": "{{SHIFT}}",
+      "seed": "{{SEED}}",
+      "force_offload": true,
+      "scheduler": "unipc",
+      "riflex_freq_index": 0
+    }
+  },
+  "7": {
+    "class_type": "WanVideoDecode",
+    "inputs": {
+      "vae": ["2", 0],
+      "samples": ["6", 0],
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128
+    }
+  },
+  "8": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": ["7", 0],
+      "fps": "{{FPS}}"
+    }
+  },
+  "9": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": ["8", 0],
       "filename_prefix": "wan26_t2v",
-      "format": "video/h264-mp4",
-      "pingpong": false,
-      "save_output": true
+      "format": "mp4",
+      "codec": "h264"
     }
   }
 }

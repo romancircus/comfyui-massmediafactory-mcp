@@ -112,7 +112,14 @@ NODE_OUTPUT_TYPES = {
     "LoraLoaderModelOnly": ["MODEL"],
     "LTXVLoader": ["MODEL", "CLIP", "VAE"],
     "HunyuanVideoModelLoader": ["MODEL", "VAE"],
-    "DownloadAndLoadWanModel": ["WANMODEL"],
+    "WanVideoModelLoader": ["WANVIDEOMODEL"],
+    "WanVideoVAELoader": ["WANVAE"],
+    "LoadWanVideoT5TextEncoder": ["WANTEXTENCODER"],
+    "LoadWanVideoClipTextEncoder": ["CLIP_VISION"],
+    "WanVideoTextEncode": ["WANVIDEOTEXTEMBEDS"],
+    "WanVideoClipVisionEncode": ["WANVIDIMAGE_CLIPEMBEDS"],
+    "WanVideoImageToVideoEncode": ["WANVIDIMAGE_EMBEDS"],
+    "WanVideoEmptyEmbeds": ["WANVIDIMAGE_EMBEDS"],
     "LTXVGemmaCLIPModelLoader": ["GEMMA_MODEL"],
     # Encoding
     "CLIPTextEncode": ["CONDITIONING"],
@@ -131,7 +138,7 @@ NODE_OUTPUT_TYPES = {
     "SamplerCustom": ["LATENT", "LATENT"],
     "SamplerCustomAdvanced": ["LATENT", "LATENT"],
     "HunyuanVideoSampler": ["LATENT"],
-    "WanSampler": ["LATENT"],
+    "WanVideoSampler": ["LATENT", "LATENT"],
     "KSamplerSelect": ["SAMPLER"],
     "BasicScheduler": ["SIGMAS"],
     "LTXVScheduler": ["SIGMAS"],
@@ -141,8 +148,7 @@ NODE_OUTPUT_TYPES = {
     "VAEDecode": ["IMAGE"],
     "VAEEncode": ["LATENT"],
     "HunyuanVideoVAEDecode": ["IMAGE"],
-    "WanVAEDecode": ["IMAGE"],
-    "WanImageEncode": ["WANMODEL", "IMAGEEMBEDS"],
+    "WanVideoDecode": ["IMAGE"],
     "HunyuanVideoImageEncode": ["IMAGE_EMBEDS"],
     # Image
     "LoadImage": ["IMAGE", "MASK"],
@@ -151,7 +157,8 @@ NODE_OUTPUT_TYPES = {
     # Output
     "SaveImage": [],
     "SaveAnimatedWEBP": [],
-    "VHS_VideoCombine": ["VHS_FILENAMES"],
+    "CreateVideo": ["VIDEO"],
+    "SaveVideo": [],
 }
 
 
@@ -254,7 +261,7 @@ def detect_model_type(workflow: dict) -> Optional[str]:
         if "LTXVGemmaEnhancePrompt" in nodes:
             return "ltx_distilled"
         return "ltx"
-    if "WanVideoModelLoader" in nodes or "WanVAEDecode" in nodes:
+    if "WanVideoModelLoader" in nodes or "WanVideoDecode" in nodes or "WanVideoSampler" in nodes:
         return "wan"
     if "DualCLIPLoader" in nodes or "FluxGuidance" in nodes:
         return "flux"
