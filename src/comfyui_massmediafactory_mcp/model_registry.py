@@ -97,6 +97,7 @@ class ModelConstraints:
     clip_models: Optional[Dict[str, str]] = None
     strengths: Optional[List[str]] = None
     workflow_notes: Optional[Dict[str, str]] = None
+    negative_default: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format for backwards compatibility."""
@@ -169,6 +170,8 @@ class ModelConstraints:
             result["strengths"] = self.strengths
         if self.workflow_notes:
             result["workflow_notes"] = self.workflow_notes
+        if self.negative_default:
+            result["negative_default"] = self.negative_default
 
         return result
 
@@ -209,6 +212,11 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "EmptyLatentImage": "Use EmptyLTXVLatentVideo for video",
             "SaveImage": "Use VHS_VideoCombine for video output",
         },
+        negative_default=(
+            "camera movement keywords, pan, zoom, dolly, sudden cuts, flickering, "
+            "morphing, blurry, text, watermark, low quality, "
+            "inconsistent lighting, jumpy motion"
+        ),
     ),
     "flux2": ModelConstraints(
         display_name="FLUX.2",
@@ -241,6 +249,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "EmptyLatentImage": "Use EmptySD3LatentImage for FLUX",
         },
         clip_models={"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"},
+        negative_default="blurry, low quality, distorted, text, watermark, oversaturated, underexposed",
     ),
     "wan26": ModelConstraints(
         display_name="Wan 2.1/2.2 I2V (WanVideoWrapper)",
@@ -270,6 +279,12 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "DownloadAndLoadWanModel": "Non-existent node, use WanVideoModelLoader",
             "VHS_VideoCombine": "Not installed, use CreateVideo + SaveVideo",
         },
+        negative_default=(
+            "static image, frozen, sudden motion, flickering, morphing, "
+            "shape shifting, identity change, camera shake, rapid cuts, "
+            "text, watermark, blurry, low quality, jerky motion, "
+            "multiple subjects, extra limbs"
+        ),
     ),
     "qwen": ModelConstraints(
         display_name="Qwen Image",
@@ -302,6 +317,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "UI design mockups",
             "Photorealistic portraits",
         ],
+        negative_default="blurry, low quality, distorted, text artifacts, watermark, oversaturated",
     ),
     "sdxl": ModelConstraints(
         display_name="SDXL",
@@ -315,6 +331,10 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "latent": "EmptyLatentImage",
             "output": "SaveImage",
         },
+        negative_default=(
+            "worst quality, low quality, normal quality, blurry, distorted, "
+            "text, watermark, signature, extra limbs, deformed"
+        ),
     ),
     "hunyuan15": ModelConstraints(
         display_name="HunyuanVideo 1.5",
@@ -328,6 +348,10 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "sampler": "HunyuanVideoSampler",
             "output": "VHS_VideoCombine",
         },
+        negative_default=(
+            "static image, frozen, flickering, morphing, blurry, "
+            "text, watermark, low quality, jerky motion, jumpy cuts"
+        ),
     ),
     "qwen_edit": ModelConstraints(
         display_name="Qwen Image Edit 2511",
@@ -361,6 +385,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "background_replacement": "Pass original image to TextEncodeQwenImageEditPlus image1 input. Model regenerates while matching reference.",
             "layers": "Use layers=0 in EmptyQwenImageLayeredLatentImage for better character preservation.",
         },
+        negative_default="blurry, low quality, distorted, artifacts, watermark",
     ),
     "z_turbo": ModelConstraints(
         display_name="Z-Image-Turbo",
@@ -383,6 +408,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "speed": "4-step generation for ultra-fast inference",
             "quality": "Slightly lower quality than 20-step models but 5x faster",
         },
+        negative_default="blurry, low quality, distorted, text, watermark",
     ),
     "cogvideox_5b": ModelConstraints(
         display_name="CogVideoX-5B",
@@ -405,6 +431,9 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "quality": "High-quality video generation from Tsinghua",
             "speed": "Requires ~12GB VRAM for 5B model",
         },
+        negative_default=(
+            "static image, frozen, flickering, morphing, blurry, " "text, watermark, low quality, jerky motion"
+        ),
     ),
 }
 
@@ -764,6 +793,23 @@ def list_model_aliases() -> Dict[str, str]:
         Dict mapping alias -> canonical name
     """
     return MODEL_ALIASES.copy()
+
+
+def get_negative_default(model: str) -> Optional[str]:
+    """
+    Get the default negative prompt for a model.
+
+    Args:
+        model: Model name or alias (e.g., "wan", "wan26", "ltx", "flux")
+
+    Returns:
+        Negative prompt string, or None if model not found
+    """
+    canonical = resolve_model_name(model)
+    constraints = _MODEL_REGISTRY.get(canonical)
+    if constraints:
+        return constraints.negative_default
+    return None
 
 
 def is_video_model(model: str) -> bool:

@@ -20,8 +20,8 @@ from .model_registry import (
     MODEL_SKELETON_MAP,
     get_model_defaults,
     get_canonical_model_key,
+    get_negative_default,
 )
-from .prompt_enhance import MODEL_QUALITY_TOKENS
 from .optimization import get_optimal_workflow_params, apply_hardware_overrides
 
 # Module paths
@@ -106,13 +106,8 @@ def resolve_parameters(
     # Get model defaults from centralized registry
     defaults = get_model_defaults(model)
 
-    # Get skeleton defaults
-    _skeleton_defaults = skeleton.get("defaults", {})
-
-    # Build parameter dict — use model-specific negative default when available
-    model_key = model.lower().rstrip("0123456789_")
-    model_tokens = MODEL_QUALITY_TOKENS.get(model_key, {})
-    default_negative = model_tokens.get("negative_default", "blurry, low quality, distorted")
+    # Build parameter dict — use model-specific negative default from registry
+    default_negative = get_negative_default(model) or "blurry, low quality, distorted"
 
     params = {
         "PROMPT": prompt,

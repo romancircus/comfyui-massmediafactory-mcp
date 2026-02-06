@@ -11,12 +11,16 @@ import json
 import urllib.request
 from typing import Optional
 
+from .model_registry import resolve_model_name, get_negative_default
+
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_LLM = os.environ.get("ENHANCE_LLM_MODEL", "qwen3:8b")
 
-# Model-specific quality tokens, style guides, and negative prompt defaults
+# Model-specific quality tokens and style guides for prompt enhancement.
+# NOTE: negative_default is centralized in model_registry.py (single source of truth).
+# This dict handles prefix/suffix tokens and LLM style guides only.
 MODEL_QUALITY_TOKENS = {
-    "flux": {
+    "flux2": {
         "prefix": "",
         "suffix": ", highly detailed, professional photography, sharp focus, 8k uhd",
         "style_guide": "FLUX works best with natural language descriptions. Be descriptive about lighting, composition, and mood.",
@@ -31,7 +35,7 @@ MODEL_QUALITY_TOKENS = {
         "suffix": ", high quality, detailed, professional",
         "style_guide": "Qwen works well with clear, descriptive prompts. Focus on subject and composition.",
     },
-    "wan": {
+    "wan26": {
         "prefix": "",
         "suffix": "",  # No suffix — WAN I2V prompts are motion-only
         "style_guide": (
@@ -43,14 +47,8 @@ MODEL_QUALITY_TOKENS = {
             "Start with the primary action verb. "
             "Structure: [ACTION] [BODY MOTION] [ENVIRONMENT REACTION] [PACING]."
         ),
-        "negative_default": (
-            "static image, frozen, sudden motion, flickering, morphing, "
-            "shape shifting, identity change, camera shake, rapid cuts, "
-            "text, watermark, blurry, low quality, jerky motion, "
-            "multiple subjects, extra limbs"
-        ),
     },
-    "ltx": {
+    "ltx2": {
         "prefix": "",
         "suffix": "",  # No suffix — LTX prompts are self-contained
         "style_guide": (
@@ -61,10 +59,14 @@ MODEL_QUALITY_TOKENS = {
             "Be specific about textures and materials. "
             "Include temporal flow: what happens first, then, finally."
         ),
-        "negative_default": (
-            "camera movement keywords, pan, zoom, dolly, sudden cuts, flickering, "
-            "morphing, blurry, text, watermark, low quality, "
-            "inconsistent lighting, jumpy motion"
+    },
+    "hunyuan15": {
+        "prefix": "",
+        "suffix": "",
+        "style_guide": (
+            "HunyuanVideo: Write descriptive scene prompts (4-6 sentences). "
+            "Describe subject, environment, lighting, and temporal flow. "
+            "Good for complex multi-subject scenes."
         ),
     },
 }
@@ -99,19 +101,18 @@ def enhance_prompt(
     if llm_model is None:
         llm_model = DEFAULT_LLM
 
-    # Normalize model name
-    model_key = model.lower().rstrip("0123456789_")
-    if model_key not in MODEL_QUALITY_TOKENS:
-        model_key = "flux"  # Default fallback
+    # Resolve model to canonical name via registry
+    canonical = resolve_model_name(model)
 
-    tokens = MODEL_QUALITY_TOKENS[model_key]
+    # Look up quality tokens (fall back to flux2 for unknown models)
+    tokens = MODEL_QUALITY_TOKENS.get(canonical, MODEL_QUALITY_TOKENS.get("flux2", {}))
 
-    # Build negative prompt for models that support it
-    negative = _build_negative(prompt, model_key)
+    # Build negative prompt from registry + prompt-aware additions
+    negative = _build_negative(prompt, canonical)
 
     # Try LLM enhancement first
     if use_llm:
-        llm_enhanced = _enhance_with_llm(prompt, model_key, tokens, style, llm_model)
+        llm_enhanced = _enhance_with_llm(prompt, canonical, tokens, style, llm_model)
         if llm_enhanced:
             return {
                 "original": prompt,
@@ -133,22 +134,21 @@ def enhance_prompt(
     }
 
 
-def _build_negative(prompt: str, model_key: str) -> Optional[str]:
+def _build_negative(prompt: str, canonical_model: str) -> Optional[str]:
     """
     Build a model-specific negative prompt.
 
-    Combines the model's default negatives with prompt-aware additions
-    (e.g., if prompt mentions fire, add ice/frozen to negatives).
+    Combines the model's default negatives (from model_registry) with
+    prompt-aware additions (e.g., if prompt mentions fire, add ice/frozen).
 
     Args:
         prompt: The original positive prompt.
-        model_key: Normalized model key (wan, ltx, flux, etc.)
+        canonical_model: Canonical model name from registry (wan26, ltx2, flux2, etc.)
 
     Returns:
         Negative prompt string, or None if model has no negative defaults.
     """
-    tokens = MODEL_QUALITY_TOKENS.get(model_key, {})
-    base_negative = tokens.get("negative_default")
+    base_negative = get_negative_default(canonical_model)
     if not base_negative:
         return None
 
@@ -173,7 +173,7 @@ def _build_negative(prompt: str, model_key: str) -> Optional[str]:
 
 def _enhance_with_llm(
     prompt: str,
-    model_key: str,
+    canonical_model: str,
     tokens: dict,
     style: str = None,
     llm_model: str = DEFAULT_LLM,
@@ -182,14 +182,14 @@ def _enhance_with_llm(
     style_instruction = f" The style should be {style}." if style else ""
 
     # Video models get specialized system prompts
-    is_video_model = model_key in ("wan", "ltx")
-    if is_video_model:
-        word_limit = "80-120 words" if model_key == "wan" else "200 words"
+    video_models = ("wan26", "ltx2", "hunyuan15", "cogvideox_5b")
+    if canonical_model in video_models:
+        word_limit = "80-120 words" if canonical_model == "wan26" else "200 words"
         system_prompt = f"""You are an expert at writing prompts for AI video generation models.
-Your task: Rewrite the user's prompt to get better results from the {model_key} model.
+Your task: Rewrite the user's prompt to get better results from the {canonical_model} model.
 
 Rules:
-- {tokens['style_guide']}
+- {tokens.get('style_guide', 'Write clear, descriptive motion prompts.')}
 - Keep the core subject and intent unchanged
 - Focus on MOTION and ACTION, not static descriptions
 - Use temporal pacing words: slowly, gradually, rhythmically, steadily
@@ -197,10 +197,10 @@ Rules:
 - Keep the prompt under {word_limit}{style_instruction}"""
     else:
         system_prompt = f"""You are an expert at writing prompts for AI image/video generation models.
-Your task: Rewrite the user's prompt to get better results from the {model_key} model.
+Your task: Rewrite the user's prompt to get better results from the {canonical_model} model.
 
 Rules:
-- {tokens['style_guide']}
+- {tokens.get('style_guide', 'Write clear, descriptive prompts with specific visual details.')}
 - Keep the core subject and intent unchanged
 - Add specific visual details: lighting, composition, colors, textures
 - Use natural language, not just comma-separated tags
@@ -210,7 +210,7 @@ Rules:
     try:
         payload = {
             "model": llm_model,
-            "prompt": f"Enhance this prompt for {model_key}: {prompt}",
+            "prompt": f"Enhance this prompt for {canonical_model}: {prompt}",
             "system": system_prompt,
             "stream": False,
             "options": {"temperature": 0.7, "num_predict": 300},
