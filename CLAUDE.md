@@ -124,13 +124,15 @@ There are two complementary generation paths. Choose based on your needs:
 result = execute_workflow(workflow)
 # result["prompt_id"] is your tracking ID
 
-# Option A: Wait (blocking)
+# ALWAYS use blocking wait (uses WebSocket internally, falls back to polling)
 output = wait_for_completion(result["prompt_id"], timeout_seconds=600)
 
-# Option B: Poll status (non-blocking)
-status = get_workflow_status(result["prompt_id"])
-# status["status"]: "queued" | "running" | "completed" | "error"
+# For real-time progress (percent, ETA, nodes completed):
+progress = get_progress(result["prompt_id"])
 ```
+
+**WARNING:** Do NOT poll `get_workflow_status()` in a loop. Use `wait_for_completion()` which blocks
+internally via WebSocket. Polling burns 100x more API calls/tokens. See global CLAUDE.md for details.
 
 ### Step 3: Iterate
 
@@ -143,7 +145,7 @@ new_result = regenerate(
 )
 ```
 
-## Tool Reference (48 Tools)
+## Tool Reference (58 Tools)
 
 ### Discovery (3 tools)
 
@@ -153,13 +155,14 @@ new_result = regenerate(
 | `get_node_info(node_type)` | Get node schema by class name |
 | `search_nodes(query)` | Search nodes by name/category |
 
-### Execution (6 tools)
+### Execution (7 tools)
 
 | Tool | Usage |
 |------|-------|
 | `execute_workflow(workflow)` | Queue workflow, returns `prompt_id` |
 | `get_workflow_status(prompt_id)` | With ID: single job. Without: queue status |
-| `wait_for_completion(prompt_id)` | Block until done, returns outputs |
+| `wait_for_completion(prompt_id)` | **Block until done** (WebSocket + polling fallback), returns outputs |
+| `get_progress(prompt_id)` | Real-time progress: stage, percent, ETA, nodes completed/total |
 | `get_system_stats()` | GPU VRAM and system info |
 | `free_memory(unload_models)` | Free GPU memory |
 | `interrupt()` | Stop current workflow |
@@ -180,9 +183,9 @@ new_result = regenerate(
 
 | Tool | Usage |
 |------|-------|
-| `publish_asset(asset_id, ...)` | Export to web directory |
+| `publish_asset(asset_id, ...)` | Export to web directory (path-traversal protected) |
 | `get_publish_info()` | Current publish config |
-| `set_publish_dir(path)` | Set publish directory |
+| `set_publish_dir(path)` | Set publish directory (validated against blocklist) |
 
 ### Workflow Library (1 tool)
 
@@ -228,8 +231,8 @@ new_result = regenerate(
 
 | Tool | Usage |
 |------|-------|
-| `search_civitai(query)` | Search Civitai |
-| `download_model(url, type)` | Download from Civitai/HF |
+| `search_civitai(query)` | Search Civitai (domain-validated) |
+| `download_model(url, type)` | Download from Civitai/HF (URL-validated) |
 | `get_model_info(path)` | Installed model info |
 | `list_installed_models(type)` | List installed models |
 
@@ -252,6 +255,30 @@ new_result = regenerate(
 | `rate_generation(record_id, rating)` | Rate 0.0-1.0 |
 | `style_suggest(mode, ...)` | `mode`: prompt\|seeds\|similar |
 | `manage_presets(action, ...)` | `action`: list\|get\|save\|delete |
+
+### Visualization (2 tools)
+
+| Tool | Usage |
+|------|-------|
+| `visualize_workflow(workflow)` | Generate Mermaid diagram from workflow |
+| `get_workflow_summary(workflow)` | Text summary of workflow structure (nodes, params) |
+
+### Rate Limiting (3 tools)
+
+| Tool | Usage |
+|------|-------|
+| `get_rate_limit_status(tool_name)` | Per-tool rate limit status (remaining, reset time) |
+| `get_all_tools_rate_status()` | Rate status for all tools at once |
+| `get_rate_limit_summary()` | Brief dashboard summary |
+
+### Prompt & Performance (4 tools) - Round 2
+
+| Tool | Usage |
+|------|-------|
+| `enhance_prompt(prompt, model, style)` | LLM-powered prompt enhancement with model-specific quality tokens. Uses local Ollama, falls back to token injection |
+| `get_execution_profile(prompt_id)` | Per-node execution timing for completed workflows. Identifies slowest nodes for optimization |
+| `diff_workflows(workflow_a, workflow_b)` | Compare two workflows showing added/removed/modified nodes and params |
+| `get_compatibility_matrix()` | Model compatibility matrix: installed models, VRAM fit, supported workflow types |
 
 ## MCP Resources (13 resources)
 
@@ -363,6 +390,18 @@ output = wait_for_completion(result["prompt_id"])
 | Denoise | **1.0** | Must be 1.0 for background changes. Lower preserves original including background |
 | Latent | EmptyQwenImageLayeredLatentImage | NOT VAEEncode. VAEEncode fails for background replacement |
 
+## Security Model
+
+All external I/O is validated:
+
+| Protection | Implementation |
+|------------|----------------|
+| **Path validation** | `Path.resolve()` + `is_relative_to()` prevents traversal (not `startswith()`) |
+| **URL validation** | `urlparse().hostname` + exact domain/subdomain matching. Allowed: civitai.com, huggingface.co, github.com, raw.githubusercontent.com |
+| **Publish sandboxing** | Path traversal check on filenames, blocklist on `set_publish_dir` (rejects `/etc`, `~/.ssh`, etc.) |
+| **Conditioning safety** | `_find_conditioning_nodes()` traces sampler connections to identify positive vs negative prompt nodes (prevents clobbering) |
+| **Rate limiting** | All 58 tools wrapped with `@mcp_tool_wrapper` providing per-tool rate limits + structured logging |
+
 ## Error Handling
 
 All errors include `isError: true` and a `code`:
@@ -374,11 +413,17 @@ All errors include `isError: true` and a `code`:
 | `TIMEOUT` | Execution timed out |
 | `COMFYUI_ERROR` | ComfyUI returned error |
 | `VALIDATION_ERROR` | Workflow validation failed |
+| `HISTORY_UNAVAILABLE` | ComfyUI history API unreachable (profiling) |
 
 ## Tips
 
-1. **Always use `generate_workflow()`** - it handles model-specific constraints
-2. **Check VRAM first** with `check_model_fits()` for large models
-3. **Use `validate_workflow(auto_fix=True)`** to auto-correct common issues
-4. **Iterate with `regenerate()`** - faster than rebuilding workflows
-5. **Read resources** for model-specific patterns when building custom workflows
+1. **Always use `wait_for_completion()`** - it uses WebSocket internally, falls back to polling. NEVER poll in a loop.
+2. **Always use `generate_workflow()`** - it handles model-specific constraints
+3. **Check VRAM first** with `check_model_fits()` for large models
+4. **Use `validate_workflow(auto_fix=True)`** to auto-correct common issues
+5. **Iterate with `regenerate()`** - faster than rebuilding workflows
+6. **Enhance prompts** with `enhance_prompt()` before generation for better results
+7. **Profile slow workflows** with `get_execution_profile()` to identify bottleneck nodes
+8. **Check compatibility** with `get_compatibility_matrix()` to see what's ready to use
+9. **Read resources** for model-specific patterns when building custom workflows
+10. **For batch (>10 workflows):** Use templates + direct API (`urllib`) instead of MCP tools to save tokens
