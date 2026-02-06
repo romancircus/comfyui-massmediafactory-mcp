@@ -13,7 +13,11 @@
       "STEPS",
       "CFG",
       "SHIFT",
-      "FPS"
+      "FPS",
+      "LOAD_DEVICE",
+      "QUANTIZATION",
+      "ATTENTION_MODE",
+      "FORCE_OFFLOAD_SAMPLER"
     ],
     "defaults": {
       "WIDTH": 832,
@@ -24,7 +28,11 @@
       "CFG": 5.0,
       "SHIFT": 5.0,
       "FPS": 16,
-      "NEGATIVE": "worst quality, blurry, distorted, low resolution"
+      "NEGATIVE": "worst quality, blurry, distorted, low resolution",
+      "LOAD_DEVICE": "offload_device",
+      "QUANTIZATION": "disabled",
+      "ATTENTION_MODE": "sdpa",
+      "FORCE_OFFLOAD_SAMPLER": true
     },
     "vram_min": 12,
     "tags": [
@@ -39,8 +47,9 @@
     "inputs": {
       "model": "Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors",
       "base_precision": "bf16",
-      "quantization": "disabled",
-      "load_device": "offload_device"
+      "quantization": "{{QUANTIZATION}}",
+      "load_device": "{{LOAD_DEVICE}}",
+      "attention_mode": "{{ATTENTION_MODE}}"
     }
   },
   "2": {
@@ -85,7 +94,7 @@
       "cfg": "{{CFG}}",
       "shift": "{{SHIFT}}",
       "seed": "{{SEED}}",
-      "force_offload": true,
+      "force_offload": "{{FORCE_OFFLOAD_SAMPLER}}",
       "scheduler": "unipc",
       "riflex_freq_index": 0
     }

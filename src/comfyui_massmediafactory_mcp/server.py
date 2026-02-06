@@ -24,6 +24,7 @@ from . import style_learning
 from . import reference_docs
 from . import topology_validator
 from . import workflow_generator
+from . import optimization
 from . import websocket_client
 from . import visualization
 from . import rate_limiter
@@ -908,6 +909,36 @@ def generate_workflow(
         steps=steps,
         cfg=cfg,
         guidance=guidance,
+    )
+
+
+# =============================================================================
+# Hardware Optimization Tools
+# =============================================================================
+
+
+@mcp.tool()
+@mcp_tool_wrapper
+def get_optimal_workflow_params(
+    model: str,
+    task: str = "i2v",
+    available_vram_gb: float = None,
+) -> dict:
+    """Get hardware-optimized workflow parameters for model+task.
+
+    Auto-detects GPU and returns optimal load_device, quantization,
+    attention_mode, and per-node overrides. RTX 5090 gets main_device
+    + fp8_fast for 3-4x speedup over conservative defaults.
+
+    Args:
+        model: Model key (wan26, ltx2, flux2, qwen).
+        task: Task type (i2v, t2v, t2i).
+        available_vram_gb: Override VRAM detection (auto-detected if None).
+    """
+    return optimization.get_optimal_workflow_params(
+        model=model,
+        task=task,
+        available_vram_gb=available_vram_gb,
     )
 
 

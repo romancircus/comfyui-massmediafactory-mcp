@@ -22,6 +22,7 @@ from .model_registry import (
     get_canonical_model_key,
 )
 from .prompt_enhance import MODEL_QUALITY_TOKENS
+from .optimization import get_optimal_workflow_params, apply_hardware_overrides
 
 # Module paths
 MODULE_DIR = Path(__file__).parent
@@ -456,6 +457,16 @@ def generate_workflow(
     # Expand skeleton to workflow
     workflow = expand_skeleton_to_workflow(skeleton, params)
 
+    # Apply hardware-optimal overrides (auto-detect GPU, set load_device etc.)
+    hw_params = None
+    try:
+        hw_params = get_optimal_workflow_params(model, workflow_type)
+        overrides = hw_params.get("workflow_overrides", {})
+        if overrides:
+            apply_hardware_overrides(workflow, overrides)
+    except Exception:
+        pass  # Safe fallback: template defaults are always valid
+
     # Validate if enabled
     validation_result = {"valid": True, "errors": [], "warnings": []}
     if validate:
@@ -470,7 +481,7 @@ def generate_workflow(
                 "skeleton_used": skeleton_name,
             }
 
-    return {
+    result = {
         "workflow": workflow,
         "parameters_used": params,
         "auto_corrections": corrections,
@@ -479,6 +490,14 @@ def generate_workflow(
         "model": model,
         "workflow_type": workflow_type,
     }
+    if hw_params:
+        result["hardware_optimization"] = {
+            "profile": hw_params["hardware"]["profile_used"],
+            "load_device": hw_params["load_device"],
+            "quantization": hw_params["quantization"],
+            "timing_estimate_seconds": hw_params["timing_estimate_seconds"],
+        }
+    return result
 
 
 def list_supported_workflows() -> dict:

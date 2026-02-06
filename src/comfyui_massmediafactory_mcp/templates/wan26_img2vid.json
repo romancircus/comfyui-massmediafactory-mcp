@@ -15,7 +15,11 @@
       "SHIFT",
       "WIDTH",
       "HEIGHT",
-      "NOISE_AUG"
+      "NOISE_AUG",
+      "LOAD_DEVICE",
+      "QUANTIZATION",
+      "ATTENTION_MODE",
+      "FORCE_OFFLOAD_SAMPLER"
     ],
     "defaults": {
       "SEED": 42,
@@ -28,7 +32,11 @@
       "HEIGHT": 480,
       "NOISE_AUG": 0.0,
       "PROMPT": "smooth motion, high quality video",
-      "NEGATIVE": "worst quality, blurry, jittery, static, no motion"
+      "NEGATIVE": "worst quality, blurry, jittery, static, no motion",
+      "LOAD_DEVICE": "offload_device",
+      "QUANTIZATION": "fp8_e4m3fn_scaled",
+      "ATTENTION_MODE": "sdpa",
+      "FORCE_OFFLOAD_SAMPLER": true
     },
     "vram_min": 16,
     "tags": [
@@ -43,8 +51,9 @@
     "inputs": {
       "model": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
       "base_precision": "bf16",
-      "quantization": "fp8_e4m3fn_scaled",
-      "load_device": "offload_device"
+      "quantization": "{{QUANTIZATION}}",
+      "load_device": "{{LOAD_DEVICE}}",
+      "attention_mode": "{{ATTENTION_MODE}}"
     }
   },
   "2": {
@@ -122,7 +131,7 @@
       "cfg": "{{CFG}}",
       "shift": "{{SHIFT}}",
       "seed": "{{SEED}}",
-      "force_offload": true,
+      "force_offload": "{{FORCE_OFFLOAD_SAMPLER}}",
       "scheduler": "unipc",
       "riflex_freq_index": 0
     }
