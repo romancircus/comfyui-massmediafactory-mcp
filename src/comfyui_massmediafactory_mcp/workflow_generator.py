@@ -21,6 +21,7 @@ from .model_registry import (
     get_model_defaults,
     get_canonical_model_key,
 )
+from .prompt_enhance import MODEL_QUALITY_TOKENS
 
 # Module paths
 MODULE_DIR = Path(__file__).parent
@@ -107,10 +108,14 @@ def resolve_parameters(
     # Get skeleton defaults
     _skeleton_defaults = skeleton.get("defaults", {})
 
-    # Build parameter dict
+    # Build parameter dict — use model-specific negative default when available
+    model_key = model.lower().rstrip("0123456789_")
+    model_tokens = MODEL_QUALITY_TOKENS.get(model_key, {})
+    default_negative = model_tokens.get("negative_default", "blurry, low quality, distorted")
+
     params = {
         "PROMPT": prompt,
-        "NEGATIVE": negative_prompt or "blurry, low quality, distorted",
+        "NEGATIVE": negative_prompt or default_negative,
     }
 
     # Seed

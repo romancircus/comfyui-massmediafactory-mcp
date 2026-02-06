@@ -2,6 +2,7 @@
 Prompt Enhancement for MassMediaFactory MCP
 
 Rewrites generation prompts with model-specific quality tokens using local Ollama LLM.
+Includes SOTA-aligned video prompt engineering for WAN I2V and LTX-2 T2V.
 Pattern from: ComfyUI-IF_AI_tools, ComfyUI-Copilot
 """
 
@@ -13,7 +14,7 @@ from typing import Optional
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_LLM = os.environ.get("ENHANCE_LLM_MODEL", "qwen3:8b")
 
-# Model-specific quality tokens and style guides
+# Model-specific quality tokens, style guides, and negative prompt defaults
 MODEL_QUALITY_TOKENS = {
     "flux": {
         "prefix": "",
@@ -32,13 +33,39 @@ MODEL_QUALITY_TOKENS = {
     },
     "wan": {
         "prefix": "",
-        "suffix": ", cinematic, smooth motion, high quality",
-        "style_guide": "Wan video generation works best with motion descriptions and cinematic terms.",
+        "suffix": "",  # No suffix — WAN I2V prompts are motion-only
+        "style_guide": (
+            "WAN 2.1 I2V: Write motion-only prompts (80-120 words). "
+            "The input image provides all visual context — DO NOT describe subject appearance. "
+            "Describe: creature actions, body movements, environmental reactions. "
+            "Use temporal pacing words (slowly, gradually, rhythmically). "
+            "ONE camera move maximum (prefer 'camera slowly orbits'). "
+            "Start with the primary action verb. "
+            "Structure: [ACTION] [BODY MOTION] [ENVIRONMENT REACTION] [PACING]."
+        ),
+        "negative_default": (
+            "static image, frozen, sudden motion, flickering, morphing, "
+            "shape shifting, identity change, camera shake, rapid cuts, "
+            "text, watermark, blurry, low quality, jerky motion, "
+            "multiple subjects, extra limbs"
+        ),
     },
     "ltx": {
         "prefix": "",
-        "suffix": ", smooth motion, consistent, high quality video",
-        "style_guide": "LTX video works best with clear motion descriptions. Avoid rapid scene changes.",
+        "suffix": "",  # No suffix — LTX prompts are self-contained
+        "style_guide": (
+            "LTX-2: Write filmmaker shot notes (4-8 sentences). "
+            "Put concrete nouns and verbs FIRST — early tokens carry more weight. "
+            "Describe: subject, action, environment, lighting, atmosphere. "
+            "NO camera keywords (pan, zoom, dolly — LTX handles camera internally). "
+            "Be specific about textures and materials. "
+            "Include temporal flow: what happens first, then, finally."
+        ),
+        "negative_default": (
+            "camera movement keywords, pan, zoom, dolly, sudden cuts, flickering, "
+            "morphing, blurry, text, watermark, low quality, "
+            "inconsistent lighting, jumpy motion"
+        ),
     },
 }
 
@@ -64,8 +91,9 @@ def enhance_prompt(
         {
             "original": "...",
             "enhanced": "...",
+            "negative": "..." | None,
             "method": "llm" | "tokens",
-            "model_tokens": {...},
+            "target_model": "...",
         }
     """
     if llm_model is None:
@@ -78,6 +106,9 @@ def enhance_prompt(
 
     tokens = MODEL_QUALITY_TOKENS[model_key]
 
+    # Build negative prompt for models that support it
+    negative = _build_negative(prompt, model_key)
+
     # Try LLM enhancement first
     if use_llm:
         llm_enhanced = _enhance_with_llm(prompt, model_key, tokens, style, llm_model)
@@ -85,6 +116,7 @@ def enhance_prompt(
             return {
                 "original": prompt,
                 "enhanced": llm_enhanced,
+                "negative": negative,
                 "method": "llm",
                 "llm_model": llm_model,
                 "target_model": model,
@@ -95,9 +127,48 @@ def enhance_prompt(
     return {
         "original": prompt,
         "enhanced": enhanced,
+        "negative": negative,
         "method": "tokens",
         "target_model": model,
     }
+
+
+def _build_negative(prompt: str, model_key: str) -> Optional[str]:
+    """
+    Build a model-specific negative prompt.
+
+    Combines the model's default negatives with prompt-aware additions
+    (e.g., if prompt mentions fire, add ice/frozen to negatives).
+
+    Args:
+        prompt: The original positive prompt.
+        model_key: Normalized model key (wan, ltx, flux, etc.)
+
+    Returns:
+        Negative prompt string, or None if model has no negative defaults.
+    """
+    tokens = MODEL_QUALITY_TOKENS.get(model_key, {})
+    base_negative = tokens.get("negative_default")
+    if not base_negative:
+        return None
+
+    # Prompt-aware negative additions
+    prompt_lower = prompt.lower()
+    additions = []
+
+    # Element-based opposites
+    if any(w in prompt_lower for w in ("fire", "flame", "burn", "ember")):
+        additions.append("ice, frozen, cold")
+    if any(w in prompt_lower for w in ("water", "ocean", "rain", "aquatic")):
+        additions.append("dry, desert, arid")
+    if any(w in prompt_lower for w in ("flying", "soaring", "hovering")):
+        additions.append("grounded, falling, sinking")
+    if any(w in prompt_lower for w in ("still", "calm", "serene")):
+        additions.append("chaotic, turbulent")
+
+    if additions:
+        return f"{base_negative}, {', '.join(additions)}"
+    return base_negative
 
 
 def _enhance_with_llm(
@@ -110,7 +181,22 @@ def _enhance_with_llm(
     """Enhance prompt using local Ollama LLM."""
     style_instruction = f" The style should be {style}." if style else ""
 
-    system_prompt = f"""You are an expert at writing prompts for AI image/video generation models.
+    # Video models get specialized system prompts
+    is_video_model = model_key in ("wan", "ltx")
+    if is_video_model:
+        word_limit = "80-120 words" if model_key == "wan" else "200 words"
+        system_prompt = f"""You are an expert at writing prompts for AI video generation models.
+Your task: Rewrite the user's prompt to get better results from the {model_key} model.
+
+Rules:
+- {tokens['style_guide']}
+- Keep the core subject and intent unchanged
+- Focus on MOTION and ACTION, not static descriptions
+- Use temporal pacing words: slowly, gradually, rhythmically, steadily
+- Output ONLY the enhanced prompt, nothing else (no explanation, no quotes)
+- Keep the prompt under {word_limit}{style_instruction}"""
+    else:
+        system_prompt = f"""You are an expert at writing prompts for AI image/video generation models.
 Your task: Rewrite the user's prompt to get better results from the {model_key} model.
 
 Rules:
