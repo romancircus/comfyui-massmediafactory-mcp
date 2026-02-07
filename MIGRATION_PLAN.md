@@ -877,16 +877,19 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] Delete mcp_adapter.py (465 lines, zero imports) [0ba0fb0]
 - Note: comfyui_client.py stays (audio_generator.py MMAudio dependency)
 - Note: job_registry.py stays (batch_wan_videos.py dependency)
-- [ ] Delete workflows/ (when batch_wan_videos.py migrated)
-- [ ] Delete mcp_templates/ (when batch_wan_videos.py migrated)
+- [x] Delete workflows/ (6 stale files, 1167 lines) [ffa5430]
+- [x] Migrate batch_wan_videos.py to mmf_client (1120 → 637 lines) [ffa5430]
+- [x] Add generate_video_wan_template() to mmf_client.py [ffa5430]
+- [x] Add wan22_i2v_a14b template to hub with hardware overrides [dd62d71]
+- [ ] Delete mcp_templates/ (now deletable — batch_wan_videos.py no longer reads directly)
 
 ### Wave 5: Cleanup & Documentation (1 session)
 - [x] Update main CLAUDE.md (mark MCP as legacy) [59e87f0]
 - [x] Update MEMORY.md with migration learnings
 - [x] MCP test suite: 321 tests passing
 - [x] Update /mmf skill: 4 new templates, execute/wait commands, z_turbo/wan22_s2v constraints
-- [ ] jinyang: update template fetch to use `mmf templates get`
-- [ ] Optional: Reduce MCP server to ~15 discovery-only tools
+- [x] jinyang: update EXECUTION_PATTERN.md with mmf CLI section (template fetch, generation, batch)
+- [ ] Reduce MCP server 58 → 37 tools (ROM-548: remove execution tools replaced by mmf CLI)
 - [x] Sync templates to spoke repos (included in Wave 2 sync)
 
 ---
@@ -913,8 +916,9 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - Dependencies: torch (2.5GB), diffusers (200MB), transformers (400MB) in Pokedex
 
 **After migration:**
-- KDH: ~120 lines (mmf.js wrapper)
-- Pokedex: ~100 lines (mmf_client.py wrapper)
-- Total: ~220 lines + 0 local templates (all in hub)
-- Dependencies: None (subprocess calls to mmf)
-- Reduction: **97% fewer lines, 100% fewer local templates, 4GB fewer Python deps**
+- KDH: ~480 lines (mmf.js wrapper, 18 exports) [35d22ba]
+- Pokedex: ~504 lines (mmf_client.py, 9 functions) [ffa5430]
+- Pokedex batch_wan_videos.py: 1120 → 637 lines (removed all urllib/HTTP code)
+- Total: ~1,621 lines + hub-synced templates (46 files across 4 repos)
+- Dependencies: None new (subprocess calls to mmf)
+- Reduction: **~80% fewer ComfyUI-specific lines, centralized templates, 0 duplicated client code**
