@@ -90,8 +90,10 @@ def main():
     for filepath_str in files:
         filepath = Path(filepath_str)
 
-        # Only check template JSON files
+        # Only check template JSON files (skip dotfiles like .manifest.json)
         if not filepath.suffix == ".json":
+            continue
+        if filepath.name.startswith("."):
             continue
         if not str(filepath).startswith(str(TEMPLATES_DIR)):
             continue

@@ -91,7 +91,10 @@ def run_telestyle(mode: str, args) -> dict:
         asset_id = output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            output["downloaded"] = dl
+            if "error" in dl:
+                output["download_error"] = dl["error"]
+            else:
+                output["downloaded"] = dl
 
     return output
 
@@ -184,7 +187,10 @@ def _pipeline_i2v(args) -> dict:
         asset_id = output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            output["downloaded"] = dl
+            if "error" in dl:
+                output["download_error"] = dl["error"]
+            else:
+                output["downloaded"] = dl
 
     return output
 
@@ -228,7 +234,10 @@ def _pipeline_upscale(args) -> dict:
         asset_id = output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            output["downloaded"] = dl
+            if "error" in dl:
+                output["download_error"] = dl["error"]
+            else:
+                output["downloaded"] = dl
 
     return output
 
@@ -356,11 +365,19 @@ def _pipeline_viral_short(args) -> dict:
     timeout = args.timeout or 600
     i2v_output = execution.wait_for_completion(i2v_exec["prompt_id"], timeout_seconds=timeout, workflow=i2v_wf)
 
+    if i2v_output.get("status") not in ("completed", None) and not i2v_output.get("outputs"):
+        i2v_output["error"] = f"Stage 3 (I2V) failed: {i2v_output.get('status')}"
+        i2v_output["code"] = "PIPELINE_ERROR"
+        i2v_output["stage"] = "i2v"
+
     if getattr(args, "output", None) and i2v_output.get("outputs"):
         asset_id = i2v_output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            i2v_output["downloaded"] = dl
+            if "error" in dl:
+                i2v_output["download_error"] = dl["error"]
+            else:
+                i2v_output["downloaded"] = dl
 
     i2v_output["pipeline"] = "viral-short"
     i2v_output["stages"] = {
@@ -453,11 +470,19 @@ def _pipeline_t2v_styled(args) -> dict:
     timeout = args.timeout or 600
     ts_output = execution.wait_for_completion(ts_exec["prompt_id"], timeout_seconds=timeout, workflow=ts_wf)
 
+    if ts_output.get("status") not in ("completed", None) and not ts_output.get("outputs"):
+        ts_output["error"] = f"Stage 2 (TeleStyle) failed: {ts_output.get('status')}"
+        ts_output["code"] = "PIPELINE_ERROR"
+        ts_output["stage"] = "telestyle"
+
     if getattr(args, "output", None) and ts_output.get("outputs"):
         asset_id = ts_output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            ts_output["downloaded"] = dl
+            if "error" in dl:
+                ts_output["download_error"] = dl["error"]
+            else:
+                ts_output["downloaded"] = dl
 
     ts_output["pipeline"] = "t2v-styled"
     ts_output["stages"] = {
@@ -560,11 +585,19 @@ def _pipeline_bio_to_video(args) -> dict:
     timeout = args.timeout or 600
     i2v_output = execution.wait_for_completion(i2v_exec["prompt_id"], timeout_seconds=timeout, workflow=i2v_wf)
 
+    if i2v_output.get("status") not in ("completed", None) and not i2v_output.get("outputs"):
+        i2v_output["error"] = f"Stage 2 (I2V) failed: {i2v_output.get('status')}"
+        i2v_output["code"] = "PIPELINE_ERROR"
+        i2v_output["stage"] = "i2v"
+
     if getattr(args, "output", None) and i2v_output.get("outputs"):
         asset_id = i2v_output["outputs"][0].get("asset_id")
         if asset_id:
             dl = execution.download_output(asset_id, args.output)
-            i2v_output["downloaded"] = dl
+            if "error" in dl:
+                i2v_output["download_error"] = dl["error"]
+            else:
+                i2v_output["downloaded"] = dl
 
     i2v_output["pipeline"] = "bio-to-video"
     i2v_output["stages"] = {

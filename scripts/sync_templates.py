@@ -74,6 +74,10 @@ TIER2_TEMPLATES = [
     "qwen3_tts_custom_voice.json",
     "qwen3_tts_voice_clone.json",
     "qwen3_tts_voice_design.json",
+    "wan22_s2v.json",
+    "qwen_controlnet_bio.json",
+    "flux_kontext_edit.json",
+    "z_turbo_txt2img.json",
 ]
 
 # Backward compat alias

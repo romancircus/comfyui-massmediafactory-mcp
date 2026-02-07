@@ -333,7 +333,10 @@ def cmd_run(args):
             asset_id = first_asset.get("asset_id")
             if asset_id:
                 dl = execution.download_output(asset_id, args.output)
-                output["downloaded"] = dl
+                if "error" in dl:
+                    output["download_error"] = dl["error"]
+                else:
+                    output["downloaded"] = dl
 
         return EXIT_OK, output
 
@@ -409,7 +412,6 @@ def _batch_exit_code(result: dict) -> int:
 
     # Check for partial failures in batch results
     errors = result.get("errors", 0)
-    _total = result.get("total_jobs", 0)  # noqa: F841
     completed = result.get("completed", 0)
 
     # Also check 'failed' key used by batch queue

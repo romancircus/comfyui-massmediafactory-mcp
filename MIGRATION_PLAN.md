@@ -840,9 +840,9 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] flux_kontext_edit template
 - [x] z_turbo_txt2img template
 - [x] wan22_s2v template
-- [ ] Verify flux2_union_controlnet covers FLUX.1 ControlNet bio use case (not yet verified)
+- [x] Verify flux2_union_controlnet covers FLUX.1 ControlNet bio use case (CONTROL_MODE=0 for Canny, default CONTROL_STRENGTH=0.85)
 - [ ] Test all new templates end-to-end (templates created + validated, not e2e tested)
-- [ ] Sync templates to spoke repos (not yet synced)
+- [x] Sync templates to spoke repos (45 files synced: Pokedex 13, KDH 18, Goat 7, Roblox 7)
 
 ### Wave 3: KDH Migration (1-2 sessions)
 - [x] Create src/core/mmf.js (480 lines, 17 exports) [35d22ba]
@@ -887,7 +887,7 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] Update /mmf skill: 4 new templates, execute/wait commands, z_turbo/wan22_s2v constraints
 - [ ] jinyang: update template fetch to use `mmf templates get`
 - [ ] Optional: Reduce MCP server to ~15 discovery-only tools
-- [ ] Sync templates to spoke repos
+- [x] Sync templates to spoke repos (included in Wave 2 sync)
 
 ---
 
