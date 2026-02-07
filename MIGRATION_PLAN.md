@@ -881,7 +881,7 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] Migrate batch_wan_videos.py to mmf_client (1120 → 637 lines) [ffa5430]
 - [x] Add generate_video_wan_template() to mmf_client.py [ffa5430]
 - [x] Add wan22_i2v_a14b template to hub with hardware overrides [dd62d71]
-- [ ] Delete mcp_templates/ (now deletable — batch_wan_videos.py no longer reads directly)
+- [x] Delete mcp_templates/ (14 JSON files, zero code references) [e6965b4]
 
 ### Wave 5: Cleanup & Documentation (1 session)
 - [x] Update main CLAUDE.md (mark MCP as legacy) [59e87f0]
@@ -889,7 +889,7 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] MCP test suite: 321 tests passing
 - [x] Update /mmf skill: 4 new templates, execute/wait commands, z_turbo/wan22_s2v constraints
 - [x] jinyang: update EXECUTION_PATTERN.md with mmf CLI section (template fetch, generation, batch)
-- [ ] Reduce MCP server 58 → 37 tools (ROM-548: remove execution tools replaced by mmf CLI)
+- [x] Reduce MCP server 59 → 34 tools (ROM-548: commented out 25 @mcp.tool() decorators) [fedbdd8]
 - [x] Sync templates to spoke repos (included in Wave 2 sync)
 
 ---
