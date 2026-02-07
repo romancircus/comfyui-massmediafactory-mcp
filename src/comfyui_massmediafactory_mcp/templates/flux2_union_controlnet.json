@@ -33,7 +33,7 @@
       "capability:controlnet"
     ],
     "version": "1.0.0",
-    "hub_hash": "27841370efc699e3"
+    "hub_hash": "e725a04c24e0e679"
   },
   "1": {
     "class_type": "UNETLoader",

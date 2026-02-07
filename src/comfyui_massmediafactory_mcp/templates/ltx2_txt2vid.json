@@ -1,97 +1,80 @@
 {
   "_meta": {
-    "description": "LTX-2 19B text-to-video workflow (Full Quality)",
+    "description": "LTX-2 19B AV-model text-to-video workflow",
     "model": "LTX-2 19B Dev FP8",
     "type": "txt2vid",
-    "source": "Based on official ComfyUI LTX-Video examples",
-    "parameters": [
-      "PROMPT",
-      "NEGATIVE",
-      "SEED",
-      "WIDTH",
-      "HEIGHT",
-      "FRAMES",
-      "FPS"
-    ],
+    "source": "Rewritten for ComfyUI 0.8.2+ AV pipeline (CheckpointLoaderSimple + LTXAVTextEncoderLoader + CFGGuider + SamplerCustomAdvanced)",
+    "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS", "CFG", "PREFIX"],
     "defaults": {
       "WIDTH": 768,
       "HEIGHT": 512,
       "SEED": 42,
       "FRAMES": 97,
       "FPS": 24,
+      "STEPS": 30,
+      "CFG": 3.0,
+      "PREFIX": "ltx2_output",
       "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
     },
     "performance": {
       "vram_gb": 18,
-      "steps": 30,
       "quality": "Maximum quality"
     },
     "vram_min": 12,
-    "tags": [
-      "model:ltx",
-      "priority:recommended"
-    ],
-    "version": "1.0.0",
-    "hub_hash": "5cfb520c82b8525c"
+    "tags": ["model:ltx", "priority:recommended"],
+    "version": "2.0.0"
   },
   "1": {
-    "class_type": "LTXVLoader",
-    "_meta": {
-      "title": "Load LTX-2 Model"
-    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Load LTX-2 Model" },
     "inputs": {
-      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
-      "dtype": "bfloat16"
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
     }
   },
   "2": {
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Encode Positive Prompt"
-    },
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": { "title": "Load Gemma-3 Text Encoder" },
     "inputs": {
-      "clip": [
-        "1",
-        1
-      ],
-      "text": "{{PROMPT}}"
+      "text_encoder": "gemma_3_12B_it.safetensors",
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
+      "device": "default"
     }
   },
   "3": {
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Encode Negative Prompt"
-    },
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": { "title": "Load Audio VAE" },
     "inputs": {
-      "clip": [
-        "1",
-        1
-      ],
-      "text": "{{NEGATIVE}}"
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
     }
   },
   "4": {
-    "class_type": "LTXVConditioning",
-    "_meta": {
-      "title": "Apply Frame Rate Conditioning"
-    },
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Positive Prompt" },
     "inputs": {
-      "positive": [
-        "2",
-        0
-      ],
-      "negative": [
-        "3",
-        0
-      ],
-      "frame_rate": "{{FPS}}"
+      "text": "{{PROMPT}}",
+      "clip": ["2", 0]
     }
   },
   "5": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Negative Prompt" },
+    "inputs": {
+      "text": "{{NEGATIVE}}",
+      "clip": ["2", 0]
+    }
+  },
+  "6": {
+    "class_type": "LTXVConditioning",
+    "_meta": { "title": "Apply Frame Rate Conditioning" },
+    "inputs": {
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "frame_rate": "{{FPS}}"
+    }
+  },
+  "7": {
     "class_type": "EmptyLTXVLatentVideo",
-    "_meta": {
-      "title": "Create Empty Latent"
-    },
+    "_meta": { "title": "Create Empty Video Latent" },
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
@@ -99,94 +82,115 @@
       "batch_size": 1
     }
   },
-  "6": {
-    "class_type": "LTXVScheduler",
-    "_meta": {
-      "title": "LTX Scheduler"
-    },
+  "8": {
+    "class_type": "LTXVEmptyLatentAudio",
+    "_meta": { "title": "Create Empty Audio Latent" },
     "inputs": {
-      "steps": 30,
-      "max_shift": 2.05,
-      "base_shift": 0.95,
-      "stretch": true
+      "audio_vae": ["3", 0],
+      "frames_number": "{{FRAMES}}",
+      "frame_rate": "{{FPS}}",
+      "batch_size": 1
     }
   },
-  "7": {
+  "9": {
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": { "title": "Concat Audio+Video Latents" },
+    "inputs": {
+      "video_latent": ["7", 0],
+      "audio_latent": ["8", 0]
+    }
+  },
+  "10": {
+    "class_type": "LTXVScheduler",
+    "_meta": { "title": "LTX Scheduler" },
+    "inputs": {
+      "steps": "{{STEPS}}",
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true,
+      "terminal": 0.1,
+      "latent": ["9", 0]
+    }
+  },
+  "11": {
+    "class_type": "RandomNoise",
+    "_meta": { "title": "Random Noise" },
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "12": {
     "class_type": "KSamplerSelect",
-    "_meta": {
-      "title": "Select Sampler"
-    },
+    "_meta": { "title": "Select Sampler" },
     "inputs": {
       "sampler_name": "euler"
     }
   },
-  "8": {
-    "class_type": "SamplerCustom",
-    "_meta": {
-      "title": "Sample Video"
-    },
+  "13": {
+    "class_type": "CFGGuider",
+    "_meta": { "title": "CFG Guider" },
     "inputs": {
-      "model": [
-        "1",
-        0
-      ],
-      "add_noise": true,
-      "noise_seed": "{{SEED}}",
-      "cfg": 3.0,
-      "positive": [
-        "4",
-        0
-      ],
-      "negative": [
-        "4",
-        1
-      ],
-      "sampler": [
-        "7",
-        0
-      ],
-      "sigmas": [
-        "6",
-        0
-      ],
-      "latent_image": [
-        "5",
-        0
-      ]
+      "model": ["1", 0],
+      "positive": ["6", 0],
+      "negative": ["6", 1],
+      "cfg": "{{CFG}}"
     }
   },
-  "9": {
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Decode Latent to Video"
-    },
+  "14": {
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "Sample Video" },
     "inputs": {
-      "samples": [
-        "8",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
+      "noise": ["11", 0],
+      "guider": ["13", 0],
+      "sampler": ["12", 0],
+      "sigmas": ["10", 0],
+      "latent_image": ["9", 0]
     }
   },
-  "10": {
-    "class_type": "VHS_VideoCombine",
-    "_meta": {
-      "title": "Save Video"
-    },
+  "15": {
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": { "title": "Separate Audio+Video" },
     "inputs": {
-      "images": [
-        "9",
-        0
-      ],
-      "frame_rate": "{{FPS}}",
-      "loop_count": 0,
-      "filename_prefix": "ltx2_output",
-      "format": "video/h264-mp4",
-      "pingpong": false,
-      "save_output": true
+      "av_latent": ["14", 0]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecodeTiled",
+    "_meta": { "title": "Decode Video Latent" },
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["1", 2],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8
+    }
+  },
+  "17": {
+    "class_type": "LTXVAudioVAEDecode",
+    "_meta": { "title": "Decode Audio Latent" },
+    "inputs": {
+      "samples": ["15", 1],
+      "audio_vae": ["3", 0]
+    }
+  },
+  "18": {
+    "class_type": "CreateVideo",
+    "_meta": { "title": "Create Video" },
+    "inputs": {
+      "images": ["16", 0],
+      "audio": ["17", 0],
+      "fps": "{{FPS}}"
+    }
+  },
+  "19": {
+    "class_type": "SaveVideo",
+    "_meta": { "title": "Save Video" },
+    "inputs": {
+      "video": ["18", 0],
+      "filename_prefix": "{{PREFIX}}",
+      "format": "mp4",
+      "codec": "auto"
     }
   }
 }

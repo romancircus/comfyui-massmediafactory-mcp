@@ -52,7 +52,7 @@
       "capability:lora"
     ],
     "version": "1.0.0",
-    "hub_hash": "2125611c3a6593f6"
+    "hub_hash": "2c7821f84ccb2616"
   },
   "1": {
     "class_type": "UNETLoader",

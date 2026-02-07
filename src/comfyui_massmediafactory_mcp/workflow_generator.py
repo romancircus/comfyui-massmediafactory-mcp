@@ -21,6 +21,7 @@ from .model_registry import (
     get_model_defaults,
     get_canonical_model_key,
     get_negative_default,
+    resolve_model_name,
 )
 from .optimization import get_optimal_workflow_params, apply_hardware_overrides
 
@@ -89,6 +90,7 @@ def resolve_parameters(
     width: int = None,
     height: int = None,
     frames: int = None,
+    fps: int = None,
     seed: int = None,
     steps: int = None,
     cfg: float = None,
@@ -132,19 +134,48 @@ def resolve_parameters(
         params["FRAMES"] = defaults["frames"]
         params["LENGTH"] = defaults["frames"]
 
+    # FPS (for video output)
+    if fps is not None:
+        params["FPS"] = fps
+    elif "fps" in defaults:
+        params["FPS"] = defaults["fps"]
+
     # Steps
     params["STEPS"] = steps or defaults.get("steps", 20)
 
-    # CFG / Guidance
+    # CFG / Guidance / Shift
     if cfg is not None:
         params["CFG"] = cfg
     elif "cfg" in defaults:
         params["CFG"] = defaults["cfg"]
 
-    if guidance is not None:
-        params["GUIDANCE"] = guidance
-    elif "guidance" in defaults:
-        params["GUIDANCE"] = defaults["guidance"]
+    # --guidance maps to SHIFT or GUIDANCE depending on model.
+    # Qwen/Wan skeletons use {{SHIFT}}, Flux uses {{GUIDANCE}}.
+    canonical = resolve_model_name(model)
+    _shift_models = {"qwen", "wan26", "wan22"}
+    _guidance_models = {"flux2"}
+
+    if canonical in _shift_models:
+        if guidance is not None:
+            params["SHIFT"] = guidance
+        elif "shift" in defaults:
+            params["SHIFT"] = defaults["shift"]
+    elif canonical in _guidance_models:
+        if guidance is not None:
+            params["GUIDANCE"] = guidance
+        elif "guidance" in defaults:
+            params["GUIDANCE"] = defaults["guidance"]
+    else:
+        # Models without shift/guidance (ltx2, sdxl, hunyuan15, etc.)
+        # Set both in case skeleton has either placeholder
+        if guidance is not None:
+            params["GUIDANCE"] = guidance
+            params["SHIFT"] = guidance
+        else:
+            if "guidance" in defaults:
+                params["GUIDANCE"] = defaults["guidance"]
+            if "shift" in defaults:
+                params["SHIFT"] = defaults["shift"]
 
     # Add any extra params
     for key, value in extra_params.items():
@@ -339,6 +370,7 @@ def generate_workflow(
     width: int = None,
     height: int = None,
     frames: int = None,
+    fps: int = None,
     seed: int = None,
     steps: int = None,
     cfg: float = None,
@@ -437,6 +469,7 @@ def generate_workflow(
         width,
         height,
         frames,
+        fps,
         seed,
         steps,
         cfg,

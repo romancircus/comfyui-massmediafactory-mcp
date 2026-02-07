@@ -1,0 +1,73 @@
+{
+  "name": "@romancircus/mmf-client",
+  "version": "1.0.0",
+  "description": "Thin wrapper around the mmf CLI for ComfyUI image/video generation",
+  "main": "src/index.js",
+  "types": "types/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
+    "build": "echo 'No build step required for JS-only package'",
+    "lint": "eslint src/ tests/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "comfyui",
+    "ai",
+    "image-generation",
+    "video-generation",
+    "wan",
+    "ltx",
+    "flux",
+    "qwen",
+    "telestyle",
+    "phantom",
+    "mmf"
+  ],
+  "author": "Romancircus",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/romancircus/mmf-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/romancircus/mmf-client/issues"
+  },
+  "homepage": "https://github.com/romancircus/mmf-client#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0"
+  },
+  "peerDependencies": {
+    "mmf": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "mmf": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "typescript": "^5.3.0"
+  },
+  "files": [
+    "src/",
+    "types/",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "types": "./types/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  }
+}

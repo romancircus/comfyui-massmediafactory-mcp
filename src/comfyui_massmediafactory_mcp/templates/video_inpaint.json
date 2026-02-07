@@ -51,7 +51,7 @@
     ],
     "model": "utility",
     "version": "1.0.0",
-    "hub_hash": "14de8db4379c115f"
+    "hub_hash": "dea38dded462f801"
   },
   "1": {
     "class_type": "VHS_LoadVideo",

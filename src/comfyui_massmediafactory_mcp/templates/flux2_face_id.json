@@ -49,7 +49,7 @@
       "capability:face_id"
     ],
     "version": "1.0.0",
-    "hub_hash": "9b6e60d09b89a646"
+    "hub_hash": "c5d0ced0ce16a243"
   },
   "1": {
     "class_type": "UNETLoader",

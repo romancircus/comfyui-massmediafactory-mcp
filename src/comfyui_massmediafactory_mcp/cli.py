@@ -41,6 +41,14 @@ EXIT_CONNECTION = 5
 EXIT_NOT_FOUND = 6
 EXIT_VRAM = 7
 
+# Operation-specific default timeouts
+TIMEOUTS = {
+    "run": 660,  # 11 min for image generation
+    "batch": 900,  # 15 min for video operations
+    "pipeline": 1800,  # 30 min for multi-stage pipelines
+    "system": 30,  # 30 sec for system commands
+}
+
 
 # ─── Error classification ────────────────────────────────────────────
 
@@ -242,6 +250,17 @@ def cmd_run(args):
         if "error" in wf:
             _output(wf, pretty)
             return EXIT_ERROR
+        # Apply hardware-optimal overrides (auto-detect GPU, set load_device, quantization etc.)
+        # Template defaults are injected above; this upgrades them to hardware-optimal values
+        try:
+            from .optimization import get_optimal_workflow_params, apply_hardware_overrides
+
+            hw = get_optimal_workflow_params(args.template, "generic")
+            overrides = hw.get("workflow_overrides", {})
+            if overrides:
+                apply_hardware_overrides(wf, overrides)
+        except Exception:
+            pass  # Safe fallback: template defaults are valid
     else:
         # Auto-generated run
         if not args.model or not args.type:
@@ -271,6 +290,7 @@ def cmd_run(args):
             width=args.width,
             height=args.height,
             frames=args.frames,
+            fps=args.fps,
             seed=args.seed,
             steps=args.steps,
             cfg=args.cfg,
@@ -311,7 +331,10 @@ def cmd_run(args):
             return _exit_code_for_error(error_class), exec_result
 
         prompt_id = exec_result["prompt_id"]
-        timeout = args.timeout or 600
+        # Determine appropriate timeout: video operations get longer timeout
+        is_video = args.type in ("t2v", "i2v") if args.type else False
+        default_timeout = TIMEOUTS["batch"] if is_video else TIMEOUTS["run"]
+        timeout = args.timeout or default_timeout
 
         # --no-wait: return prompt_id immediately
         if getattr(args, "no_wait", False):
@@ -337,6 +360,26 @@ def cmd_run(args):
                     output["download_error"] = dl["error"]
                 else:
                     output["downloaded"] = dl
+
+        # Validate output file size (ROM-25)
+        if args.output and os.path.exists(args.output):
+            file_size = os.path.getsize(args.output)
+
+            # Determine if this is an image or video operation
+            is_image = False
+            if args.template:
+                is_image = any(x in args.template for x in ["txt2img", "txt2vid", "t2i", "img2img"])
+            elif args.model:
+                is_image = args.type == "t2i" or args.model == "flux" or args.model == "qwen"
+
+            if is_image and file_size < 100000:  # 100KB
+                return EXIT_VALIDATION, _error(
+                    f"Corrupted output: image too small ({file_size} bytes, minimum 100KB required)", "VALIDATION_ERROR"
+                )
+            elif not is_image and file_size < 500000:  # 500KB
+                return EXIT_VALIDATION, _error(
+                    f"Corrupted output: video too small ({file_size} bytes, minimum 500KB required)", "VALIDATION_ERROR"
+                )
 
         return EXIT_OK, output
 
@@ -762,7 +805,7 @@ def cmd_regenerate(args):
         _output(result, pretty)
         return EXIT_OK
 
-    timeout = args.timeout or 600
+    timeout = args.timeout or TIMEOUTS["run"]
     output = execution.wait_for_completion(prompt_id, timeout_seconds=timeout)
 
     if output.get("status") == "timeout":
@@ -983,11 +1026,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--width", type=int)
     p_run.add_argument("--height", type=int)
     p_run.add_argument("--frames", type=int)
+    p_run.add_argument("--fps", type=int, help="Frames per second for video output")
     p_run.add_argument("--seed", type=int)
     p_run.add_argument("--steps", type=int)
     p_run.add_argument("--cfg", type=float)
     p_run.add_argument("--guidance", type=float)
-    p_run.add_argument("--timeout", type=int, default=600, help="Wait timeout in seconds")
+    p_run.add_argument(
+        "--timeout", type=int, default=None, help="Wait timeout in seconds (default: 660s for images, 900s for video)"
+    )
     p_run.add_argument("--output", "-o", help="Auto-download result to this path")
     p_run.add_argument("--no-wait", action="store_true", default=False, help="Skip waiting, return prompt_id only")
     p_run.add_argument("--dry-run", action="store_true", default=False, help="Generate workflow without executing")
@@ -1004,7 +1050,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ── wait ──
     p_wait = sub.add_parser("wait", help="Block until workflow completes")
     p_wait.add_argument("prompt_id", help="Prompt ID to wait for")
-    p_wait.add_argument("--timeout", type=int, default=600, help="Timeout in seconds")
+    p_wait.add_argument("--timeout", type=int, default=None, help="Timeout in seconds (default: 660s)")
     _add_common_args(p_wait)
     p_wait.set_defaults(func=cmd_wait)
 
@@ -1034,7 +1080,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_bs.add_argument("--start-seed", type=int, default=42, help="Starting seed")
     p_bs.add_argument("--fixed", help="Fixed params JSON (or @file.json)")
     p_bs.add_argument("--parallel", type=int, default=1)
-    p_bs.add_argument("--timeout", type=int, default=600)
+    p_bs.add_argument("--timeout", type=int, default=None, help="Timeout per job (default: 900s)")
     _add_common_args(p_bs)
     p_bs.set_defaults(func=cmd_batch_seeds)
 
@@ -1044,7 +1090,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_bsw.add_argument("--sweep", required=True, help="Sweep params JSON")
     p_bsw.add_argument("--fixed", help="Fixed params JSON")
     p_bsw.add_argument("--parallel", type=int, default=1)
-    p_bsw.add_argument("--timeout", type=int, default=600)
+    p_bsw.add_argument("--timeout", type=int, default=None, help="Timeout per job (default: 900s)")
     _add_common_args(p_bsw)
     p_bsw.set_defaults(func=cmd_batch_sweep)
 
@@ -1062,7 +1108,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_bd.add_argument("--prompt", help="Prompt for all images")
     p_bd.add_argument("--seed", type=int, help="Seed")
     p_bd.add_argument("--output", help="Output directory")
-    p_bd.add_argument("--timeout", type=int, default=600)
+    p_bd.add_argument("--timeout", type=int, default=None, help="Timeout per job (default: 900s)")
     _add_common_args(p_bd)
     p_bd.set_defaults(func=cmd_batch_dir)
 
@@ -1159,7 +1205,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_regen.add_argument("--seed", type=int, help="New seed")
     p_regen.add_argument("--cfg", type=float, help="New CFG scale")
     p_regen.add_argument("--steps", type=int, help="New step count")
-    p_regen.add_argument("--timeout", type=int, default=600, help="Wait timeout in seconds")
+    p_regen.add_argument("--timeout", type=int, default=None, help="Wait timeout in seconds (default: 660s)")
     _add_common_args(p_regen)
     p_regen.set_defaults(func=cmd_regenerate)
 
@@ -1230,7 +1276,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_pipe.add_argument("--image", help="Input image")
     p_pipe.add_argument("--output", "-o", help="Output path")
     p_pipe.add_argument("--seed", type=int)
-    p_pipe.add_argument("--timeout", type=int, default=600)
+    p_pipe.add_argument("--timeout", type=int, default=None, help="Timeout in seconds (default: 1800s)")
     # Pipeline-specific args (flexible)
     p_pipe.add_argument("--style-image", help="Style reference image (telestyle)")
     p_pipe.add_argument("--character", help="Character name (viral-short)")
@@ -1252,7 +1298,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_ts.add_argument("--cfg", type=float, help="CFG override")
     p_ts.add_argument("--steps", type=int, help="Steps override")
     p_ts.add_argument("--seed", type=int)
-    p_ts.add_argument("--timeout", type=int, default=600)
+    p_ts.add_argument(
+        "--timeout", type=int, default=None, help="Timeout in seconds (default: 660s for image, 900s for video)"
+    )
     _add_common_args(p_ts)
     p_ts.set_defaults(func=cmd_telestyle)
 

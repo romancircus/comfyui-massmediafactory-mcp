@@ -166,12 +166,17 @@ class TestTopologyValidation:
     def test_valid_workflow(self):
         """Test that a valid workflow passes validation with all required nodes"""
         workflow = {
-            "1": {"class_type": "LTXVLoader", "inputs": {}},
+            "1": {"class_type": "CheckpointLoaderSimple", "inputs": {}},
             "2": {"class_type": "LTXVScheduler", "inputs": {"steps": 30}},
             "3": {"class_type": "LTXVConditioning", "inputs": {}},
             "4": {"class_type": "EmptyLTXVLatentVideo", "inputs": {"width": 768, "height": 512, "length": 97}},
-            "5": {"class_type": "SamplerCustom", "inputs": {"cfg": 3.0}},
-            "6": {"class_type": "VHS_VideoCombine", "inputs": {}},
+            "5": {"class_type": "SamplerCustomAdvanced", "inputs": {}},
+            "6": {"class_type": "SaveVideo", "inputs": {}},
+            "7": {"class_type": "LTXAVTextEncoderLoader", "inputs": {}},
+            "8": {"class_type": "LTXVAudioVAELoader", "inputs": {}},
+            "9": {"class_type": "CFGGuider", "inputs": {}},
+            "10": {"class_type": "LTXVConcatAVLatent", "inputs": {}},
+            "11": {"class_type": "LTXVSeparateAVLatent", "inputs": {}},
         }
         result = topology_validator.validate_topology(workflow, "ltx")
         assert result["valid"]

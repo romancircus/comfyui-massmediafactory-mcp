@@ -383,6 +383,8 @@ def inject_parameters(template: Dict[str, Any], params: Dict[str, Any]) -> Dict[
     Inject parameters into a template.
 
     Replaces {{PARAM_NAME}} placeholders with actual values.
+    Template defaults from _meta.defaults are used as fallbacks for any
+    parameters not explicitly provided.
     Strips _meta and other metadata keys before injection.
 
     Args:
@@ -392,7 +394,11 @@ def inject_parameters(template: Dict[str, Any], params: Dict[str, Any]) -> Dict[
     Returns:
         Workflow dict with parameters injected (metadata stripped)
     """
-    return inject_placeholders(template, params, strip_meta=True)
+    # Merge template defaults with user params (user params take precedence)
+    meta = template.get("_meta", {})
+    defaults = meta.get("defaults", {})
+    merged_params = {**defaults, **params}
+    return inject_placeholders(template, merged_params, strip_meta=True)
 
 
 def get_template_parameters(name: str) -> Dict[str, Any]:

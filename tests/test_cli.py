@@ -254,10 +254,17 @@ class TestParserConstruction:
         assert args.model == "wan"
         assert args.task == "i2v"
 
-    def test_default_timeout(self):
+    def test_default_timeout_is_none(self):
+        """Parser defaults to None; actual timeout determined at runtime."""
         parser = build_parser()
         args = parser.parse_args(["wait", "abc"])
-        assert args.timeout == 600
+        assert args.timeout is None
+
+    def test_timeout_override(self):
+        """--timeout flag should override defaults."""
+        parser = build_parser()
+        args = parser.parse_args(["wait", "abc", "--timeout", "1200"])
+        assert args.timeout == 1200
 
 
 class TestOutputFormat:
