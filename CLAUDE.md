@@ -113,7 +113,7 @@ mmf enhance --prompt "a cat" --model wan  # LLM prompt enhancement
 
 ### MCP Tools (Legacy)
 
-The MCP server (59 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
+The MCP server (58 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
 
 ```python
 # MCP equivalent (3 calls + 15K token schema overhead)

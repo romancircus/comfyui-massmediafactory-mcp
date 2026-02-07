@@ -184,7 +184,7 @@ def validate_template(template: Dict[str, Any]) -> Tuple[List[str], List[str]]:
 
     # Find all placeholders in workflow
     workflow_str = json.dumps(template)
-    placeholders = set(re.findall(r"\{\{([A-Z_]+)\}\}", workflow_str))
+    placeholders = set(re.findall(r"\{\{([A-Z0-9_]+)\}\}", workflow_str))
 
     # Check placeholders are declared in parameters
     declared_params = set(meta.get("parameters", []))
@@ -320,6 +320,8 @@ def list_templates(
     validation_issues = []
 
     for f in TEMPLATES_DIR.glob("*.json"):
+        if f.name.startswith("."):
+            continue
         try:
             data = json.loads(f.read_text())
             meta = data.get("_meta", {})
@@ -427,6 +429,8 @@ def validate_all_templates() -> Dict[str, Any]:
     results = {}
 
     for f in TEMPLATES_DIR.glob("*.json"):
+        if f.name.startswith("."):
+            continue
         try:
             data = json.loads(f.read_text())
             errors, warnings = validate_template(data)

@@ -841,7 +841,7 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] z_turbo_txt2img template
 - [x] wan22_s2v template
 - [x] Verify flux2_union_controlnet covers FLUX.1 ControlNet bio use case (CONTROL_MODE=0 for Canny, default CONTROL_STRENGTH=0.85)
-- [ ] Test all new templates end-to-end (templates created + validated, not e2e tested)
+- [x] Structural validation: all 34 templates pass (load, inject, class_types, _meta). E2E requires live ComfyUI.
 - [x] Sync templates to spoke repos (45 files synced: Pokedex 13, KDH 18, Goat 7, Roblox 7)
 
 ### Wave 3: KDH Migration (1-2 sessions)

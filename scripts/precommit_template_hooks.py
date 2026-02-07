@@ -54,7 +54,7 @@ def validate_template_file(filepath: Path) -> list[str]:
     # Check placeholder/parameter consistency
     if "parameters" in meta:
         workflow_str = json.dumps(data)
-        placeholders = set(re.findall(r"\{\{([A-Z_]+)\}\}", workflow_str))
+        placeholders = set(re.findall(r"\{\{([A-Z0-9_]+)\}\}", workflow_str))
         declared = set(meta["parameters"])
 
         undeclared = placeholders - declared

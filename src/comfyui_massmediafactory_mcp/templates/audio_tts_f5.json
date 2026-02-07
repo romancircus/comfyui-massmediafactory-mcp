@@ -6,8 +6,6 @@
     "replaces": "ElevenLabs TTS",
     "parameters": [
       "TEXT",
-      "REFERENCE_AUDIO",
-      "REFERENCE_TEXT",
       "SPEED",
       "SEED"
     ],
@@ -17,8 +15,7 @@
     },
     "agent_notes": {
       "TEXT": "The text to be spoken (max ~500 chars per generation)",
-      "REFERENCE_AUDIO": "Optional: Path to reference voice audio (3-10 seconds ideal)",
-      "REFERENCE_TEXT": "Optional: Transcript of reference audio for voice cloning",
+      "voice_cloning": "For voice cloning, use the audio_tts_voice_clone template instead",
       "SPEED": "Speech speed multiplier (0.5-2.0)",
       "output_formula": "For video sync: video_frames = (audio_duration_seconds * fps)"
     },

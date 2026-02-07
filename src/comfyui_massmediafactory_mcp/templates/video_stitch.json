@@ -7,28 +7,15 @@
     "parameters": [
       "VIDEO_1",
       "VIDEO_2",
-      "VIDEO_3",
-      "TRANSITION_TYPE",
-      "TRANSITION_FRAMES",
       "OUTPUT_FPS"
     ],
     "defaults": {
-      "VIDEO_3": "",
-      "TRANSITION_TYPE": "none",
-      "TRANSITION_FRAMES": 12,
       "OUTPUT_FPS": 24
     },
     "agent_notes": {
       "VIDEO_1": "Path to first video clip",
       "VIDEO_2": "Path to second video clip",
-      "VIDEO_3": "Optional: Path to third video clip (leave empty to skip)",
-      "TRANSITION_TYPE": "none, fade, dissolve, wipe",
-      "TRANSITION_FRAMES": "Number of frames for transition (12 = 0.5s at 24fps)",
-      "limitations": [
-        "All clips should have same resolution for best results",
-        "Audio is preserved from all clips",
-        "For complex edits, use dedicated video editor"
-      ]
+      "limitations": "Currently supports 2 clips with direct concatenation. For transitions or 3+ clips, use a video editor."
     },
     "custom_nodes_required": [
       "ComfyUI-VideoHelperSuite"
