@@ -845,38 +845,45 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [ ] Sync templates to spoke repos (not yet synced)
 
 ### Wave 3: KDH Migration (1-2 sessions)
-- [x] Create src/core/mmf.js
-- [x] Migrate generateViralKeyframesV4.js
-- [x] Migrate generateViralVideosV4.js
-- [x] Migrate generateViralVideosPipelineB.js
-- [x] Migrate Python scripts (execute_keyframes.py, batch_i2v_choking.py)
-- [x] Migrate runWanVideoBatch.js
-- [ ] Migrate remaining batch scripts (runChokingABTest.js, runVideoBatchQueue.js, runViral3DMusicVideo.js, generateGroupKeys.js)
-- [ ] Delete core ComfyUI files (5 files, 3,524 lines)
+- [x] Create src/core/mmf.js (480 lines, 17 exports) [35d22ba]
+- [x] Migrate generateViralKeyframesV4.js [939251d]
+- [x] Migrate generateViralVideosV4.js [939251d]
+- [x] Migrate generateViralVideosPipelineB.js [939251d]
+- [x] Migrate Python scripts (execute_keyframes.py, batch_i2v_choking.py) [939251d]
+- [x] Migrate runWanVideoBatch.js [939251d]
+- [x] Migrate runChokingABTest.js [a0927a9]
+- [x] Migrate runVideoBatchQueue.js [a0927a9]
+- [x] Migrate Viral3DMusicVideoPipeline.js (6 executor calls → mmf.js) [186827a]
+- [x] Migrate GroupKeyGenerator.js (2 executor calls → mmf.js) [186827a]
+- [x] Migrate runViral3DMusicVideo.js (remove HttpAdapter) [186827a]
+- [x] Update generateGroupKeys.js hints to mmf CLI [186827a]
+- [x] Update KDH CLAUDE.md [a0927a9]
+- [ ] Migrate BabyCharacterGenerator.js (uses ComfyUIClient, not Executor - low priority)
+- [ ] Delete core ComfyUI files (5 files, 3,524 lines) - blocked until BabyCharacterGenerator migrated
+- [ ] Delete test scripts (testComfyUIExecutor.js, testFairComparison.js, testGroupKeyIntegration.js, checkBabyGenSetup.js)
 - [ ] Delete mcp_templates/ (17 files)
-- [ ] Update KDH CLAUDE.md
 
 ### Wave 4: Pokedex Migration (1-2 sessions)
-- [x] Create src/adapters/mmf_client.py
-- [x] Migrate bio_generator.py (flux2/z-turbo/comfyui/qwen-edit paths via mmf)
-- [x] Migrate video_generator.py (wan_comfyui/comfyui(ltx) paths via mmf)
-- [x] Migrate shiny_transformer.py (kontext/qwen-edit paths via mmf)
-- [x] Migrate batch_generate_videos.py (ComfyUIClient -> mmf_client)
-- [x] Add TODO comments to audio_generator.py (no mmf audio support yet)
+- [x] Create src/adapters/mmf_client.py (435 lines, 8 functions) [12c0802]
+- [x] Migrate bio_generator.py (flux2/z-turbo/comfyui/qwen-edit paths via mmf) [4778b8a]
+- [x] Migrate video_generator.py (wan_comfyui/comfyui(ltx) paths via mmf) [4778b8a]
+- [x] Migrate shiny_transformer.py (kontext/qwen-edit paths via mmf) [4778b8a]
+- [x] Migrate batch_generate_videos.py (ComfyUIClient -> mmf_client) [4778b8a]
+- [x] Add TODO comments to audio_generator.py (no mmf audio support yet) [4778b8a]
+- [x] Update Pokedex CLAUDE.md [5e0e4b4]
 - [ ] Remove torch/diffusers/transformers from requirements.txt (flux1 LoRA still needs diffusers)
-- [ ] Run full batch test
-- [ ] QA compare
+- [ ] Run full batch test + QA compare (requires live ComfyUI)
 - [ ] Delete old adapters (comfyui_client.py, mcp_adapter.py)
 - [ ] Delete workflows/ and mcp_templates/
-- [ ] Update Pokedex CLAUDE.md
 
 ### Wave 5: Cleanup & Documentation (1 session)
-- [ ] Update main CLAUDE.md (mark MCP as legacy)
+- [x] Update main CLAUDE.md (mark MCP as legacy) [59e87f0]
+- [x] Update MEMORY.md with migration learnings
+- [x] MCP test suite: 321 tests passing
 - [ ] Update /mmf skill with all new templates and commands
-- [ ] Update MEMORY.md with migration learnings
 - [ ] jinyang: update template fetch to use `mmf templates get`
 - [ ] Optional: Reduce MCP server to ~15 discovery-only tools
-- [ ] Final test: `pytest tests/ -x` → all tests pass across all repos
+- [ ] Sync templates to spoke repos
 
 ---
 
