@@ -144,14 +144,14 @@ def search_nodes(query: str) -> dict:
 # Execution Tools
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf execute` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
     """Queue workflow for execution. Returns prompt_id."""
     return _to_mcp_response(execution.execute_workflow(workflow, client_id))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf wait` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_workflow_status(prompt_id: str = None) -> dict:
     """Check workflow/queue status. With prompt_id: single job. Without: all jobs."""
@@ -160,14 +160,14 @@ def get_workflow_status(prompt_id: str = None) -> dict:
     return execution.get_queue_status()
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf run` (blocking) CLI instead (ROM-548)
 @mcp_tool_wrapper
 def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
     """Wait for workflow completion. Returns outputs."""
     return _to_mcp_response(execution.wait_for_completion(prompt_id, timeout_seconds))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf wait --progress` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_progress(prompt_id: str) -> dict:
     """Get current progress for a workflow. Returns stage, percent, eta, nodes.
@@ -217,7 +217,7 @@ def interrupt() -> dict:
 # Asset Tools
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf run` with modified params CLI instead (ROM-548)
 @mcp_tool_wrapper
 def regenerate(
     asset_id: str,
@@ -238,7 +238,7 @@ def regenerate(
     )
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets list` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def list_assets(
     session_id: str = None,
@@ -259,14 +259,14 @@ def list_assets(
     }
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets metadata` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_asset_metadata(asset_id: str) -> dict:
     """Get full asset metadata including workflow."""
     return _to_mcp_response(execution.get_asset_metadata(asset_id))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets view` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def view_output(asset_id: str, mode: str = "thumb") -> dict:
     """View asset. mode: thumb|metadata"""
@@ -568,7 +568,7 @@ def get_template(name: str) -> dict:
     return _to_mcp_response(templates.load_template(name))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf run --template` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def create_workflow_from_template(template_name: str, parameters: dict) -> dict:
     """Create workflow from template. Injects {{PLACEHOLDER}} values."""
@@ -618,7 +618,7 @@ def get_node_chain(model: str, task: str) -> dict:
 # Batch Execution
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf batch` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def batch_execute(
     workflow: dict,
@@ -650,7 +650,7 @@ def batch_execute(
 # Pipelines
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf pipeline` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def execute_pipeline_stages(
     stages: List[Dict[str, Any]],
@@ -661,7 +661,7 @@ def execute_pipeline_stages(
     return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf pipeline i2v` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def run_image_to_video_pipeline(
     image_workflow: dict,
@@ -674,7 +674,7 @@ def run_image_to_video_pipeline(
     return pipeline.create_image_to_video_pipeline(image_workflow, video_workflow, prompt, video_prompt, seed)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf pipeline upscale` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def run_upscale_pipeline(
     base_workflow: dict,
@@ -724,21 +724,21 @@ def list_installed_models(model_type: str = None) -> dict:
 # Asset Analysis
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets dimensions` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_image_dimensions(asset_id: str) -> dict:
     """Get image dimensions and recommended video size."""
     return analysis.get_image_dimensions(asset_id)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: niche, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] = None) -> dict:
     """Detect objects in image via VLM."""
     return _to_mcp_response(analysis.detect_objects(asset_id, objects, vlm_model))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets video-info` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_video_info(asset_id: str) -> dict:
     """Get video duration, fps, frame count."""
@@ -748,7 +748,7 @@ def get_video_info(asset_id: str) -> dict:
 # Quality Assurance
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf qa` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def qa_output(
     asset_id: str,
@@ -761,7 +761,7 @@ def qa_output(
     return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=safe_prompt, checks=checks, vlm_model=vlm_model))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: niche, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def check_vlm_available(vlm_model: str = None) -> dict:
     """Check if VLM (Ollama) is available for QA."""
@@ -771,7 +771,7 @@ def check_vlm_available(vlm_model: str = None) -> dict:
 # Style Learning Tools
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def record_generation(
     prompt: str,
@@ -801,14 +801,14 @@ def record_generation(
     return {"record_id": record_id, "success": True}
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
     """Rate a generation 0.0-1.0. Returns success status."""
     return {"success": style_learning.rate_generation(record_id, rating, notes)}
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def style_suggest(
     mode: str,
@@ -837,7 +837,7 @@ def style_suggest(
         return mcp_error(f"Unknown mode: {mode}. Use: prompt|seeds|similar")
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def manage_presets(
     action: str,
@@ -881,7 +881,7 @@ def manage_presets(
 # Workflow Generation
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf run --model X --type Y` CLI instead (ROM-548)
 @mcp_tool_wrapper
 def generate_workflow(
     model: str,
@@ -947,14 +947,14 @@ def get_optimal_workflow_params(
 # =============================================================================
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: visualization, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def visualize_workflow(workflow: dict) -> dict:
     """Generate Mermaid diagram from workflow for visualization."""
     return visualization.visualize_workflow(workflow)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: visualization, use CLI instead (ROM-548)
 @mcp_tool_wrapper
 def get_workflow_summary(workflow: dict) -> dict:
     """Get text summary of workflow structure (node types, parameters)."""
