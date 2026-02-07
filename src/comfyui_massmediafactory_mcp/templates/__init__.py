@@ -34,11 +34,13 @@ MODEL_FILENAME_KEYWORDS = {
     "flux2": ["flux"],
     "ltx2": ["ltx"],
     "wan26": ["wan"],
+    "wan22": ["wan"],
     "qwen": ["qwen"],
     "qwen_edit": ["qwen"],
     "hunyuan15": ["hunyuan"],
     "sdxl": ["sdxl", "sd_xl"],
     "telestyle": ["telestyle", "qwen"],
+    "z_turbo": ["z-image-turbo", "z_turbo", "zturbo"],
     "audio": [],  # Audio templates don't need model files
     "utility": [],  # Utility templates don't need model files
 }
@@ -95,11 +97,13 @@ MODEL_TYPE_MAP = {
     "flux2": ["flux2", "flux.2", "flux2-dev", "flux", "fl.2"],
     "ltx2": ["ltx2", "ltx-2", "ltxvideo", "ltx"],
     "wan26": ["wan26", "wan 2.6", "wan2.6", "wan"],
+    "wan22": ["wan22", "wan 2.2", "wan2.2", "wan 2.2 s2v"],
     "qwen": ["qwen", "qwen-image"],
     "qwen_edit": ["qwen_edit", "qwen-edit", "qwen_image_edit"],
     "hunyuan15": ["hunyuanvideo 1.5", "hunyuan15", "hunyuan"],
     "sdxl": ["sdxl", "stable diffusion xl"],
     "telestyle": ["telestyle", "tele_style"],
+    "z_turbo": ["z-image-turbo", "z_turbo", "z-turbo", "zturbo", "z_image_turbo"],
     "audio": ["audio", "f5_tts", "chatterbox", "qwen3_tts"],
     "utility": ["utility", "video"],
 }
@@ -117,10 +121,12 @@ def get_model_type(model_name: str) -> Optional[str]:
         "flux2",
         "ltx2",
         "wan26",
+        "wan22",
         "qwen",
         "hunyuan15",
         "sdxl",
         "telestyle",
+        "z_turbo",
         "audio",
         "utility",
     ]:

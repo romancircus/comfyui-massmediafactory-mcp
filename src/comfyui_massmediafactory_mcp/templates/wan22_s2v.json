@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "description": "Wan 2.1/2.2 I2V workflow using WanVideoWrapper nodes",
-    "model": "Wan 2.1 I2V 14B",
+    "description": "Wan 2.2 Subject-to-Video (S2V) workflow using WanVideoWrapper nodes",
+    "model": "Wan 2.2 S2V 14B",
     "type": "img2vid",
     "parameters": [
       "IMAGE_PATH",
@@ -23,7 +23,7 @@
     ],
     "defaults": {
       "SEED": 42,
-      "FRAMES": 81,
+      "FRAMES": 77,
       "FPS": 16,
       "STEPS": 30,
       "CFG": 5.0,
@@ -38,19 +38,19 @@
       "ATTENTION_MODE": "sdpa",
       "FORCE_OFFLOAD_SAMPLER": true
     },
+    "notes": "Wan 2.2 S2V for subject-based animation. Uses wan2.2_s2v_14B_fp8_scaled.safetensors model. Similar to I2V but optimized for subject consistency.",
     "vram_min": 16,
     "tags": [
       "model:wan",
       "priority:recommended"
     ],
     "version": "1.0.0",
-    "notes": "v2: Rewritten from DownloadAndLoadWanModel (non-existent) to WanVideoWrapper nodes (installed). Reference: KDH-Automation/scripts/batch_i2v_choking.py",
-    "hub_hash": "3907e59c35348e91"
+    "hub_hash": "d038ab9afcdb1e3d"
   },
   "1": {
     "class_type": "WanVideoModelLoader",
     "inputs": {
-      "model": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+      "model": "wan_s2v_fp8/wan2.2_s2v_14B_fp8_scaled.safetensors",
       "base_precision": "bf16",
       "quantization": "{{QUANTIZATION}}",
       "load_device": "{{LOAD_DEVICE}}",
@@ -199,7 +199,7 @@
         "11",
         0
       ],
-      "filename_prefix": "wan26_i2v",
+      "filename_prefix": "wan22_s2v",
       "format": "mp4",
       "codec": "h264"
     }

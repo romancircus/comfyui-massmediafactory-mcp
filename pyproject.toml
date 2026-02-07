@@ -33,6 +33,7 @@ dev = [
 
 [project.scripts]
 comfyui-massmediafactory-mcp = "comfyui_massmediafactory_mcp.server:main"
+mmf = "comfyui_massmediafactory_mcp.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/romancircus/comfyui-massmediafactory-mcp"

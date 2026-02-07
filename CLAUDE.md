@@ -2,7 +2,7 @@
 
 ---
 
-## Cyrus Execution Tasks
+## jinyang Execution Tasks
 
 **For multi-phase overnight work, use the centralized orchestration pattern.**
 
@@ -10,7 +10,7 @@
 
 1. **Copy template:**
    ```bash
-   cp ~/.cyrus/templates/execution_script_template.py scripts/<task_name>_execute.py
+   cp ~/.jinyang/templates/execution_script_template.py scripts/<task_name>_execute.py
    ```
 
 2. **Implement phases:**
@@ -26,24 +26,24 @@
 
 3. **Create Linear issue from template:**
    ```bash
-   cat ~/.cyrus/templates/linear_execution_issue.md
+   cat ~/.jinyang/templates/linear_execution_issue.md
    # Replace <REPO_NAME>, <SCRIPT_NAME>, <ISSUE_ID>
    # Paste into Linear issue description
    ```
 
 4. **Validate before delegating:**
    ```bash
-   python ~/.cyrus/scripts/validate_execution_issue.py ROM-XXX
+   python ~/.jinyang/scripts/validate_execution_issue.py ROM-XXX
    ```
 
-5. **Delegate to Cyrus** - execution happens automatically
+5. **Delegate to jinyang** - execution happens automatically
 
 ### Resources
 
-- **Template:** `~/.cyrus/templates/execution_script_template.py` (640 lines - complete base class)
-- **Docs:** `~/.cyrus/docs/EXECUTION_PATTERN.md` (usage guide)
-- **Issue template:** `~/.cyrus/templates/linear_execution_issue.md`
-- **Validation:** `~/.cyrus/scripts/validate_execution_issue.py`
+- **Template:** `~/.jinyang/templates/execution_script_template.py` (640 lines - complete base class)
+- **Docs:** `~/.jinyang/docs/EXECUTION_PATTERN.md` (usage guide)
+- **Issue template:** `~/.jinyang/templates/linear_execution_issue.md`
+- **Validation:** `~/.jinyang/scripts/validate_execution_issue.py`
 
 ### Why Use This Pattern
 
@@ -76,20 +76,48 @@ mcp__linear__update_issue("ROM-10", state="done", comment="Added: [feature]")
 
 ---
 
-## Quick Start
+## Quick Start — `mmf` CLI (Preferred)
 
-This MCP server lets you generate images and videos via ComfyUI. The fastest path:
+The `mmf` CLI is the fastest and most reliable way to generate images/videos. One command does everything:
+
+```bash
+# Text-to-image (FLUX)
+mmf run --model flux --type t2i --prompt "a dragon in the clouds" --pretty
+
+# Image-to-video (WAN)
+mmf run --model wan --type i2v --image photo.png --prompt "gentle motion" -o output.mp4
+
+# Template-based run
+mmf run --template qwen_txt2img --params '{"PROMPT":"test","SEED":42}'
+
+# Pre-tested pipeline (3 stages in 1 command)
+mmf pipeline viral-short --prompt "dancing character" --style-image style.png -o video.mp4
+mmf pipeline i2v --image keyframe.png --prompt "gentle breathing" -o video.mp4
+mmf pipeline upscale --image input.png --factor 2 -o upscaled.png
+
+# Batch
+mmf batch seeds workflow.json --count 8 --start-seed 42
+mmf batch dir --input keyframes/ --template wan26_img2vid --prompt "motion" --output videos/
+
+# System
+mmf stats --pretty                    # GPU info
+mmf models constraints wan --pretty   # Model limits
+mmf enhance --prompt "a cat" --model wan  # LLM prompt enhancement
+```
+
+**Why CLI over MCP**: 0 schema overhead (vs ~15K tokens), 1 command instead of 3 MCP calls, pre-tested parameters that produce correct results. JSON to stdout (machine-readable). Exit codes: 0=ok, 1=error, 2=timeout, 3=validation.
+
+**Install**: `pip install -e .` from repo root, then `mmf` is available globally.
+
+### MCP Tools (Legacy)
+
+The MCP server (59 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
 
 ```python
-# 1. Generate a workflow
+# MCP equivalent (3 calls + 15K token schema overhead)
 workflow = generate_workflow(model="flux", workflow_type="t2i", prompt="a dragon in the clouds")
-
-# 2. Execute it
 result = execute_workflow(workflow["workflow"])
-
-# 3. Wait for output
 output = wait_for_completion(result["prompt_id"])
-# output["outputs"][0]["asset_id"] contains your generated image
 ```
 
 ## Core Workflow
@@ -104,9 +132,9 @@ There are two complementary generation paths. Choose based on your needs:
 - Best for: prompt-to-output with standard settings
 
 **Path B: `create_workflow_from_template()` - Template-Based Workflows**
-- 30+ templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
+- 34 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
 - Exact configurations preserved, no auto-correction
-- Best for: specialized workflows, batch production, Cyrus overnight
+- Best for: specialized workflows, batch production, jinyang overnight
 
 | Need | Use Path A | Use Path B |
 |------|-----------|-----------|
