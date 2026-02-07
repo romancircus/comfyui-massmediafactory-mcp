@@ -825,47 +825,48 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 ## Part 8: Implementation Schedule
 
 ### Wave 1: CLI Improvements (1 session)
-- [ ] Output stream separation (P0)
-- [ ] Expanded exit codes (P0)
-- [ ] Retry logic with --retry flag (P0)
-- [ ] --no-wait flag (P1)
-- [ ] --dry-run flag (P1)
-- [ ] Input validation (P1)
-- [ ] 6 missing commands (P1)
-- [ ] Tests for all new features
-- [ ] Update /mmf skill with new flags
+- [x] Output stream separation (P0)
+- [x] Expanded exit codes (P0) - 7 exit codes: EXIT_OK=0 through EXIT_VRAM=7
+- [x] Retry logic with --retry flag (P0) - _retry_loop + _classify_error
+- [x] --no-wait flag (P1)
+- [x] --dry-run flag (P1)
+- [x] Input validation (P1) - image path validation, JSON validation, bounds checking
+- [x] 6 missing commands (P1) - regenerate, status, progress, search-model, install-model, workflow-lib
+- [x] Tests for all new features - 81 CLI tests
+- [x] Update /mmf skill with new flags
 
 ### Wave 2: New Templates (1 session)
-- [ ] qwen_controlnet_bio template
-- [ ] flux_kontext_edit template
-- [ ] z_turbo_txt2img template
-- [ ] wan22_s2v template
-- [ ] Verify flux2_union_controlnet covers FLUX.1 ControlNet bio use case
-- [ ] Test all new templates end-to-end
-- [ ] Sync templates to spoke repos
+- [x] qwen_controlnet_bio template
+- [x] flux_kontext_edit template
+- [x] z_turbo_txt2img template
+- [x] wan22_s2v template
+- [ ] Verify flux2_union_controlnet covers FLUX.1 ControlNet bio use case (not yet verified)
+- [ ] Test all new templates end-to-end (templates created + validated, not e2e tested)
+- [ ] Sync templates to spoke repos (not yet synced)
 
 ### Wave 3: KDH Migration (1-2 sessions)
-- [ ] Create src/core/mmf.js
-- [ ] Migrate generateViralKeyframesV4.js (test pilot)
-- [ ] Migrate generateViralVideosV4.js
-- [ ] Migrate generateViralVideosPipelineB.js
-- [ ] Migrate Python scripts (execute_keyframes.py, batch_i2v_choking.py, etc.)
-- [ ] Migrate remaining batch scripts
+- [x] Create src/core/mmf.js
+- [x] Migrate generateViralKeyframesV4.js
+- [x] Migrate generateViralVideosV4.js
+- [x] Migrate generateViralVideosPipelineB.js
+- [x] Migrate Python scripts (execute_keyframes.py, batch_i2v_choking.py)
+- [x] Migrate runWanVideoBatch.js
+- [ ] Migrate remaining batch scripts (runChokingABTest.js, runVideoBatchQueue.js, runViral3DMusicVideo.js, generateGroupKeys.js)
 - [ ] Delete core ComfyUI files (5 files, 3,524 lines)
 - [ ] Delete mcp_templates/ (17 files)
 - [ ] Update KDH CLAUDE.md
 
 ### Wave 4: Pokedex Migration (1-2 sessions)
-- [ ] Create src/adapters/mmf_client.py
-- [ ] Migrate mcp_adapter.py → mmf_client.py (easiest)
-- [ ] Migrate comfyui_client.py calls → mmf_client.py
-- [ ] Migrate native diffusers in bio_generator.py → mmf_client.py
-- [ ] Migrate native diffusers in video_generator.py → mmf_client.py
-- [ ] Migrate native diffusers in shiny_transformer.py → mmf_client.py
-- [ ] Remove torch/diffusers/transformers from requirements.txt
-- [ ] Run full batch: generate 10 Pokemon across all stages
-- [ ] QA compare: old vs new quality
-- [ ] Delete comfyui_client.py, mcp_adapter.py, job_registry.py
+- [x] Create src/adapters/mmf_client.py
+- [x] Migrate bio_generator.py (flux2/z-turbo/comfyui/qwen-edit paths via mmf)
+- [x] Migrate video_generator.py (wan_comfyui/comfyui(ltx) paths via mmf)
+- [x] Migrate shiny_transformer.py (kontext/qwen-edit paths via mmf)
+- [x] Migrate batch_generate_videos.py (ComfyUIClient -> mmf_client)
+- [x] Add TODO comments to audio_generator.py (no mmf audio support yet)
+- [ ] Remove torch/diffusers/transformers from requirements.txt (flux1 LoRA still needs diffusers)
+- [ ] Run full batch test
+- [ ] QA compare
+- [ ] Delete old adapters (comfyui_client.py, mcp_adapter.py)
 - [ ] Delete workflows/ and mcp_templates/
 - [ ] Update Pokedex CLAUDE.md
 

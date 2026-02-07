@@ -109,6 +109,8 @@ mmf enhance --prompt "a cat" --model wan  # LLM prompt enhancement
 
 **Install**: `pip install -e .` from repo root, then `mmf` is available globally.
 
+**For agents and scripts:** Always call `mmf` via Bash tool instead of MCP tools. MCP tools remain available but carry ~15K token schema overhead per invocation.
+
 ### MCP Tools (Legacy)
 
 The MCP server (59 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
