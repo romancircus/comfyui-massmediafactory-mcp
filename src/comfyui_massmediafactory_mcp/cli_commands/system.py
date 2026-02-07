@@ -1,4 +1,4 @@
-"""System commands: stats, free, interrupt, enhance, qa, profile, validate, status, progress, regenerate."""
+"""System commands: stats, free, interrupt, enhance, qa, profile, validate, status, progress, regenerate, sota, diff."""
 
 from ..cli_utils import (
     EXIT_ERROR,
@@ -11,6 +11,7 @@ from ..cli_utils import (
     _error,
     _is_pretty,
     _output,
+    _parse_json_arg,
     _read_workflow,
 )
 
@@ -166,6 +167,57 @@ def cmd_regenerate(args):
     return EXIT_OK
 
 
+def cmd_sota(args):
+    """SOTA model queries."""
+    from .. import sota
+
+    pretty = args.pretty or _is_pretty()
+    mode = args.mode
+
+    if mode == "category":
+        if not args.category:
+            _output(_error("--category required for mode 'category'", "INVALID_PARAMS"), pretty)
+            return EXIT_ERROR
+        result = sota.get_sota_for_category(args.category)
+    elif mode == "recommend":
+        if not args.task:
+            _output(_error("--task required for mode 'recommend'", "INVALID_PARAMS"), pretty)
+            return EXIT_ERROR
+        result = sota.recommend_model_for_task(args.task, args.vram)
+    elif mode == "check":
+        if not args.model_name:
+            _output(_error("--model-name required for mode 'check'", "INVALID_PARAMS"), pretty)
+            return EXIT_ERROR
+        result = sota.check_model_is_sota(args.model_name)
+    elif mode == "settings":
+        if not args.model_name:
+            _output(_error("--model-name required for mode 'settings'", "INVALID_PARAMS"), pretty)
+            return EXIT_ERROR
+        result = sota.get_optimal_settings(args.model_name)
+    elif mode == "installed":
+        result = sota.get_available_sota_models()
+    else:
+        _output(
+            _error(f"Unknown mode: {mode}. Use: category|recommend|check|settings|installed", "INVALID_PARAMS"), pretty
+        )
+        return EXIT_ERROR
+
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
+def cmd_diff(args):
+    """Compare two workflows."""
+    from ..workflow_diff import diff_workflows
+
+    pretty = args.pretty or _is_pretty()
+    wf_a = _parse_json_arg(args.workflow_a)
+    wf_b = _parse_json_arg(args.workflow_b)
+    result = diff_workflows(wf_a, wf_b)
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
 def register_commands(sub, add_common=_add_common_args, **_kwargs):
     """Register system subcommands."""
     p_stats = sub.add_parser("stats", help="GPU VRAM and system info")
@@ -226,3 +278,18 @@ def register_commands(sub, add_common=_add_common_args, **_kwargs):
     p_prog.add_argument("prompt_id", help="Prompt ID to check progress for")
     add_common(p_prog)
     p_prog.set_defaults(func=cmd_progress)
+
+    p_sota = sub.add_parser("sota", help="SOTA model queries")
+    p_sota.add_argument("mode", choices=["category", "recommend", "check", "settings", "installed"], help="Query mode")
+    p_sota.add_argument("--category", help="Model category (for mode=category)")
+    p_sota.add_argument("--task", help="Task type (for mode=recommend)")
+    p_sota.add_argument("--model-name", help="Model name (for mode=check|settings)")
+    p_sota.add_argument("--vram", type=float, help="Available VRAM in GB (for mode=recommend)")
+    add_common(p_sota)
+    p_sota.set_defaults(func=cmd_sota)
+
+    p_diff = sub.add_parser("diff", help="Compare two workflows")
+    p_diff.add_argument("workflow_a", help="First workflow JSON or @file.json")
+    p_diff.add_argument("workflow_b", help="Second workflow JSON or @file.json")
+    add_common(p_diff)
+    p_diff.set_defaults(func=cmd_diff)

@@ -1,6 +1,16 @@
-"""Asset commands: list, metadata, publish."""
+"""Asset commands: list, metadata, publish, cleanup."""
 
 from ..cli_utils import EXIT_ERROR, EXIT_OK, _add_common_args, _is_pretty, _output, _parse_json_arg
+
+
+def cmd_assets_cleanup(args):
+    """Remove expired assets."""
+    from .. import execution
+
+    pretty = args.pretty or _is_pretty()
+    result = execution.cleanup_expired_assets()
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
 
 
 def cmd_assets_list(args):
@@ -91,6 +101,10 @@ def register_commands(sub, add_common=_add_common_args, **_kwargs):
     p_al.add_argument("--limit", type=int, default=20)
     add_common(p_al)
     p_al.set_defaults(func=cmd_assets_list)
+
+    p_ac = assets_sub.add_parser("cleanup", help="Remove expired assets (24h TTL)")
+    add_common(p_ac)
+    p_ac.set_defaults(func=cmd_assets_cleanup)
 
     p_am = assets_sub.add_parser("metadata", help="Full asset metadata")
     p_am.add_argument("asset_id", help="Asset ID")

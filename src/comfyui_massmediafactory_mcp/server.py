@@ -273,7 +273,7 @@ def view_output(asset_id: str, mode: str = "thumb") -> dict:
     return execution.view_output(asset_id, mode)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf assets cleanup` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def cleanup_assets() -> dict:
     """Remove expired assets (default 24h TTL)."""
@@ -346,7 +346,7 @@ def set_publish_dir(publish_dir: str) -> dict:
 # Workflow Library
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf workflow-lib` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def workflow_library(
     action: str,
@@ -409,14 +409,14 @@ def workflow_library(
 # VRAM Tools
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models estimate-vram` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def estimate_vram(workflow: dict) -> dict:
     """Estimate VRAM usage for workflow."""
     return vram.estimate_workflow_vram(workflow)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models check-fit` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def check_model_fits(model_name: str, precision: str = "default") -> dict:
     """Check if model fits in VRAM. precision: fp32|fp16|bf16|fp8|default"""
@@ -499,7 +499,7 @@ def check_connection(source_type: str, source_slot: int, target_type: str, targe
 # SOTA Recommendations
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf sota` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def sota_query(
     mode: str,
@@ -690,14 +690,14 @@ def run_upscale_pipeline(
 # Model Management Tools
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf search-model` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit: int = 10) -> dict:
     """Search Civitai for models. type: checkpoint|lora|embedding|controlnet|upscaler"""
     return models.search_civitai(query, model_type, nsfw, limit)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf install-model` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def download_model(url: str, model_type: str, filename: str = None, overwrite: bool = False) -> dict:
     """Download model from Civitai/HF. type: checkpoint|unet|lora|vae|controlnet|clip"""
@@ -707,14 +707,14 @@ def download_model(url: str, model_type: str, filename: str = None, overwrite: b
     return _to_mcp_response(models.download_model(url, model_type, filename, overwrite))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models info` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def get_model_info(model_path: str) -> dict:
     """Get info about installed model."""
     return models.get_model_info(model_path)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models list` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def list_installed_models(model_type: str = None) -> dict:
     """List installed models by type."""
@@ -917,7 +917,7 @@ def generate_workflow(
 # =============================================================================
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models optimize` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def get_optimal_workflow_params(
     model: str,
@@ -966,21 +966,21 @@ def get_workflow_summary(workflow: dict) -> dict:
 # =============================================================================
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: internal debugging only (ROM-562)
 @mcp_tool_wrapper
 def get_rate_limit_status(tool_name: str = None) -> dict:
     """Get current rate limiting status. Shows requests remaining, reset time, usage."""
     return rate_limiter.get_rate_limit_status(tool_name)
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: internal debugging only (ROM-562)
 @mcp_tool_wrapper
 def get_all_tools_rate_status() -> dict:
     """Get rate limiting status for all tools."""
     return rate_limiter.get_all_tools_rate_status()
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: internal debugging only (ROM-562)
 @mcp_tool_wrapper
 def get_rate_limit_summary() -> dict:
     """Get brief summary of rate limit status for dashboard display."""
@@ -1186,7 +1186,7 @@ def enhance_prompt(
     )
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf profile` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def get_execution_profile(prompt_id: str) -> dict:
     """Get per-node execution timing for a completed workflow.
@@ -1199,7 +1199,7 @@ def get_execution_profile(prompt_id: str) -> dict:
     return _to_mcp_response(profiling.get_execution_profile(prompt_id))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf diff` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def diff_workflows(workflow_a: dict, workflow_b: dict) -> dict:
     """Compare two workflows and show node/parameter differences.
@@ -1214,7 +1214,7 @@ def diff_workflows(workflow_a: dict, workflow_b: dict) -> dict:
     return _to_mcp_response(workflow_diff.diff_workflows(workflow_a, workflow_b))
 
 
-@mcp.tool()
+# @mcp.tool()  # Removed: use `mmf models compatibility` CLI instead (ROM-562)
 @mcp_tool_wrapper
 def get_compatibility_matrix() -> dict:
     """Get model compatibility matrix showing installed models, VRAM fit, and supported workflow types.

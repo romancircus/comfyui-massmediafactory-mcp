@@ -113,7 +113,7 @@ mmf enhance --prompt "a cat" --model wan  # LLM prompt enhancement
 
 ### MCP Tools (Legacy)
 
-The MCP server (58 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
+The MCP server (18 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
 
 ```python
 # MCP equivalent (3 calls + 15K token schema overhead)
@@ -175,10 +175,10 @@ new_result = regenerate(
 )
 ```
 
-## Tool Reference (34 MCP Tools + mmf CLI)
+## Tool Reference (18 MCP Tools + mmf CLI)
 
-> **Note:** 25 tools were moved to `mmf` CLI in ROM-548 (execution, batch, pipeline, QA, style, visualization).
-> Use `mmf run`, `mmf batch`, `mmf pipeline`, `mmf qa`, `mmf assets` instead.
+> **Note:** 41 tools moved to `mmf` CLI in ROM-548/ROM-562. MCP tools are kept only for
+> interactive workflow building. Everything else uses `mmf` commands.
 
 ### Discovery (3 tools)
 
@@ -195,7 +195,6 @@ new_result = regenerate(
 | `get_system_stats()` | GPU VRAM and system info |
 | `free_memory(unload_models)` | Free GPU memory |
 | `interrupt()` | Stop current workflow |
-| `cleanup_assets()` | Remove expired assets (24h TTL) |
 | `upload_image(path)` | Upload for ControlNet/I2V |
 | `download_output(asset_id, path)` | Save to local disk |
 
@@ -207,19 +206,11 @@ new_result = regenerate(
 | `get_publish_info()` | Current publish config |
 | `set_publish_dir(path)` | Set publish directory (validated against blocklist) |
 
-### Workflow Library (1 tool)
-
-| Tool | Usage |
-|------|-------|
-| `workflow_library(action, ...)` | `action`: save\|load\|list\|delete\|duplicate\|export\|import |
-
-### Validation & VRAM (3 tools)
+### Validation (1 tool)
 
 | Tool | Usage |
 |------|-------|
 | `validate_workflow(workflow, auto_fix, check_pattern)` | Validate with optional auto-fix |
-| `estimate_vram(workflow)` | Estimate VRAM usage |
-| `check_model_fits(model, precision)` | Check if model fits in VRAM |
 
 ### Workflow Patterns (3 tools)
 
@@ -236,41 +227,15 @@ new_result = regenerate(
 | `list_workflow_templates()` | List available templates |
 | `get_template(name)` | Get template JSON |
 
-> **Moved to CLI:** `generate_workflow` → `mmf run`, `create_workflow_from_template` → `mmf run --template`, `batch_execute` → `mmf batch`, pipelines → `mmf pipeline`
-
-### Models (4 tools)
+### Prompt (1 tool)
 
 | Tool | Usage |
 |------|-------|
-| `search_civitai(query)` | Search Civitai (domain-validated) |
-| `download_model(url, type)` | Download from Civitai/HF (URL-validated) |
-| `get_model_info(path)` | Installed model info |
-| `list_installed_models(type)` | List installed models |
+| `enhance_prompt(prompt, model, style)` | LLM-powered prompt enhancement with model-specific quality tokens |
 
-### SOTA (1 tool)
-
-| Tool | Usage |
-|------|-------|
-| `sota_query(mode, ...)` | `mode`: category\|recommend\|check\|settings\|installed |
-
-> **Moved to CLI:** QA tools → `mmf qa`, asset analysis → `mmf assets`, style learning → `mmf style`, visualization → `mmf visualize`
-
-### Rate Limiting (3 tools)
-
-| Tool | Usage |
-|------|-------|
-| `get_rate_limit_status(tool_name)` | Per-tool rate limit status (remaining, reset time) |
-| `get_all_tools_rate_status()` | Rate status for all tools at once |
-| `get_rate_limit_summary()` | Brief dashboard summary |
-
-### Prompt & Performance (4 tools) - Round 2
-
-| Tool | Usage |
-|------|-------|
-| `enhance_prompt(prompt, model, style)` | LLM-powered prompt enhancement with model-specific quality tokens. Uses local Ollama, falls back to token injection |
-| `get_execution_profile(prompt_id)` | Per-node execution timing for completed workflows. Identifies slowest nodes for optimization |
-| `diff_workflows(workflow_a, workflow_b)` | Compare two workflows showing added/removed/modified nodes and params |
-| `get_compatibility_matrix()` | Model compatibility matrix: installed models, VRAM fit, supported workflow types |
+> **Moved to CLI (ROM-548):** `generate_workflow` → `mmf run`, `create_workflow_from_template` → `mmf run --template`, `batch_execute` → `mmf batch`, pipelines → `mmf pipeline`, QA → `mmf qa`, style learning → `mmf style`, visualization → `mmf visualize`
+>
+> **Moved to CLI (ROM-562):** `cleanup_assets` → `mmf assets cleanup`, `workflow_library` → `mmf workflow-lib`, `estimate_vram` → `mmf models estimate-vram`, `check_model_fits` → `mmf models check-fit`, `sota_query` → `mmf sota`, `search_civitai` → `mmf search-model`, `download_model` → `mmf install-model`, `get_model_info` → `mmf models info`, `list_installed_models` → `mmf models list`, `get_optimal_workflow_params` → `mmf models optimize`, `get_execution_profile` → `mmf profile`, `diff_workflows` → `mmf diff`, `get_compatibility_matrix` → `mmf models compatibility`, rate limiting tools → internal only
 
 ## MCP Resources (13 resources)
 
@@ -392,7 +357,7 @@ All external I/O is validated:
 | **URL validation** | `urlparse().hostname` + exact domain/subdomain matching. Allowed: civitai.com, huggingface.co, github.com, raw.githubusercontent.com |
 | **Publish sandboxing** | Path traversal check on filenames, blocklist on `set_publish_dir` (rejects `/etc`, `~/.ssh`, etc.) |
 | **Conditioning safety** | `_find_conditioning_nodes()` traces sampler connections to identify positive vs negative prompt nodes (prevents clobbering) |
-| **Rate limiting** | All 58 tools wrapped with `@mcp_tool_wrapper` providing per-tool rate limits + structured logging |
+| **Rate limiting** | All tools wrapped with `@mcp_tool_wrapper` providing per-tool rate limits + structured logging |
 
 ## Error Handling
 

@@ -60,6 +60,9 @@ from .cli_commands.models import (  # noqa: F401
     cmd_models_constraints,
     cmd_models_compatibility,
     cmd_models_optimize,
+    cmd_models_estimate_vram,
+    cmd_models_check_fit,
+    cmd_models_info,
     cmd_search_model,
     cmd_install_model,
 )
@@ -74,8 +77,10 @@ from .cli_commands.system import (  # noqa: F401
     cmd_status,
     cmd_progress,
     cmd_regenerate,
+    cmd_sota,
+    cmd_diff,
 )
-from .cli_commands.assets import cmd_assets_list, cmd_assets_metadata, cmd_publish, cmd_workflow_lib  # noqa: F401
+from .cli_commands.assets import cmd_assets_list, cmd_assets_metadata, cmd_assets_cleanup, cmd_publish, cmd_workflow_lib  # noqa: F401
 from .cli_commands.pipeline import cmd_pipeline, cmd_telestyle  # noqa: F401
 
 # Import register functions

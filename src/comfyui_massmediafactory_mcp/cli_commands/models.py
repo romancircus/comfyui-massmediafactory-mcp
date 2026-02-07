@@ -1,6 +1,6 @@
-"""Model commands: list, constraints, compatibility, optimize, search, install."""
+"""Model commands: list, constraints, compatibility, optimize, search, install, estimate-vram, check-fit, info."""
 
-from ..cli_utils import EXIT_ERROR, EXIT_OK, _add_common_args, _is_pretty, _output
+from ..cli_utils import EXIT_ERROR, EXIT_OK, _add_common_args, _is_pretty, _output, _read_workflow
 
 
 def cmd_models_list(args):
@@ -64,6 +64,43 @@ def cmd_install_model(args):
     return EXIT_OK if "error" not in result else EXIT_ERROR
 
 
+def cmd_models_estimate_vram(args):
+    """Estimate VRAM usage for a workflow."""
+    from .. import vram
+
+    pretty = args.pretty or _is_pretty()
+    wf = _read_workflow(args)
+    if wf is None:
+        from ..cli_utils import _error
+
+        _output(_error("Provide workflow file or pipe JSON via stdin", "INVALID_PARAMS"), pretty)
+        return EXIT_ERROR
+
+    result = vram.estimate_workflow_vram(wf)
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
+def cmd_models_check_fit(args):
+    """Check if a model fits in VRAM."""
+    from .. import vram
+
+    pretty = args.pretty or _is_pretty()
+    result = vram.check_model_fits(args.model, args.precision or "default")
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
+def cmd_models_info(args):
+    """Get info about an installed model."""
+    from .. import models as models_mod
+
+    pretty = args.pretty or _is_pretty()
+    result = models_mod.get_model_info(args.model_path)
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
 def register_commands(sub, add_common=_add_common_args, **_kwargs):
     """Register model subcommands."""
     p_models = sub.add_parser("models", help="Model operations")
@@ -88,6 +125,22 @@ def register_commands(sub, add_common=_add_common_args, **_kwargs):
     p_mo.add_argument("--task", help="Task type: i2v, t2v, t2i")
     add_common(p_mo)
     p_mo.set_defaults(func=cmd_models_optimize)
+
+    p_ev = models_sub.add_parser("estimate-vram", help="Estimate VRAM for workflow")
+    p_ev.add_argument("workflow", nargs="?", default="-", help="Workflow file (or - for stdin)")
+    add_common(p_ev)
+    p_ev.set_defaults(func=cmd_models_estimate_vram)
+
+    p_cf = models_sub.add_parser("check-fit", help="Check if model fits in VRAM")
+    p_cf.add_argument("model", help="Model name or path")
+    p_cf.add_argument("--precision", help="Precision: fp32|fp16|bf16|fp8|default")
+    add_common(p_cf)
+    p_cf.set_defaults(func=cmd_models_check_fit)
+
+    p_mi = models_sub.add_parser("info", help="Get installed model info")
+    p_mi.add_argument("model_path", help="Model path")
+    add_common(p_mi)
+    p_mi.set_defaults(func=cmd_models_info)
 
     # search-model
     p_sm = sub.add_parser("search-model", help="Search Civitai for models")
