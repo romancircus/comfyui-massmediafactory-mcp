@@ -65,10 +65,23 @@ TIMING_ESTIMATES = {
     ("ltx2", "i2v"): {"full_gpu": 50, "gpu_with_offload": 100, "cpu_offload": 160},
     ("flux2", "t2i"): {"full_gpu": 15, "gpu_with_offload": 25, "cpu_offload": 45},
     ("qwen", "t2i"): {"full_gpu": 20, "gpu_with_offload": 35, "cpu_offload": 60},
+    ("qwen_edit", "edit"): {"full_gpu": 25, "gpu_with_offload": 40, "cpu_offload": 70},
+    ("sdxl", "t2i"): {"full_gpu": 8, "gpu_with_offload": 12, "cpu_offload": 25},
+    ("hunyuan15", "t2v"): {"full_gpu": 120, "gpu_with_offload": 240, "cpu_offload": 480},
+    ("hunyuan15", "i2v"): {"full_gpu": 130, "gpu_with_offload": 260, "cpu_offload": 500},
+    ("z_turbo", "t2i"): {"full_gpu": 3, "gpu_with_offload": 5, "cpu_offload": 10},
+    ("cogvideox_5b", "t2v"): {"full_gpu": 90, "gpu_with_offload": 180, "cpu_offload": 360},
 }
 
-# Node IDs that accept hardware params (by class_type → input keys)
+# ============================================================================
+# Node class → overridable hardware params
+# ============================================================================
+# Maps each ComfyUI node class to the abstract parameter names it accepts.
+# Abstract params: load_device, quantization, attention_mode, force_offload
+# The dict value maps abstract_param → actual node input name.
+
 HARDWARE_PARAMS_MAP = {
+    # --- WAN (WanVideoWrapper pipeline) ---
     "WanVideoModelLoader": {
         "load_device": "load_device",
         "quantization": "quantization",
@@ -92,6 +105,40 @@ HARDWARE_PARAMS_MAP = {
     "WanVideoImageToVideoEncode": {
         "force_offload": "force_offload",
     },
+    # --- WAN (native ComfyUI pipeline) ---
+    "UNETLoader": {
+        "load_device": "weight_dtype",  # UNETLoader uses weight_dtype for precision control
+    },
+    # --- LTX-2 ---
+    "CheckpointLoaderSimple": {
+        # No hardware params exposed directly — controlled by ComfyUI launch flags
+    },
+    # --- HunyuanVideo ---
+    "HunyuanVideoModelLoader": {
+        "load_device": "load_device",
+        "quantization": "quantization",
+    },
+    "HunyuanVideoSampler": {
+        "force_offload": "force_offload",
+    },
+    # --- CogVideoX ---
+    "CogVideoLoader": {
+        "quantization": "quantization",
+    },
+}
+
+# VRAM key mapping: model registry key → vram.py key
+_VRAM_KEYS = {
+    "wan26": "wan2.6",
+    "wan": "wan",
+    "ltx2": "ltx-2",
+    "flux2": "flux2",
+    "qwen": "qwen-image",
+    "qwen_edit": "qwen-image",
+    "sdxl": "sdxl",
+    "hunyuan15": "hunyuan-video",
+    "z_turbo": "z-image-turbo",
+    "cogvideox_5b": "unknown",
 }
 
 
@@ -168,15 +215,7 @@ def _select_load_strategy(available_vram_gb: float) -> dict:
 
 def _select_quantization(model: str, compute_capability: Optional[tuple]) -> str:
     """Select optimal quantization for model + GPU combo."""
-    # Normalize model name for VRAM lookup
-    vram_keys = {
-        "wan26": "wan2.6",
-        "wan": "wan",
-        "ltx2": "ltx-2",
-        "flux2": "flux2",
-        "qwen": "qwen-image",
-    }
-    vram_key = vram_keys.get(model, model)
+    vram_key = _VRAM_KEYS.get(model, model)
     vram_table = MODEL_VRAM_ESTIMATES.get(vram_key, {})
 
     # If model recommends fp8 (large video models), use compute-optimal fp8
@@ -233,10 +272,10 @@ def get_optimal_workflow_params(
     # Select quantization
     quantization = _select_quantization(model, compute_capability)
 
-    # Attention mode: always sdpa (best for modern GPUs)
+    # Attention mode: sdpa is universally best for modern GPUs
     attention_mode = "sdpa"
 
-    # Generate workflow overrides (node_id → param → value)
+    # Generate workflow overrides for ALL node types in the workflow
     workflow_overrides = _build_workflow_overrides(
         load_device=strategy["load_device"],
         quantization=quantization,
@@ -290,24 +329,29 @@ def _build_workflow_overrides(
 ) -> dict:
     """Build node-level overrides dict keyed by class_type.
 
+    Iterates HARDWARE_PARAMS_MAP to generate overrides for ALL node types
+    that accept hardware parameters (WAN, LTX, FLUX, HunyuanVideo, CogVideoX, etc.).
+
     Returns: {"WanVideoModelLoader": {"load_device": "main_device", ...}, ...}
     """
-    overrides = {}
-
-    # Model loader gets load_device, quantization, attention_mode
-    overrides["WanVideoModelLoader"] = {
+    # Map abstract param names to their resolved values
+    param_values = {
         "load_device": load_device,
         "quantization": quantization,
         "attention_mode": attention_mode,
-    }
-
-    # Sampler force_offload depends on whether we're fully on GPU
-    overrides["WanVideoSampler"] = {
         "force_offload": force_offload_sampler,
     }
 
-    # Text/CLIP encoders stay on offload_device (they're small, loaded once)
-    # No override needed — templates already set these to offload_device
+    overrides = {}
+    for class_type, param_map in HARDWARE_PARAMS_MAP.items():
+        if not param_map:
+            continue
+        node_overrides = {}
+        for abstract_param, node_input_name in param_map.items():
+            if abstract_param in param_values:
+                node_overrides[node_input_name] = param_values[abstract_param]
+        if node_overrides:
+            overrides[class_type] = node_overrides
 
     return overrides
 

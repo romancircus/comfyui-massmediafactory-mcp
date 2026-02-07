@@ -5,6 +5,49 @@ Cross-references installed models, VRAM availability, and supported workflow typ
 """
 
 
+# Model name keywords for matching installed filenames.
+# Each list contains substrings that, if found in any installed checkpoint/unet/lora
+# filename, indicate the model is available.
+MODEL_KEYWORDS = {
+    "flux2": ["flux"],
+    "ltx2": ["ltx"],
+    "wan26": ["wan"],
+    "qwen": ["qwen"],
+    "qwen_edit": ["qwen"],
+    "sdxl": ["sdxl", "sd_xl"],
+    "hunyuan15": ["hunyuan"],
+    "z_turbo": ["z-image", "z_image", "zimage", "z_turbo", "z-turbo"],
+    "cogvideox_5b": ["cogvideo", "cogvideox"],
+}
+
+# Approximate VRAM requirements (GB, at recommended precision with overhead).
+# Derived from vram.py MODEL_VRAM_ESTIMATES defaults + 4GB overhead.
+VRAM_REQUIREMENTS = {
+    "flux2": 12.0,
+    "ltx2": 8.0,
+    "wan26": 12.0,
+    "qwen": 10.0,
+    "qwen_edit": 10.0,
+    "sdxl": 6.0,
+    "hunyuan15": 14.0,
+    "z_turbo": 8.0,
+    "cogvideox_5b": 10.0,
+}
+
+# Workflow type mappings (what each model can do).
+WORKFLOW_TYPES = {
+    "flux2": ["t2i"],
+    "ltx2": ["t2v", "i2v"],
+    "wan26": ["t2v", "i2v"],
+    "qwen": ["t2i"],
+    "qwen_edit": ["edit"],
+    "sdxl": ["t2i"],
+    "hunyuan15": ["t2v", "i2v"],
+    "z_turbo": ["t2i"],
+    "cogvideox_5b": ["t2v"],
+}
+
+
 def get_compatibility_matrix() -> dict:
     """
     Get model compatibility matrix showing which models work with which workflow types.
@@ -47,53 +90,24 @@ def get_compatibility_matrix() -> dict:
     except Exception:
         pass
 
-    # Get installed models
+    # Get installed models from all sources
     installed_checkpoints = set()
     installed_unets = set()
+    installed_loras = set()
     try:
         checkpoints = discovery.list_checkpoints()
         if isinstance(checkpoints, dict) and "checkpoints" in checkpoints:
             installed_checkpoints = {c.lower() for c in checkpoints["checkpoints"]}
         unets = discovery.list_unets()
-        if isinstance(unets, dict) and "unet" in unets:
-            installed_unets = {u.lower() for u in unets["unet"]}
+        if isinstance(unets, dict) and "unets" in unets:
+            installed_unets = {u.lower() for u in unets["unets"]}
+        loras = discovery.list_loras()
+        if isinstance(loras, dict) and "loras" in loras:
+            installed_loras = {lr.lower() for lr in loras["loras"]}
     except Exception:
         pass
 
-    all_installed = installed_checkpoints | installed_unets
-
-    # VRAM requirements (approximate, in GB)
-    VRAM_REQUIREMENTS = {
-        "flux2": 12.0,
-        "ltx2": 8.0,
-        "wan26": 12.0,
-        "qwen": 10.0,
-        "qwen_edit": 10.0,
-        "sdxl": 6.0,
-        "hunyuan15": 14.0,
-    }
-
-    # Model name keywords for matching installed files
-    MODEL_KEYWORDS = {
-        "flux2": ["flux"],
-        "ltx2": ["ltx"],
-        "wan26": ["wan"],
-        "qwen": ["qwen"],
-        "qwen_edit": ["qwen"],
-        "sdxl": ["sdxl", "sd_xl"],
-        "hunyuan15": ["hunyuan"],
-    }
-
-    # Workflow type mappings
-    WORKFLOW_TYPES = {
-        "flux2": ["t2i"],
-        "ltx2": ["t2v", "i2v"],
-        "wan26": ["t2v", "i2v"],
-        "qwen": ["t2i"],
-        "qwen_edit": ["edit"],
-        "sdxl": ["t2i"],
-        "hunyuan15": ["t2v", "i2v"],
-    }
+    all_installed = installed_checkpoints | installed_unets | installed_loras
 
     models = []
     recommendations = []
@@ -159,4 +173,9 @@ def get_compatibility_matrix() -> dict:
         "recommendations": recommendations,
         "total_models": len(models),
         "installed_count": sum(1 for m in models if m["installed"]),
+        "detection_sources": {
+            "checkpoints": len(installed_checkpoints),
+            "unets": len(installed_unets),
+            "loras": len(installed_loras),
+        },
     }
