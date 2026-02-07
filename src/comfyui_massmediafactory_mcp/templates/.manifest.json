@@ -1,87 +1,35 @@
 {
-  "qwen_controlnet_bio.json": {
+  "wan26_i2v_breakthrough.json": {
     "version": "1.0.0",
-    "hub_hash": "f6c8090dce955d2e"
-  },
-  "audio_tts_f5.json": {
-    "version": "1.0.0",
-    "hub_hash": "062dcdac4506ae22"
-  },
-  "telestyle_image.json": {
-    "version": "1.0.0",
-    "hub_hash": "61f436517cf2a354"
-  },
-  "qwen3_tts_voice_clone.json": {
-    "version": "1.0.0",
-    "hub_hash": "90f2989f521da1d8"
-  },
-  "flux2_txt2img.json": {
-    "version": "1.0.0",
-    "hub_hash": "b25d2cc1546b22a0"
-  },
-  "ltx2_audio_reactive.json": {
-    "version": "1.0.0",
-    "hub_hash": "45e16b73635f92c1"
-  },
-  "video_inpaint.json": {
-    "version": "1.0.0",
-    "hub_hash": "14de8db4379c115f"
-  },
-  "z_turbo_txt2img.json": {
-    "version": "1.0.0",
-    "hub_hash": "bab0f13b299fed56"
-  },
-  "flux_kontext_edit.json": {
-    "version": "1.0.0",
-    "hub_hash": "0c98e4c08b007bc7"
-  },
-  "ltx2_txt2vid_distilled.json": {
-    "version": "1.0.0",
-    "hub_hash": "698950b9d44a34b9"
-  },
-  "qwen3_tts_custom_voice.json": {
-    "version": "1.0.0",
-    "hub_hash": "40088b5c5bb5ec33"
+    "hub_hash": "d6a166694659e6cc"
   },
   "qwen3_tts_voice_design.json": {
     "version": "1.0.0",
     "hub_hash": "704e469e21732052"
   },
-  "wan22_s2v.json": {
+  "flux2_grounding_dino_inpaint.json": {
     "version": "1.0.0",
-    "hub_hash": "d038ab9afcdb1e3d"
+    "hub_hash": "ad5861b1af7730db"
   },
-  "flux2_edit_by_text.json": {
+  "video_inpaint.json": {
     "version": "1.0.0",
-    "hub_hash": "b2e91a549ffefcb7"
+    "hub_hash": "dea38dded462f801"
   },
-  "hunyuan15_txt2vid.json": {
+  "sdxl_txt2img.json": {
     "version": "1.0.0",
-    "hub_hash": "96f48be2480a99be"
-  },
-  "audio_tts_voice_clone.json": {
-    "version": "1.0.0",
-    "hub_hash": "1482f879df258bd9"
-  },
-  "flux2_union_controlnet.json": {
-    "version": "1.0.0",
-    "hub_hash": "27841370efc699e3"
-  },
-  "qwen_poster_design.json": {
-    "version": "1.0.0",
-    "hub_hash": "0d7b73c76b9fcf03"
-  },
-  "wan22_i2v_a14b.json": {
-    "version": "1.0.0",
-    "hub_hash": "77071c4203822079"
-  },
-  "mmaudio_v2a.json": {
-    "version": "1.0.0",
-    "hub_hash": "3accad961706cdbb"
+    "hub_hash": "6a24f2c82c486a2a"
   },
   "telestyle_video.json": {
     "version": "1.0.0",
     "hub_hash": "395630689c976325"
+  },
+  "ltx2_img2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "ea2be707b8003ab4"
+  },
+  "flux2_union_controlnet.json": {
+    "version": "1.0.0",
+    "hub_hash": "e725a04c24e0e679"
   },
   "wan26_img2vid.json": {
     "version": "1.0.0",
@@ -91,56 +39,112 @@
     "version": "1.0.0",
     "hub_hash": "d2f0a2438c740099"
   },
-  "qwen_txt2img.json": {
+  "flux2_face_id.json": {
     "version": "1.0.0",
-    "hub_hash": "f8896775833dad8b"
-  },
-  "chatterbox_tts.json": {
-    "version": "1.0.0",
-    "hub_hash": "02066fec0e476770"
+    "hub_hash": "c5d0ced0ce16a243"
   },
   "flux2_lora_stack.json": {
     "version": "1.0.0",
-    "hub_hash": "2125611c3a6593f6"
-  },
-  "qwen_edit_background.json": {
-    "version": "1.0.0",
-    "hub_hash": "104cbe9c42f7c9c3"
+    "hub_hash": "2c7821f84ccb2616"
   },
   "video_stitch.json": {
     "version": "1.0.0",
     "hub_hash": "ed3fccbd140baaa8"
   },
+  "qwen3_tts_custom_voice.json": {
+    "version": "1.0.0",
+    "hub_hash": "40088b5c5bb5ec33"
+  },
+  "flux2_ultimate_upscale.json": {
+    "version": "1.0.0",
+    "hub_hash": "0b499eaed9c2b3f2"
+  },
+  "ltx2_audio_reactive.json": {
+    "version": "1.0.0",
+    "hub_hash": "45e16b73635f92c1"
+  },
+  "qwen3_tts_voice_clone.json": {
+    "version": "1.0.0",
+    "hub_hash": "90f2989f521da1d8"
+  },
   "wan26_txt2vid.json": {
     "version": "1.0.0",
     "hub_hash": "2b7deea83adc854d"
   },
-  "ltx2_img2vid.json": {
+  "audio_tts_voice_clone.json": {
     "version": "1.0.0",
-    "hub_hash": "ea2be707b8003ab4"
+    "hub_hash": "1482f879df258bd9"
   },
-  "flux2_face_id.json": {
+  "qwen_controlnet_bio.json": {
     "version": "1.0.0",
-    "hub_hash": "9b6e60d09b89a646"
+    "hub_hash": "f6c8090dce955d2e"
+  },
+  "qwen_poster_design.json": {
+    "version": "1.0.0",
+    "hub_hash": "0d7b73c76b9fcf03"
   },
   "ltx2_i2v_distilled.json": {
     "version": "1.0.0",
     "hub_hash": "684b0b2696b7dca3"
   },
-  "sdxl_txt2img.json": {
+  "wan22_s2v.json": {
     "version": "1.0.0",
-    "hub_hash": "6a24f2c82c486a2a"
+    "hub_hash": "d038ab9afcdb1e3d"
   },
-  "flux2_ultimate_upscale.json": {
+  "qwen_edit_background.json": {
     "version": "1.0.0",
-    "hub_hash": "379039f4360af0f7"
+    "hub_hash": "104cbe9c42f7c9c3"
   },
-  "flux2_grounding_dino_inpaint.json": {
+  "flux2_edit_by_text.json": {
     "version": "1.0.0",
-    "hub_hash": "7e1b34dd15973e07"
+    "hub_hash": "7a87459122f7afcf"
   },
   "ltx2_txt2vid.json": {
     "version": "1.0.0",
     "hub_hash": "5cfb520c82b8525c"
+  },
+  "ltx2_txt2vid_distilled.json": {
+    "version": "1.0.0",
+    "hub_hash": "698950b9d44a34b9"
+  },
+  "flux_kontext_edit.json": {
+    "version": "1.0.0",
+    "hub_hash": "a0574460d9f76ba6"
+  },
+  "telestyle_image.json": {
+    "version": "1.0.0",
+    "hub_hash": "61f436517cf2a354"
+  },
+  "chatterbox_tts.json": {
+    "version": "1.0.0",
+    "hub_hash": "02066fec0e476770"
+  },
+  "audio_tts_f5.json": {
+    "version": "1.0.0",
+    "hub_hash": "062dcdac4506ae22"
+  },
+  "wan22_i2v_a14b.json": {
+    "version": "1.0.0",
+    "hub_hash": "77071c4203822079"
+  },
+  "flux2_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "df8a35ecf8ad409b"
+  },
+  "z_turbo_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "bab0f13b299fed56"
+  },
+  "hunyuan15_txt2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "96f48be2480a99be"
+  },
+  "mmaudio_v2a.json": {
+    "version": "1.0.0",
+    "hub_hash": "3accad961706cdbb"
+  },
+  "qwen_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "f8896775833dad8b"
   }
 }

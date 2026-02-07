@@ -1,0 +1,192 @@
+{
+  "_meta": {
+    "description": "WAN 2.1 I2V BREAKTHROUGH pipeline - best quality recipe recovered from FIRE-006 metadata",
+    "model": "Wan 2.1 I2V 14B",
+    "type": "img2vid",
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "SHIFT",
+      "WIDTH",
+      "HEIGHT",
+      "NOISE_AUG"
+    ],
+    "defaults": {
+      "SEED": 42,
+      "FRAMES": 81,
+      "FPS": 16,
+      "STEPS": 35,
+      "CFG": 6.0,
+      "SHIFT": 5.0,
+      "WIDTH": 832,
+      "HEIGHT": 480,
+      "NOISE_AUG": 0.2,
+      "PROMPT": "smooth motion, high quality video",
+      "NEGATIVE": "static subject, frozen creature, camera movement, camera motion, panning, zooming, orbiting, dolly, static image, no motion, blurry, distorted, ugly, worst quality, low resolution, jerky motion, morphing, shape-shifting"
+    },
+    "vram_min": 24,
+    "tags": [
+      "model:wan",
+      "quality:breakthrough",
+      "repo:pokedex"
+    ],
+    "version": "1.0.0",
+    "notes": "3 critical differences from wan26_img2vid: (1) quantization disabled (full bf16), (2) CLIPVisionLoader + clip_vision_h (not LoadWanVideoClipTextEncoder + open-clip-xlm-roberta), (3) WanVideoTextEncodeCached with disk cache (not separate T5 loader + WanVideoTextEncode). Recovered from FIRE-006_BREAKTHROUGH_20260131.mp4 metadata.",
+    "hub_hash": "d6a166694659e6cc"
+  },
+  "1": {
+    "class_type": "WanVideoModelLoader",
+    "inputs": {
+      "model": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+      "base_precision": "bf16",
+      "quantization": "disabled",
+      "load_device": "offload_device",
+      "attention_mode": "sdpa"
+    }
+  },
+  "2": {
+    "class_type": "WanVideoVAELoader",
+    "inputs": {
+      "model_name": "wan_2.1_vae.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "3": {
+    "class_type": "CLIPVisionLoader",
+    "inputs": {
+      "clip_name": "clip_vision_h.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "5": {
+    "class_type": "WanVideoClipVisionEncode",
+    "inputs": {
+      "clip_vision": [
+        "3",
+        0
+      ],
+      "image_1": [
+        "4",
+        0
+      ],
+      "strength_1": 1.0,
+      "strength_2": 1.0,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": true
+    }
+  },
+  "6": {
+    "class_type": "WanVideoImageToVideoEncode",
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "num_frames": "{{FRAMES}}",
+      "noise_aug_strength": "{{NOISE_AUG}}",
+      "start_latent_strength": 1.0,
+      "end_latent_strength": 1.0,
+      "force_offload": true,
+      "vae": [
+        "2",
+        0
+      ],
+      "clip_embeds": [
+        "5",
+        0
+      ],
+      "start_image": [
+        "4",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "WanVideoTextEncodeCached",
+    "inputs": {
+      "model_name": "umt5_xxl_fp16.safetensors",
+      "precision": "bf16",
+      "positive_prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "quantization": "disabled",
+      "use_disk_cache": true,
+      "device": "gpu"
+    }
+  },
+  "8": {
+    "class_type": "WanVideoSampler",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "image_embeds": [
+        "6",
+        0
+      ],
+      "text_embeds": [
+        "7",
+        0
+      ],
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "shift": "{{SHIFT}}",
+      "seed": "{{SEED}}",
+      "force_offload": true,
+      "scheduler": "unipc",
+      "riflex_freq_index": 0,
+      "denoise_strength": 1.0,
+      "rope_function": "comfy"
+    }
+  },
+  "9": {
+    "class_type": "WanVideoDecode",
+    "inputs": {
+      "vae": [
+        "2",
+        0
+      ],
+      "samples": [
+        "8",
+        0
+      ],
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128
+    }
+  },
+  "10": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "9",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "11": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "10",
+        0
+      ],
+      "filename_prefix": "wan26_breakthrough",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

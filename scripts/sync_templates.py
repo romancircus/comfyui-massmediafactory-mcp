@@ -76,6 +76,7 @@ TIER2_TEMPLATES = [
     "qwen3_tts_voice_design.json",
     "wan22_s2v.json",
     "wan22_i2v_a14b.json",
+    "wan26_i2v_breakthrough.json",
     "qwen_controlnet_bio.json",
     "flux_kontext_edit.json",
     "z_turbo_txt2img.json",
