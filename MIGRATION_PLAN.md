@@ -858,10 +858,11 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] Migrate runViral3DMusicVideo.js (remove HttpAdapter) [186827a]
 - [x] Update generateGroupKeys.js hints to mmf CLI [186827a]
 - [x] Update KDH CLAUDE.md [a0927a9]
-- [ ] Migrate BabyCharacterGenerator.js (uses ComfyUIClient, not Executor - low priority)
-- [ ] Delete core ComfyUI files (5 files, 3,524 lines) - blocked until BabyCharacterGenerator migrated
-- [ ] Delete test scripts (testComfyUIExecutor.js, testFairComparison.js, testGroupKeyIntegration.js, checkBabyGenSetup.js)
-- [ ] Delete mcp_templates/ (17 files)
+- [x] Migrate BabyCharacterGenerator.js (ComfyUIClient → mmf.js execute()) [64a1891]
+- [x] Delete core ComfyUI files (4 tracked: 3,266 lines deleted) [64a1891]
+- [x] Update checkBabyGenSetup.js to use mmf stats [64a1891]
+- [x] Add execute() to mmf.js for raw workflow stdin pipe [64a1891]
+- Note: HttpAdapter, test scripts, mcp_templates/ were untracked (not in git)
 
 ### Wave 4: Pokedex Migration (1-2 sessions)
 - [x] Create src/adapters/mmf_client.py (435 lines, 8 functions) [12c0802]
@@ -873,14 +874,17 @@ Compare using `imv` side-by-side. If quality differs, investigate parameter mism
 - [x] Update Pokedex CLAUDE.md [5e0e4b4]
 - [ ] Remove torch/diffusers/transformers from requirements.txt (flux1 LoRA still needs diffusers)
 - [ ] Run full batch test + QA compare (requires live ComfyUI)
-- [ ] Delete old adapters (comfyui_client.py, mcp_adapter.py)
-- [ ] Delete workflows/ and mcp_templates/
+- [x] Delete mcp_adapter.py (465 lines, zero imports) [0ba0fb0]
+- Note: comfyui_client.py stays (audio_generator.py MMAudio dependency)
+- Note: job_registry.py stays (batch_wan_videos.py dependency)
+- [ ] Delete workflows/ (when batch_wan_videos.py migrated)
+- [ ] Delete mcp_templates/ (when batch_wan_videos.py migrated)
 
 ### Wave 5: Cleanup & Documentation (1 session)
 - [x] Update main CLAUDE.md (mark MCP as legacy) [59e87f0]
 - [x] Update MEMORY.md with migration learnings
 - [x] MCP test suite: 321 tests passing
-- [ ] Update /mmf skill with all new templates and commands
+- [x] Update /mmf skill: 4 new templates, execute/wait commands, z_turbo/wan22_s2v constraints
 - [ ] jinyang: update template fetch to use `mmf templates get`
 - [ ] Optional: Reduce MCP server to ~15 discovery-only tools
 - [ ] Sync templates to spoke repos
