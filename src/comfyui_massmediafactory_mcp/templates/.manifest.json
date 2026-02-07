@@ -1,35 +1,51 @@
 {
-  "qwen_txt2img.json": {
+  "qwen_controlnet_bio.json": {
     "version": "1.0.0",
-    "hub_hash": "f8896775833dad8b"
+    "hub_hash": "f6c8090dce955d2e"
   },
-  "qwen_poster_design.json": {
+  "audio_tts_f5.json": {
     "version": "1.0.0",
-    "hub_hash": "0d7b73c76b9fcf03"
+    "hub_hash": "062dcdac4506ae22"
   },
-  "video_stitch.json": {
+  "telestyle_image.json": {
     "version": "1.0.0",
-    "hub_hash": "ed3fccbd140baaa8"
+    "hub_hash": "61f436517cf2a354"
+  },
+  "qwen3_tts_voice_clone.json": {
+    "version": "1.0.0",
+    "hub_hash": "90f2989f521da1d8"
+  },
+  "flux2_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "b25d2cc1546b22a0"
+  },
+  "ltx2_audio_reactive.json": {
+    "version": "1.0.0",
+    "hub_hash": "45e16b73635f92c1"
+  },
+  "video_inpaint.json": {
+    "version": "1.0.0",
+    "hub_hash": "14de8db4379c115f"
+  },
+  "z_turbo_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "bab0f13b299fed56"
+  },
+  "flux_kontext_edit.json": {
+    "version": "1.0.0",
+    "hub_hash": "0c98e4c08b007bc7"
   },
   "ltx2_txt2vid_distilled.json": {
     "version": "1.0.0",
     "hub_hash": "698950b9d44a34b9"
   },
-  "chatterbox_tts.json": {
+  "qwen3_tts_custom_voice.json": {
     "version": "1.0.0",
-    "hub_hash": "02066fec0e476770"
+    "hub_hash": "40088b5c5bb5ec33"
   },
-  "hunyuan15_txt2vid.json": {
+  "qwen3_tts_voice_design.json": {
     "version": "1.0.0",
-    "hub_hash": "96f48be2480a99be"
-  },
-  "ltx2_i2v_distilled.json": {
-    "version": "1.0.0",
-    "hub_hash": "684b0b2696b7dca3"
-  },
-  "ltx2_img2vid.json": {
-    "version": "1.0.0",
-    "hub_hash": "ea2be707b8003ab4"
+    "hub_hash": "704e469e21732052"
   },
   "wan22_s2v.json": {
     "version": "1.0.0",
@@ -39,104 +55,92 @@
     "version": "1.0.0",
     "hub_hash": "b2e91a549ffefcb7"
   },
-  "wan22_i2v_a14b.json": {
+  "hunyuan15_txt2vid.json": {
     "version": "1.0.0",
-    "hub_hash": "77071c4203822079"
-  },
-  "flux2_lora_stack.json": {
-    "version": "1.0.0",
-    "hub_hash": "2125611c3a6593f6"
-  },
-  "hunyuan15_img2vid.json": {
-    "version": "1.0.0",
-    "hub_hash": "d2f0a2438c740099"
-  },
-  "flux2_grounding_dino_inpaint.json": {
-    "version": "1.0.0",
-    "hub_hash": "7e1b34dd15973e07"
-  },
-  "audio_tts_f5.json": {
-    "version": "1.0.0",
-    "hub_hash": "062dcdac4506ae22"
-  },
-  "flux2_union_controlnet.json": {
-    "version": "1.0.0",
-    "hub_hash": "27841370efc699e3"
-  },
-  "wan26_img2vid.json": {
-    "version": "1.0.0",
-    "hub_hash": "3907e59c35348e91"
-  },
-  "ltx2_audio_reactive.json": {
-    "version": "1.0.0",
-    "hub_hash": "45e16b73635f92c1"
-  },
-  "flux2_txt2img.json": {
-    "version": "1.0.0",
-    "hub_hash": "b25d2cc1546b22a0"
-  },
-  "flux2_ultimate_upscale.json": {
-    "version": "1.0.0",
-    "hub_hash": "379039f4360af0f7"
-  },
-  "ltx2_txt2vid.json": {
-    "version": "1.0.0",
-    "hub_hash": "5cfb520c82b8525c"
-  },
-  "qwen3_tts_voice_clone.json": {
-    "version": "1.0.0",
-    "hub_hash": "90f2989f521da1d8"
-  },
-  "telestyle_video.json": {
-    "version": "1.0.0",
-    "hub_hash": "395630689c976325"
-  },
-  "flux_kontext_edit.json": {
-    "version": "1.0.0",
-    "hub_hash": "0c98e4c08b007bc7"
-  },
-  "z_turbo_txt2img.json": {
-    "version": "1.0.0",
-    "hub_hash": "bab0f13b299fed56"
-  },
-  "wan26_txt2vid.json": {
-    "version": "1.0.0",
-    "hub_hash": "2b7deea83adc854d"
-  },
-  "flux2_face_id.json": {
-    "version": "1.0.0",
-    "hub_hash": "9b6e60d09b89a646"
-  },
-  "sdxl_txt2img.json": {
-    "version": "1.0.0",
-    "hub_hash": "6a24f2c82c486a2a"
-  },
-  "video_inpaint.json": {
-    "version": "1.0.0",
-    "hub_hash": "14de8db4379c115f"
-  },
-  "qwen3_tts_voice_design.json": {
-    "version": "1.0.0",
-    "hub_hash": "704e469e21732052"
-  },
-  "qwen_edit_background.json": {
-    "version": "1.0.0",
-    "hub_hash": "104cbe9c42f7c9c3"
-  },
-  "qwen3_tts_custom_voice.json": {
-    "version": "1.0.0",
-    "hub_hash": "40088b5c5bb5ec33"
+    "hub_hash": "96f48be2480a99be"
   },
   "audio_tts_voice_clone.json": {
     "version": "1.0.0",
     "hub_hash": "1482f879df258bd9"
   },
-  "telestyle_image.json": {
+  "flux2_union_controlnet.json": {
     "version": "1.0.0",
-    "hub_hash": "61f436517cf2a354"
+    "hub_hash": "27841370efc699e3"
   },
-  "qwen_controlnet_bio.json": {
+  "qwen_poster_design.json": {
     "version": "1.0.0",
-    "hub_hash": "f6c8090dce955d2e"
+    "hub_hash": "0d7b73c76b9fcf03"
+  },
+  "wan22_i2v_a14b.json": {
+    "version": "1.0.0",
+    "hub_hash": "77071c4203822079"
+  },
+  "mmaudio_v2a.json": {
+    "version": "1.0.0",
+    "hub_hash": "3accad961706cdbb"
+  },
+  "telestyle_video.json": {
+    "version": "1.0.0",
+    "hub_hash": "395630689c976325"
+  },
+  "wan26_img2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "3907e59c35348e91"
+  },
+  "hunyuan15_img2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "d2f0a2438c740099"
+  },
+  "qwen_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "f8896775833dad8b"
+  },
+  "chatterbox_tts.json": {
+    "version": "1.0.0",
+    "hub_hash": "02066fec0e476770"
+  },
+  "flux2_lora_stack.json": {
+    "version": "1.0.0",
+    "hub_hash": "2125611c3a6593f6"
+  },
+  "qwen_edit_background.json": {
+    "version": "1.0.0",
+    "hub_hash": "104cbe9c42f7c9c3"
+  },
+  "video_stitch.json": {
+    "version": "1.0.0",
+    "hub_hash": "ed3fccbd140baaa8"
+  },
+  "wan26_txt2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "2b7deea83adc854d"
+  },
+  "ltx2_img2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "ea2be707b8003ab4"
+  },
+  "flux2_face_id.json": {
+    "version": "1.0.0",
+    "hub_hash": "9b6e60d09b89a646"
+  },
+  "ltx2_i2v_distilled.json": {
+    "version": "1.0.0",
+    "hub_hash": "684b0b2696b7dca3"
+  },
+  "sdxl_txt2img.json": {
+    "version": "1.0.0",
+    "hub_hash": "6a24f2c82c486a2a"
+  },
+  "flux2_ultimate_upscale.json": {
+    "version": "1.0.0",
+    "hub_hash": "379039f4360af0f7"
+  },
+  "flux2_grounding_dino_inpaint.json": {
+    "version": "1.0.0",
+    "hub_hash": "7e1b34dd15973e07"
+  },
+  "ltx2_txt2vid.json": {
+    "version": "1.0.0",
+    "hub_hash": "5cfb520c82b8525c"
   }
 }

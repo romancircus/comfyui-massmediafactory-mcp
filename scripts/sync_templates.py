@@ -79,6 +79,7 @@ TIER2_TEMPLATES = [
     "qwen_controlnet_bio.json",
     "flux_kontext_edit.json",
     "z_turbo_txt2img.json",
+    "mmaudio_v2a.json",
 ]
 
 # Backward compat alias

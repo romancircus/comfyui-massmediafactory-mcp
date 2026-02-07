@@ -114,7 +114,7 @@
   "6": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux2-dev-fp8.safetensors",
+      "unet_name": "flux1-dev-fp8.safetensors",
       "weight_dtype": "fp8_e4m3fn"
     }
   },

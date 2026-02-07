@@ -38,8 +38,8 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux2-dev.safetensors",
-      "weight_dtype": "fp16"
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
     }
   },
   "2": {

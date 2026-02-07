@@ -413,7 +413,7 @@ WORKFLOW_SKELETONS = {
         "1": {
             "class_type": "UNETLoader",
             "_meta": {"title": "Load FLUX UNET"},
-            "inputs": {"unet_name": "flux2-dev-fp8.safetensors", "weight_dtype": "fp8_e4m3fn"},
+            "inputs": {"unet_name": "flux1-dev-fp8.safetensors", "weight_dtype": "fp8_e4m3fn"},
         },
         "2": {
             "class_type": "DualCLIPLoader",

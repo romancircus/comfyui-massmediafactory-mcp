@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "description": "MMAudio V2 Large - Video-to-Audio synthesis with temporal alignment",
+    "model": "MMAudio-Large-V2",
+    "type": "video2audio",
+    "use_case": "Generate synchronized audio from video content",
+    "parameters": [
+      "VIDEO_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "STEPS",
+      "CFG"
+    ],
+    "defaults": {
+      "STEPS": 25,
+      "CFG": 4.5,
+      "NEGATIVE": "music, speech, narration, human voice, singing, techno, electronic music, talking",
+      "SEED": 42
+    },
+    "agent_notes": {
+      "VIDEO_PATH": "Path to input video file (must be accessible by ComfyUI)",
+      "PROMPT": "Audio description (e.g., 'creature roaring, fire crackling, wind')",
+      "model_file": "mmaudio_large_580m_v2.pth",
+      "requires": "ComfyUI-MMAudio node pack (by Kijai)"
+    },
+    "vram_min": 8,
+    "tags": [
+      "model:mmaudio",
+      "capability:audio"
+    ],
+    "version": "1.0.0",
+    "hub_hash": "3accad961706cdbb"
+  },
+  "1": {
+    "class_type": "MMAudioModelLoader",
+    "inputs": {
+      "model_name": "mmaudio_large_580m_v2.pth",
+      "precision": "bf16"
+    }
+  },
+  "2": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "video": "{{VIDEO_PATH}}",
+      "force_rate": 0,
+      "force_size": "Disabled"
+    }
+  },
+  "3": {
+    "class_type": "MMAudioSampler",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "video_frames": [
+        "2",
+        0
+      ],
+      "prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "seed": "{{SEED}}"
+    }
+  },
+  "4": {
+    "class_type": "SaveAudio",
+    "inputs": {
+      "audio": [
+        "3",
+        0
+      ],
+      "filename_prefix": "mmaudio_output"
+    }
+  }
+}
