@@ -1,0 +1,214 @@
+{
+  "_meta": {
+    "description": "LTX-2 video-to-video via guide frames. Provide a reference image/video to influence the generated output.",
+    "model": "LTX-2 19B Dev FP8",
+    "type": "vid2vid",
+    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS", "CFG", "GUIDE_STRENGTH", "GUIDE_FRAME_IDX", "PREFIX"],
+    "defaults": {
+      "WIDTH": 768,
+      "HEIGHT": 512,
+      "SEED": 42,
+      "FRAMES": 97,
+      "FPS": 24,
+      "STEPS": 30,
+      "CFG": 3.0,
+      "GUIDE_STRENGTH": 0.8,
+      "GUIDE_FRAME_IDX": 0,
+      "PREFIX": "ltx2_v2v",
+      "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted"
+    },
+    "vram_min": 12,
+    "tags": ["model:ltx", "type:v2v"],
+    "version": "1.0.0",
+    "notes": "Uses LTXVAddGuide to condition generation on a reference image/video. GUIDE_STRENGTH controls how much the guide influences output (0.0=ignore, 1.0=follow closely). GUIDE_FRAME_IDX sets which output frame the guide aligns to."
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": { "title": "Load LTX-2 Model" },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": { "title": "Load Gemma-3 Text Encoder" },
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it.safetensors",
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": { "title": "Load Audio VAE" },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Positive Prompt" },
+    "inputs": {
+      "text": "{{PROMPT}}",
+      "clip": ["2", 0]
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "_meta": { "title": "Encode Negative Prompt" },
+    "inputs": {
+      "text": "{{NEGATIVE}}",
+      "clip": ["2", 0]
+    }
+  },
+  "6": {
+    "class_type": "LTXVConditioning",
+    "_meta": { "title": "Apply Frame Rate Conditioning" },
+    "inputs": {
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "frame_rate": "{{FPS}}"
+    }
+  },
+  "7": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "_meta": { "title": "Create Empty Video Latent" },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{FRAMES}}",
+      "batch_size": 1
+    }
+  },
+  "8": {
+    "class_type": "LTXVEmptyLatentAudio",
+    "_meta": { "title": "Create Empty Audio Latent" },
+    "inputs": {
+      "audio_vae": ["3", 0],
+      "frames_number": "{{FRAMES}}",
+      "frame_rate": "{{FPS}}",
+      "batch_size": 1
+    }
+  },
+  "9": {
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": { "title": "Concat Audio+Video Latents" },
+    "inputs": {
+      "video_latent": ["7", 0],
+      "audio_latent": ["8", 0]
+    }
+  },
+  "20": {
+    "class_type": "LoadImage",
+    "_meta": { "title": "Load Guide Image/Frame" },
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "21": {
+    "class_type": "LTXVAddGuide",
+    "_meta": { "title": "Apply Video Guide" },
+    "inputs": {
+      "positive": ["6", 0],
+      "negative": ["6", 1],
+      "vae": ["1", 2],
+      "latent": ["9", 0],
+      "image": ["20", 0],
+      "frame_idx": "{{GUIDE_FRAME_IDX}}",
+      "strength": "{{GUIDE_STRENGTH}}"
+    }
+  },
+  "10": {
+    "class_type": "LTXVScheduler",
+    "_meta": { "title": "LTX Scheduler" },
+    "inputs": {
+      "steps": "{{STEPS}}",
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true,
+      "terminal": 0.1,
+      "latent": ["21", 2]
+    }
+  },
+  "11": {
+    "class_type": "RandomNoise",
+    "_meta": { "title": "Random Noise" },
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "12": {
+    "class_type": "KSamplerSelect",
+    "_meta": { "title": "Select Sampler" },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "13": {
+    "class_type": "CFGGuider",
+    "_meta": { "title": "CFG Guider" },
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["21", 0],
+      "negative": ["21", 1],
+      "cfg": "{{CFG}}"
+    }
+  },
+  "14": {
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "Sample Video" },
+    "inputs": {
+      "noise": ["11", 0],
+      "guider": ["13", 0],
+      "sampler": ["12", 0],
+      "sigmas": ["10", 0],
+      "latent_image": ["21", 2]
+    }
+  },
+  "15": {
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": { "title": "Separate Audio+Video" },
+    "inputs": {
+      "av_latent": ["14", 0]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecodeTiled",
+    "_meta": { "title": "Decode Video Latent" },
+    "inputs": {
+      "samples": ["15", 0],
+      "vae": ["1", 2],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8
+    }
+  },
+  "17": {
+    "class_type": "LTXVAudioVAEDecode",
+    "_meta": { "title": "Decode Audio Latent" },
+    "inputs": {
+      "samples": ["15", 1],
+      "audio_vae": ["3", 0]
+    }
+  },
+  "18": {
+    "class_type": "CreateVideo",
+    "_meta": { "title": "Create Video" },
+    "inputs": {
+      "images": ["16", 0],
+      "audio": ["17", 0],
+      "fps": "{{FPS}}"
+    }
+  },
+  "19": {
+    "class_type": "SaveVideo",
+    "_meta": { "title": "Save Video" },
+    "inputs": {
+      "video": ["18", 0],
+      "filename_prefix": "{{PREFIX}}",
+      "format": "mp4",
+      "codec": "auto"
+    }
+  }
+}
