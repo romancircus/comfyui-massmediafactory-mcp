@@ -1290,8 +1290,25 @@ class TestPublishBlocklist:
 
     def test_ssh_blocked(self):
         from comfyui_massmediafactory_mcp.publish import set_publish_dir
-        from pathlib import Path
 
         ssh_dir = str(Path.home() / ".ssh")
         result = set_publish_dir(ssh_dir)
         assert "error" in result or "FORBIDDEN_PATH" in str(result)
+
+
+class TestPipelineRetryWired:
+    """Test pipeline --retry is actually wired to _retry_loop (P2-5)."""
+
+    @patch("comfyui_massmediafactory_mcp.cli_commands.pipeline._retry_loop")
+    @patch("comfyui_massmediafactory_mcp.cli_pipelines.run_pipeline")
+    def test_retry_invoked_when_flag_set(self, mock_run, mock_retry):
+        from comfyui_massmediafactory_mcp.cli_commands.pipeline import cmd_pipeline
+
+        mock_retry.return_value = (0, {"status": "completed"})
+
+        parser = build_parser()
+        args = parser.parse_args(["pipeline", "i2v", "--prompt", "test", "--retry", "3"])
+        cmd_pipeline(args)
+
+        mock_retry.assert_called_once()
+        assert mock_retry.call_args[0][1] == 3  # max_retries=3

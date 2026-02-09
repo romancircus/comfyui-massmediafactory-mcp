@@ -1,6 +1,15 @@
 """Pipeline commands: pipeline, telestyle."""
 
-from ..cli_utils import EXIT_ERROR, EXIT_OK, EXIT_TIMEOUT, _add_common_args, _add_retry_args, _is_pretty, _output
+from ..cli_utils import (
+    EXIT_ERROR,
+    EXIT_OK,
+    EXIT_TIMEOUT,
+    _add_common_args,
+    _add_retry_args,
+    _is_pretty,
+    _output,
+    _retry_loop,
+)
 
 
 def cmd_pipeline(args):
@@ -8,12 +17,24 @@ def cmd_pipeline(args):
     from ..cli_pipelines import run_pipeline
 
     pretty = args.pretty or _is_pretty()
-    result = run_pipeline(args.pipeline_name, args)
-    _output(result, pretty)
 
-    if result.get("status") == "timeout":
-        return EXIT_TIMEOUT
-    return EXIT_OK if "error" not in result else EXIT_ERROR
+    def _run():
+        result = run_pipeline(args.pipeline_name, args)
+        if result.get("status") == "timeout":
+            return EXIT_TIMEOUT, result
+        exit_code = EXIT_OK if "error" not in result else EXIT_ERROR
+        return exit_code, result
+
+    max_retries = getattr(args, "retry", 0) or 0
+    retry_on = getattr(args, "retry_on", "vram,timeout,connection") or "vram,timeout,connection"
+
+    if max_retries > 0:
+        exit_code, result = _retry_loop(_run, max_retries, retry_on)
+    else:
+        exit_code, result = _run()
+
+    _output(result, pretty)
+    return exit_code
 
 
 def cmd_telestyle(args):
