@@ -100,6 +100,11 @@ def retry(
     return decorator
 
 
+def get_comfyui_output_dir() -> str:
+    """Get ComfyUI output directory from environment or default."""
+    return os.environ.get("COMFYUI_OUTPUT_DIR", str(Path.home() / "ComfyUI" / "output"))
+
+
 class ComfyUIClient:
     """HTTP client for ComfyUI API."""
 

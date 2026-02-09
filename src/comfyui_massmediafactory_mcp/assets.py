@@ -454,7 +454,9 @@ class AssetRegistry:
 
     def get_asset_path(self, asset: AssetRecord, comfyui_output_dir: str = None) -> Path:
         """Build local file path for an asset."""
-        output_dir = comfyui_output_dir or os.environ.get("COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output")
+        from .client import get_comfyui_output_dir
+
+        output_dir = comfyui_output_dir or get_comfyui_output_dir()
         if asset.subfolder:
             return Path(output_dir) / asset.subfolder / asset.filename
         return Path(output_dir) / asset.filename

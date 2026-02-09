@@ -15,7 +15,7 @@ from .. import discovery
 
 # Import error formatters with fallback for module loading
 try:
-    from core import format_template_metadata
+    from core.errors import format_template_metadata
 
     _HAS_CORE_ERRORS = True
 except (ImportError, ModuleNotFoundError):

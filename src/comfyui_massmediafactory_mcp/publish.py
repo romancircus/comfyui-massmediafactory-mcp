@@ -37,9 +37,9 @@ class PublishManager:
         default_publish_dir: str = None,
         max_bytes: int = 600_000,  # 600KB default
     ):
-        self._comfyui_output_dir = comfyui_output_dir or os.environ.get(
-            "COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output"
-        )
+        from .client import get_comfyui_output_dir
+
+        self._comfyui_output_dir = comfyui_output_dir or get_comfyui_output_dir()
         self._default_publish_dir = default_publish_dir
         self._max_bytes = max_bytes
 
@@ -304,6 +304,10 @@ def set_publish_dir(publish_dir: str) -> dict:
         "/sys",
         "/dev",
         "/root",
+        str(Path.home() / ".ssh"),
+        str(Path.home() / ".gnupg"),
+        str(Path.home() / ".aws"),
+        str(Path.home() / ".config"),
     ]
 
     manager = get_publish_manager()

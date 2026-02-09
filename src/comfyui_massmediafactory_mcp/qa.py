@@ -229,7 +229,9 @@ def qa_output(
         }
 
     # Get ComfyUI output directory
-    comfyui_output_dir = os.environ.get("COMFYUI_OUTPUT_DIR", "/home/romancircus/ComfyUI/output")
+    from .client import get_comfyui_output_dir
+
+    comfyui_output_dir = get_comfyui_output_dir()
 
     # Build path to asset
     if asset.subfolder:

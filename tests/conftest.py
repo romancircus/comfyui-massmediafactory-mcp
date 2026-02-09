@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 if "comfyui_massmediafactory_mcp.client" not in sys.modules:
     client_mock = types.ModuleType("comfyui_massmediafactory_mcp.client")
     client_mock.get_client = lambda: None
+    client_mock.get_comfyui_output_dir = lambda: str(Path.home() / "ComfyUI" / "output")
     client_mock.ComfyUIClient = MagicMock
     sys.modules["comfyui_massmediafactory_mcp.client"] = client_mock
 
