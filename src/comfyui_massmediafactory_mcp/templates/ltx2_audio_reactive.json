@@ -40,10 +40,9 @@
     "hub_hash": "45e16b73635f92c1"
   },
   "1": {
-    "class_type": "LTXVLoader",
+    "class_type": "CheckpointLoaderSimple",
     "inputs": {
-      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
-      "dtype": "bfloat16"
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
     }
   },
   "2": {

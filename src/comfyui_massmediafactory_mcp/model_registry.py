@@ -213,7 +213,6 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
         forbidden_nodes={
             "KSampler": "Use SamplerCustomAdvanced with CFGGuider instead",
             "LTXVLoader": "Removed in ComfyUI 0.8.2+. Use CheckpointLoaderSimple",
-            "VHS_VideoCombine": "Not installed. Use CreateVideo + SaveVideo",
             "EmptyLatentImage": "Use EmptyLTXVLatentVideo for video",
             "SaveImage": "Use SaveVideo for video output",
         },
@@ -282,7 +281,6 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             "CheckpointLoaderSimple": "Use WanVideoModelLoader",
             "KSampler": "Use WanVideoSampler",
             "DownloadAndLoadWanModel": "Non-existent node, use WanVideoModelLoader",
-            "VHS_VideoCombine": "Not installed, use CreateVideo + SaveVideo",
         },
         negative_default=(
             "static image, frozen, sudden motion, flickering, morphing, "

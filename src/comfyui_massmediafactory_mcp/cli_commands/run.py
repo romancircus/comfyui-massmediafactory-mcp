@@ -150,7 +150,7 @@ def cmd_run(args):
             file_size = os.path.getsize(args.output)
             is_image = False
             if args.template:
-                is_image = any(x in args.template for x in ["txt2img", "txt2vid", "t2i", "img2img"])
+                is_image = any(x in args.template for x in ["txt2img", "t2i", "img2img"])
             elif args.model:
                 is_image = args.type == "t2i" or args.model == "flux" or args.model == "qwen"
 
@@ -197,7 +197,8 @@ def cmd_wait(args):
     from .. import execution
 
     pretty = args.pretty or _is_pretty()
-    result = execution.wait_for_completion(args.prompt_id, timeout_seconds=args.timeout)
+    timeout = args.timeout or TIMEOUTS["run"]
+    result = execution.wait_for_completion(args.prompt_id, timeout_seconds=timeout)
 
     if result.get("status") == "timeout":
         _output(result, pretty)

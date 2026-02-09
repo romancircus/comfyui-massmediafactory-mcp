@@ -245,7 +245,8 @@ def _wait_via_websocket(prompt_id: str, timeout_seconds: int) -> Optional[str]:
         from .websocket_client import wait_for_prompt_ws
 
         return wait_for_prompt_ws(prompt_id, timeout_seconds=timeout_seconds)
-    except Exception:
+    except Exception as e:
+        log_structured("debug", "websocket_fallback", error=str(e), prompt_id=prompt_id)
         return None
 
 
@@ -258,7 +259,7 @@ def _poll_for_completion(
     """Fall back to polling get_workflow_status(). Returns status or None on timeout."""
     while time.time() - start_time < timeout_seconds:
         status = get_workflow_status(prompt_id)
-        if status["status"] in ["completed", "error"]:
+        if status.get("status") in ["completed", "error"]:
             return status
         time.sleep(poll_interval)
     return None

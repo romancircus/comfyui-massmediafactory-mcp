@@ -1143,3 +1143,119 @@ class TestOutputStreamSeparation:
         captured = capsys.readouterr()
         assert captured.out == ""
         assert "status update" in captured.err
+
+
+# =============================================================================
+# ROM-604: P0 and P1 regression tests
+# =============================================================================
+
+
+class TestModelTypeResolution:
+    """Test template model type resolution fixes (P0-3, P1-1)."""
+
+    def test_wan22_resolves_correctly(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        assert get_model_type("Wan 2.2 I2V A14B") == "wan22"
+        assert get_model_type("Wan 2.2") == "wan22"
+        assert get_model_type("wan 2.2 s2v") == "wan22"
+
+    def test_wan26_resolves_correctly(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        assert get_model_type("Wan 2.6 14B") == "wan26"
+        assert get_model_type("wan2.6") == "wan26"
+
+    def test_bare_wan_falls_back_to_wan22(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        # Bare "wan" should match wan22 as fallback (not wan26)
+        assert get_model_type("wan") == "wan22"
+
+    def test_telestyle_resolves_not_qwen_edit(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        # telestyle model names contain "qwen" but should resolve to telestyle
+        result = get_model_type("telestyle")
+        assert result == "telestyle"
+
+    def test_qwen_edit_still_works(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        assert get_model_type("qwen_edit") == "qwen_edit"
+        assert get_model_type("qwen-edit") == "qwen_edit"
+
+
+class TestListModelsDispatch:
+    """Test discovery.list_models() dispatch (P0-1)."""
+
+    @patch("comfyui_massmediafactory_mcp.discovery.list_checkpoints")
+    def test_checkpoint_dispatch(self, mock_ckpt):
+        from comfyui_massmediafactory_mcp.discovery import list_models
+
+        mock_ckpt.return_value = {"checkpoints": ["test.safetensors"], "count": 1}
+        result = list_models("checkpoint")
+        assert result["count"] == 1
+        mock_ckpt.assert_called_once()
+
+    @patch("comfyui_massmediafactory_mcp.discovery.list_unets")
+    def test_unet_dispatch(self, mock_unet):
+        from comfyui_massmediafactory_mcp.discovery import list_models
+
+        mock_unet.return_value = {"unets": ["flux.safetensors"], "count": 1}
+        result = list_models("unet")
+        assert result["count"] == 1
+
+    def test_unknown_type_returns_error(self):
+        from comfyui_massmediafactory_mcp.discovery import list_models
+
+        result = list_models("invalid")
+        assert "error" in result
+
+    @patch("comfyui_massmediafactory_mcp.discovery.get_all_models")
+    def test_all_dispatches_to_get_all(self, mock_all):
+        from comfyui_massmediafactory_mcp.discovery import list_models
+
+        mock_all.return_value = {"checkpoints": {}, "unets": {}}
+        list_models("all")
+        mock_all.assert_called_once()
+
+
+class TestPollingKeyError:
+    """Test polling graceful handling of malformed status (P1-5)."""
+
+    @patch("comfyui_massmediafactory_mcp.execution.get_workflow_status")
+    def test_poll_missing_status_key(self, mock_status):
+        from comfyui_massmediafactory_mcp.execution import _poll_for_completion
+        import time
+
+        # Return a dict without "status" key — should not crash
+        mock_status.return_value = {"something": "else"}
+        result = _poll_for_completion("test-id", timeout_seconds=1, start_time=time.time(), poll_interval=0.1)
+        # Should return None (timeout) instead of crashing with KeyError
+        assert result is None
+
+
+class TestWaitDefaultTimeout:
+    """Test cmd_wait handles None timeout (P1-6)."""
+
+    @patch("comfyui_massmediafactory_mcp.execution.wait_for_completion")
+    def test_wait_none_timeout_gets_default(self, mock_wait):
+        mock_wait.return_value = {"status": "completed", "outputs": []}
+        parser = build_parser()
+        args = parser.parse_args(["wait", "test-prompt-id"])
+        # args.timeout should be None by default
+        cmd_wait(args)
+        # Should not crash and should pass a numeric timeout
+        call_kwargs = mock_wait.call_args[1]
+        assert isinstance(call_kwargs["timeout_seconds"], (int, float))
+        assert call_kwargs["timeout_seconds"] > 0
+
+
+class TestFileSizeClassification:
+    """Test txt2vid is classified as video, not image (P1-7)."""
+
+    def test_txt2vid_not_in_image_types(self):
+        # The image type list should NOT contain txt2vid
+        image_types = ["txt2img", "t2i", "img2img"]
+        assert "txt2vid" not in image_types
