@@ -62,12 +62,12 @@
 
 **Check Linear before starting work:**
 ```python
-mcp__linear__searchIssues(teamId="Romancircus", states=["In Progress", "Todo"])
+mcp__linear__linear_searchIssues(teamId="<team_id>", states=["In Progress", "Todo"])
 ```
 
 **Update status when working:**
 ```python
-mcp__linear__linear_updateIssue(id="ROM-XXX", stateId="in_progress")
+mcp__linear__linear_updateIssue(id="ROM-XXX", stateId="<state_id>")
 ```
 
 ---
