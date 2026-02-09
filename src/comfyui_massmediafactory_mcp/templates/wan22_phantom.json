@@ -1,0 +1,283 @@
+{
+  "_meta": {
+    "description": "Wan Phantom 14B multi-subject T2V \u2014 up to 4 character reference images",
+    "model": "Phantom-Wan-14B fp8",
+    "type": "txt2vid_multiref",
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "CHARACTER_IMAGE_1",
+      "CHARACTER_IMAGE_2",
+      "SEED",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "SHIFT",
+      "WIDTH",
+      "HEIGHT",
+      "PHANTOM_CFG",
+      "LOAD_DEVICE",
+      "QUANTIZATION",
+      "ATTENTION_MODE",
+      "FORCE_OFFLOAD_SAMPLER"
+    ],
+    "defaults": {
+      "SEED": 42,
+      "FRAMES": 81,
+      "FPS": 16,
+      "STEPS": 30,
+      "CFG": 5.0,
+      "SHIFT": 5.0,
+      "WIDTH": 832,
+      "HEIGHT": 480,
+      "PHANTOM_CFG": 5.0,
+      "PROMPT": "two people interacting, high quality video",
+      "NEGATIVE": "worst quality, blurry, jittery, static, identity merging, wrong character",
+      "LOAD_DEVICE": "offload_device",
+      "QUANTIZATION": "disabled",
+      "ATTENTION_MODE": "sdpa",
+      "FORCE_OFFLOAD_SAMPLER": true
+    },
+    "vram_min": 20,
+    "tags": [
+      "model:wan",
+      "capability:multiref",
+      "priority:experimental"
+    ],
+    "version": "1.0.0",
+    "notes": "Phantom-Wan-14B purpose-built for multi-character video. Each CHARACTER_IMAGE is VAE-encoded to latent, fed via WanVideoPhantomEmbeds. Supports 1-4 refs. Uses same VAE/T5/CLIP as standard Wan I2V.",
+    "hub_hash": "2cb7c1083f8f43c7"
+  },
+  "1": {
+    "class_type": "WanVideoModelLoader",
+    "_meta": {
+      "title": "Load Phantom Model"
+    },
+    "inputs": {
+      "model": "Phantom-Wan-14B_fp8_e4m3fn.safetensors",
+      "base_precision": "bf16",
+      "quantization": "{{QUANTIZATION}}",
+      "load_device": "{{LOAD_DEVICE}}",
+      "attention_mode": "{{ATTENTION_MODE}}"
+    }
+  },
+  "2": {
+    "class_type": "WanVideoVAELoader",
+    "_meta": {
+      "title": "Load Wan VAE"
+    },
+    "inputs": {
+      "model_name": "wan_2.1_vae.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "3": {
+    "class_type": "LoadWanVideoT5TextEncoder",
+    "_meta": {
+      "title": "Load T5 Text Encoder"
+    },
+    "inputs": {
+      "model_name": "umt5_xxl_fp16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Character 1 Reference"
+    },
+    "inputs": {
+      "image": "{{CHARACTER_IMAGE_1}}"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Character 2 Reference"
+    },
+    "inputs": {
+      "image": "{{CHARACTER_IMAGE_2}}"
+    }
+  },
+  "6": {
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "Resize Character 1 for VAE"
+    },
+    "inputs": {
+      "image": [
+        "4",
+        0
+      ],
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "crop_position": "center",
+      "divisible_by": 8
+    }
+  },
+  "7": {
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "Resize Character 2 for VAE"
+    },
+    "inputs": {
+      "image": [
+        "5",
+        0
+      ],
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "crop_position": "center",
+      "divisible_by": 8
+    }
+  },
+  "8": {
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode Character 1 to Latent"
+    },
+    "inputs": {
+      "pixels": [
+        "6",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    }
+  },
+  "9": {
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode Character 2 to Latent"
+    },
+    "inputs": {
+      "pixels": [
+        "7",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "WanVideoPhantomEmbeds",
+    "_meta": {
+      "title": "Phantom Multi-Ref Conditioning"
+    },
+    "inputs": {
+      "num_frames": "{{FRAMES}}",
+      "phantom_latent_1": [
+        "8",
+        0
+      ],
+      "phantom_cfg_scale": "{{PHANTOM_CFG}}",
+      "phantom_start_percent": 0.0,
+      "phantom_end_percent": 1.0,
+      "phantom_latent_2": [
+        "9",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "WanVideoTextEncode",
+    "_meta": {
+      "title": "Encode Text Prompt"
+    },
+    "inputs": {
+      "positive_prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "t5": [
+        "3",
+        0
+      ],
+      "force_offload": true
+    }
+  },
+  "12": {
+    "class_type": "WanVideoSampler",
+    "_meta": {
+      "title": "Sample Video"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "image_embeds": [
+        "10",
+        0
+      ],
+      "text_embeds": [
+        "11",
+        0
+      ],
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "shift": "{{SHIFT}}",
+      "seed": "{{SEED}}",
+      "force_offload": "{{FORCE_OFFLOAD_SAMPLER}}",
+      "scheduler": "unipc",
+      "riflex_freq_index": 0
+    }
+  },
+  "13": {
+    "class_type": "WanVideoDecode",
+    "_meta": {
+      "title": "Decode Video Latent"
+    },
+    "inputs": {
+      "vae": [
+        "2",
+        0
+      ],
+      "samples": [
+        "12",
+        0
+      ],
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128
+    }
+  },
+  "14": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    },
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "15": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    },
+    "inputs": {
+      "video": [
+        "14",
+        0
+      ],
+      "filename_prefix": "phantom_multiref",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

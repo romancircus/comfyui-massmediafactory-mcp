@@ -1,0 +1,314 @@
+{
+  "_meta": {
+    "description": "FLUX Kontext multi-reference keyframe \u2014 combine 2 character refs into one scene",
+    "model": "FLUX.2-dev + Kontext",
+    "type": "img2img_multiref",
+    "parameters": [
+      "IMAGE_PATH_1",
+      "IMAGE_PATH_2",
+      "EDIT_PROMPT",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "STEPS",
+      "GUIDANCE",
+      "DENOISE",
+      "MULTI_REF_METHOD"
+    ],
+    "defaults": {
+      "WIDTH": 1024,
+      "HEIGHT": 576,
+      "SEED": 42,
+      "STEPS": 28,
+      "GUIDANCE": 3.5,
+      "DENOISE": 0.85,
+      "MULTI_REF_METHOD": "uxo/uno",
+      "EDIT_PROMPT": "Two characters in the same scene"
+    },
+    "notes": "Uses FluxKontextMultiReferenceLatentMethod with uxo/uno method for best multi-ref results. Both reference images are VAE-encoded and concatenated in latent space. The edit prompt describes the combined scene.",
+    "vram_min": 20,
+    "tags": [
+      "model:flux",
+      "capability:multiref",
+      "priority:experimental"
+    ],
+    "version": "1.0.0",
+    "hub_hash": "2d45e2e6dfa3527d"
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Flux Model"
+    },
+    "inputs": {
+      "unet_name": "flux1-dev-fp8.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    }
+  },
+  "2": {
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "Load CLIP Encoders"
+    },
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    },
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Reference 1"
+    },
+    "inputs": {
+      "image": "{{IMAGE_PATH_1}}"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Reference 2"
+    },
+    "inputs": {
+      "image": "{{IMAGE_PATH_2}}"
+    }
+  },
+  "6": {
+    "class_type": "FluxKontextImageScale",
+    "_meta": {
+      "title": "Scale Reference 1 for Kontext"
+    },
+    "inputs": {
+      "image": [
+        "4",
+        0
+      ]
+    }
+  },
+  "7": {
+    "class_type": "FluxKontextImageScale",
+    "_meta": {
+      "title": "Scale Reference 2 for Kontext"
+    },
+    "inputs": {
+      "image": [
+        "5",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode Reference 1"
+    },
+    "inputs": {
+      "pixels": [
+        "6",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "9": {
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode Reference 2"
+    },
+    "inputs": {
+      "pixels": [
+        "7",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "LatentBatch",
+    "_meta": {
+      "title": "Batch Reference Latents"
+    },
+    "inputs": {
+      "samples1": [
+        "8",
+        0
+      ],
+      "samples2": [
+        "9",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Encode Edit Prompt"
+    },
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "text": "{{EDIT_PROMPT}}"
+    }
+  },
+  "12": {
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "Apply Guidance"
+    },
+    "inputs": {
+      "conditioning": [
+        "11",
+        0
+      ],
+      "guidance": "{{GUIDANCE}}"
+    }
+  },
+  "13": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "_meta": {
+      "title": "Multi-Reference Method"
+    },
+    "inputs": {
+      "conditioning": [
+        "12",
+        0
+      ],
+      "reference_latents_method": "{{MULTI_REF_METHOD}}"
+    }
+  },
+  "14": {
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Output Latent"
+    },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "batch_size": 1
+    }
+  },
+  "15": {
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Select Sampler"
+    },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "16": {
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "Scheduler"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": "{{STEPS}}",
+      "denoise": "{{DENOISE}}"
+    }
+  },
+  "17": {
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Random Noise"
+    },
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "18": {
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Guider"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "conditioning": [
+        "13",
+        0
+      ]
+    }
+  },
+  "19": {
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sample"
+    },
+    "inputs": {
+      "noise": [
+        "17",
+        0
+      ],
+      "guider": [
+        "18",
+        0
+      ],
+      "sampler": [
+        "15",
+        0
+      ],
+      "sigmas": [
+        "16",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Output"
+    },
+    "inputs": {
+      "samples": [
+        "19",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "21": {
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Keyframe"
+    },
+    "inputs": {
+      "images": [
+        "20",
+        0
+      ],
+      "filename_prefix": "kontext_multiref"
+    }
+  }
+}
