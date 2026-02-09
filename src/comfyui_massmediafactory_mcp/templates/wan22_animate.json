@@ -45,7 +45,8 @@
       "priority:recommended"
     ],
     "version": "1.0.0",
-    "notes": "Character animation: preserves identity from ref image, uses WanVideoAnimateEmbeds with face/pose strength control. No motion video required — works with just a character reference image + text prompt. For motion transfer, provide pose_images via custom workflow."
+    "notes": "Character animation: preserves identity from ref image, uses WanVideoAnimateEmbeds with face/pose strength control. No motion video required \u2014 works with just a character reference image + text prompt. For motion transfer, provide pose_images via custom workflow.",
+    "hub_hash": "235148717c7b985e"
   },
   "1": {
     "class_type": "WanVideoBlockSwap",
@@ -84,7 +85,9 @@
   },
   "5": {
     "class_type": "LoadImage",
-    "_meta": { "title": "Character Reference Image" },
+    "_meta": {
+      "title": "Character Reference Image"
+    },
     "inputs": {
       "image": "{{CHARACTER_IMAGE}}"
     }
@@ -129,7 +132,9 @@
   },
   "9": {
     "class_type": "WanVideoAnimateEmbeds",
-    "_meta": { "title": "Animate Embeds (Identity + Pose Control)" },
+    "_meta": {
+      "title": "Animate Embeds (Identity + Pose Control)"
+    },
     "inputs": {
       "vae": [
         "3",

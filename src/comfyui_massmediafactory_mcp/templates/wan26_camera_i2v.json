@@ -3,7 +3,21 @@
     "description": "Wan 2.1 Camera-controlled Image-to-Video. Apply camera movements (pan, zoom, rotate) to a static image.",
     "model": "Wan 2.1 I2V 14B",
     "type": "camera_i2v",
-    "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "CAMERA_POSE", "CAMERA_SPEED", "SEED", "WIDTH", "HEIGHT", "FRAMES", "FPS", "STEPS", "CFG", "SHIFT"],
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "CAMERA_POSE",
+      "CAMERA_SPEED",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "SHIFT"
+    ],
     "defaults": {
       "SEED": 42,
       "FRAMES": 81,
@@ -19,13 +33,19 @@
       "NEGATIVE": "worst quality, blurry, jittery, static, no motion"
     },
     "vram_min": 16,
-    "tags": ["model:wan", "type:camera"],
+    "tags": [
+      "model:wan",
+      "type:camera"
+    ],
     "version": "1.0.0",
-    "notes": "Uses native ComfyUI WanCameraImageToVideo + WanCameraEmbedding nodes. CAMERA_POSE options: Static, Pan Up, Pan Down, Pan Left, Pan Right, Zoom In, Zoom Out, Anti Clockwise (ACW), ClockWise (CW). CAMERA_SPEED: 0.1-10.0 (default 1.0)."
+    "notes": "Uses native ComfyUI WanCameraImageToVideo + WanCameraEmbedding nodes. CAMERA_POSE options: Static, Pan Up, Pan Down, Pan Left, Pan Right, Zoom In, Zoom Out, Anti Clockwise (ACW), ClockWise (CW). CAMERA_SPEED: 0.1-10.0 (default 1.0).",
+    "hub_hash": "f4b7380801978c1d"
   },
   "1": {
     "class_type": "UNETLoader",
-    "_meta": { "title": "Load WAN I2V UNET" },
+    "_meta": {
+      "title": "Load WAN I2V UNET"
+    },
     "inputs": {
       "unet_name": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
       "weight_dtype": "fp8_e4m3fn"
@@ -33,7 +53,9 @@
   },
   "2": {
     "class_type": "CLIPLoader",
-    "_meta": { "title": "Load T5 Text Encoder" },
+    "_meta": {
+      "title": "Load T5 Text Encoder"
+    },
     "inputs": {
       "clip_name": "umt5_xxl_fp16.safetensors",
       "type": "wan"
@@ -41,53 +63,79 @@
   },
   "3": {
     "class_type": "VAELoader",
-    "_meta": { "title": "Load WAN VAE" },
+    "_meta": {
+      "title": "Load WAN VAE"
+    },
     "inputs": {
       "vae_name": "Wan2.1_VAE.safetensors"
     }
   },
   "4": {
     "class_type": "CLIPVisionLoader",
-    "_meta": { "title": "Load CLIP Vision" },
+    "_meta": {
+      "title": "Load CLIP Vision"
+    },
     "inputs": {
       "clip_name": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth"
     }
   },
   "5": {
     "class_type": "LoadImage",
-    "_meta": { "title": "Load Source Image" },
+    "_meta": {
+      "title": "Load Source Image"
+    },
     "inputs": {
       "image": "{{IMAGE_PATH}}"
     }
   },
   "6": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Positive Prompt" },
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
     "inputs": {
       "text": "{{PROMPT}}",
-      "clip": ["2", 0]
+      "clip": [
+        "2",
+        0
+      ]
     }
   },
   "7": {
     "class_type": "CLIPTextEncode",
-    "_meta": { "title": "Encode Negative Prompt" },
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
     "inputs": {
       "text": "{{NEGATIVE}}",
-      "clip": ["2", 0]
+      "clip": [
+        "2",
+        0
+      ]
     }
   },
   "8": {
     "class_type": "CLIPVisionEncode",
-    "_meta": { "title": "Encode Source Image CLIP Vision" },
+    "_meta": {
+      "title": "Encode Source Image CLIP Vision"
+    },
     "inputs": {
-      "clip_vision": ["4", 0],
-      "image": ["5", 0],
+      "clip_vision": [
+        "4",
+        0
+      ],
+      "image": [
+        "5",
+        0
+      ],
       "crop": "center"
     }
   },
   "9": {
     "class_type": "WanCameraEmbedding",
-    "_meta": { "title": "Camera Motion Embedding" },
+    "_meta": {
+      "title": "Camera Motion Embedding"
+    },
     "inputs": {
       "camera_pose": "{{CAMERA_POSE}}",
       "width": "{{WIDTH}}",
@@ -98,36 +146,75 @@
   },
   "10": {
     "class_type": "WanCameraImageToVideo",
-    "_meta": { "title": "Camera I2V Conditioning" },
+    "_meta": {
+      "title": "Camera I2V Conditioning"
+    },
     "inputs": {
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "vae": ["3", 0],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
       "length": "{{FRAMES}}",
       "batch_size": 1,
-      "clip_vision_output": ["8", 0],
-      "start_image": ["5", 0],
-      "camera_conditions": ["9", 0]
+      "clip_vision_output": [
+        "8",
+        0
+      ],
+      "start_image": [
+        "5",
+        0
+      ],
+      "camera_conditions": [
+        "9",
+        0
+      ]
     }
   },
   "11": {
     "class_type": "ModelSamplingSD3",
-    "_meta": { "title": "Apply Shift" },
+    "_meta": {
+      "title": "Apply Shift"
+    },
     "inputs": {
-      "model": ["1", 0],
+      "model": [
+        "1",
+        0
+      ],
       "shift": "{{SHIFT}}"
     }
   },
   "12": {
     "class_type": "KSampler",
-    "_meta": { "title": "Sample Video" },
+    "_meta": {
+      "title": "Sample Video"
+    },
     "inputs": {
-      "model": ["11", 0],
-      "positive": ["10", 0],
-      "negative": ["10", 1],
-      "latent_image": ["10", 2],
+      "model": [
+        "11",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "10",
+        1
+      ],
+      "latent_image": [
+        "10",
+        2
+      ],
       "seed": "{{SEED}}",
       "steps": "{{STEPS}}",
       "cfg": "{{CFG}}",
@@ -138,25 +225,43 @@
   },
   "13": {
     "class_type": "VAEDecode",
-    "_meta": { "title": "Decode Video Latent" },
+    "_meta": {
+      "title": "Decode Video Latent"
+    },
     "inputs": {
-      "samples": ["12", 0],
-      "vae": ["3", 0]
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
     }
   },
   "14": {
     "class_type": "CreateVideo",
-    "_meta": { "title": "Create Video" },
+    "_meta": {
+      "title": "Create Video"
+    },
     "inputs": {
-      "images": ["13", 0],
+      "images": [
+        "13",
+        0
+      ],
       "fps": "{{FPS}}"
     }
   },
   "15": {
     "class_type": "SaveVideo",
-    "_meta": { "title": "Save Video" },
+    "_meta": {
+      "title": "Save Video"
+    },
     "inputs": {
-      "video": ["14", 0],
+      "video": [
+        "14",
+        0
+      ],
       "filename_prefix": "wan_camera_i2v",
       "format": "mp4",
       "codec": "h264"

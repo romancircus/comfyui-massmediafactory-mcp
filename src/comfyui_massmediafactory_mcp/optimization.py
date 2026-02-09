@@ -105,10 +105,11 @@ HARDWARE_PARAMS_MAP = {
     "WanVideoImageToVideoEncode": {
         "force_offload": "force_offload",
     },
-    # --- WAN (native ComfyUI pipeline) ---
-    "UNETLoader": {
-        "load_device": "weight_dtype",  # UNETLoader uses weight_dtype for precision control
-    },
+    # --- UNETLoader (Qwen, Flux, native WAN) ---
+    # NOTE: UNETLoader weight_dtype only accepts: default, fp8_e4m3fn, fp8_e4m3fn_fast, fp8_e5m2
+    # Do NOT map load_device here — "main_device" is not a valid weight_dtype value.
+    # Template defaults (usually "default") are safe for all hardware profiles.
+    "UNETLoader": {},
     # --- LTX-2 ---
     "CheckpointLoaderSimple": {
         # No hardware params exposed directly — controlled by ComfyUI launch flags

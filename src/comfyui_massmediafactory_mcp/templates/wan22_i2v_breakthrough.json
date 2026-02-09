@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "description": "WAN 2.1 I2V BREAKTHROUGH pipeline - best quality recipe recovered from FIRE-006 metadata",
-    "model": "Wan 2.1 I2V 14B",
+    "description": "WAN 2.2 I2V A14B HIGH with BREAKTHROUGH CLIP pipeline - testing if dark noise was CLIP config issue",
+    "model": "Wan 2.2 I2V A14B HIGH",
     "type": "img2vid",
     "parameters": [
       "IMAGE_PATH",
@@ -34,17 +34,18 @@
     "tags": [
       "model:wan",
       "quality:breakthrough",
+      "priority:experimental",
       "repo:pokedex"
     ],
     "version": "1.0.0",
     "skip_hardware_optimization": true,
-    "notes": "3 critical differences from wan26_img2vid: (1) quantization disabled (full bf16), (2) CLIPVisionLoader + clip_vision_h (not LoadWanVideoClipTextEncoder + open-clip-xlm-roberta), (3) WanVideoTextEncodeCached with disk cache (not separate T5 loader + WanVideoTextEncode). Recovered from FIRE-006_BREAKTHROUGH_20260131.mp4 metadata.",
-    "hub_hash": "d6a166694659e6cc"
+    "notes": "WAN 2.2 model with BREAKTHROUGH CLIP config. Hypothesis: dark noise in wan22_i2v_a14b was caused by LoadWanVideoClipTextEncoder + open-clip-xlm-roberta. This template uses CLIPVisionLoader + clip_vision_h (proven in BREAKTHROUGH and wan22_animate). If this works, fp8 quantization is NOT the issue.",
+    "hub_hash": "ece38afc0cf925f7"
   },
   "1": {
     "class_type": "WanVideoModelLoader",
     "inputs": {
-      "model": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+      "model": "wan_i2v_22/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
       "base_precision": "bf16",
       "quantization": "disabled",
       "load_device": "offload_device",
@@ -185,7 +186,7 @@
         "10",
         0
       ],
-      "filename_prefix": "wan26_breakthrough",
+      "filename_prefix": "wan22_breakthrough",
       "format": "mp4",
       "codec": "h264"
     }

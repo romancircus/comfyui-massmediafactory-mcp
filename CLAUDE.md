@@ -62,16 +62,12 @@
 
 **Check Linear before starting work:**
 ```python
-mcp__linear__list_issues(project="Infra: ComfyUI MCP")
+mcp__linear__searchIssues(teamId="Romancircus", states=["In Progress", "Todo"])
 ```
-
-**Active issues:**
-- ROM-10: Template System Improvements
 
 **Update status when working:**
 ```python
-mcp__linear__update_issue("ROM-10", state="in_progress")
-mcp__linear__update_issue("ROM-10", state="done", comment="Added: [feature]")
+mcp__linear__linear_updateIssue(id="ROM-XXX", stateId="in_progress")
 ```
 
 ---
@@ -111,15 +107,16 @@ mmf enhance --prompt "a cat" --model wan  # LLM prompt enhancement
 
 **For agents and scripts:** Always call `mmf` via Bash tool instead of MCP tools. MCP tools remain available but carry ~15K token schema overhead per invocation.
 
-### MCP Tools (Legacy)
+### MCP Tools (Discovery Only)
 
-The MCP server (18 tools) still works but the CLI is preferred for Claude Code, jinyang, and downstream repos:
+The MCP server (18 tools) is for **discovery and planning only** — finding nodes, checking constraints, browsing templates. All **execution** goes through the `mmf` CLI:
 
-```python
-# MCP equivalent (3 calls + 15K token schema overhead)
-workflow = generate_workflow(model="flux", workflow_type="t2i", prompt="a dragon in the clouds")
-result = execute_workflow(workflow["workflow"])
-output = wait_for_completion(result["prompt_id"])
+```bash
+# Discovery via MCP (still useful)
+list_models(), search_nodes(), get_model_constraints(), list_workflow_templates(), get_template()
+
+# Execution via CLI (always)
+mmf run --model flux --type t2i --prompt "a dragon in the clouds"
 ```
 
 ## Core Workflow
@@ -133,46 +130,41 @@ There are two complementary generation paths. Choose based on your needs:
 - Auto-corrects resolution, frames, CFG to model constraints
 - Best for: prompt-to-output with standard settings
 
-**Path B: `create_workflow_from_template()` - Template-Based Workflows**
-- 34 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
+**Path B: `mmf run --template` - Template-Based Workflows**
+- 43 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
 - Exact configurations preserved, no auto-correction
 - Best for: specialized workflows, batch production, jinyang overnight
 
 | Need | Use Path A | Use Path B |
 |------|-----------|-----------|
-| Quick image/video from prompt | `generate_workflow(model="flux", ...)` | |
-| ControlNet/LoRA/face ID | | `create_workflow_from_template("flux2_union_controlnet", ...)` |
-| Background replacement | | `create_workflow_from_template("qwen_edit_background", ...)` |
+| Quick image/video from prompt | `mmf run --model flux --type t2i` | |
+| ControlNet/LoRA/face ID | | `mmf run --template flux2_union_controlnet` |
+| Background replacement | | `mmf run --template qwen_edit_background` |
 | Standard t2v/i2v/t2i | Either works | Either works |
-| Batch production (>10) | | Templates + direct API (see Token Optimization) |
-| TTS/audio | | `create_workflow_from_template("chatterbox_tts", ...)` |
+| Batch production (>10) | | `mmf batch seeds` or `mmf batch dir` |
+| TTS/audio | | `mmf run --template chatterbox_tts` |
 | Custom node combos | Build from scratch | |
 
 ### Step 2: Execute & Monitor
 
-```python
-result = execute_workflow(workflow)
-# result["prompt_id"] is your tracking ID
+```bash
+# One command does generate + execute + wait
+mmf run --model flux --type t2i --prompt "cyberpunk city" -o output.png --pretty
 
-# ALWAYS use blocking wait (uses WebSocket internally, falls back to polling)
-output = wait_for_completion(result["prompt_id"], timeout_seconds=600)
+# Or with more control:
+mmf run --template wan26_img2vid --params '{"IMAGE_PATH":"img.png","PROMPT":"motion"}' --timeout 600
 
-# For real-time progress (percent, ETA, nodes completed):
-progress = get_progress(result["prompt_id"])
+# Check progress on a running job:
+mmf progress <prompt_id>
 ```
 
-**WARNING:** Do NOT poll `get_workflow_status()` in a loop. Use `wait_for_completion()` which blocks
-internally via WebSocket. Polling burns 100x more API calls/tokens. See global CLAUDE.md for details.
+**WARNING:** Do NOT poll in a loop. `mmf run` blocks until completion via WebSocket internally.
 
 ### Step 3: Iterate
 
-```python
-# Tweak and regenerate
-new_result = regenerate(
-    asset_id=output["outputs"][0]["asset_id"],
-    cfg=4.5,      # Adjust CFG
-    seed=None     # New random seed (or specific number)
-)
+```bash
+# Regenerate with new seed/params
+mmf regenerate <asset_id> --seed 42 --cfg 4.5
 ```
 
 ## Tool Reference (18 MCP Tools + mmf CLI)
@@ -257,87 +249,62 @@ Access via `ReadMcpResourceTool`:
 | `comfyui://patterns/available` | All available patterns |
 | `comfyui://workflows/supported` | Supported model+type combos |
 
-## Supported Models & Workflows
+## Supported Models & Workflows (9 models, 43 templates)
 
-| Model | Supported Types |
-|-------|-----------------|
-| `flux` | t2i (text-to-image) |
-| `ltx` | t2v (text-to-video), i2v (image-to-video) |
-| `wan` | t2v (text-to-video) |
-| `qwen` | t2i (text-to-image) |
-| `qwen_edit` | edit (image editing, background replacement) |
+| Model | Supported Types | Templates |
+|-------|-----------------|-----------|
+| `flux` | t2i, controlnet, lora, face_id, inpaint, edit | 8 templates |
+| `ltx` | t2v, i2v, v2v, audio_reactive | 6 templates |
+| `wan` | t2v, i2v, s2v, flf2v, camera_i2v, animate | 10 templates |
+| `qwen` | t2i, controlnet, poster, edit (background) | 4 templates |
+| `hunyuan` | t2v, i2v | 2 templates |
+| `z_turbo` | t2i (4-step fast) | 1 template |
+| `sdxl` | t2i | 1 template |
+| `cogvideox` | t2v | (model registered, no template yet) |
+| `audio` | tts (chatterbox, f5, qwen3, voice clone), v2a (mmaudio) | 7 templates |
+| `utility` | telestyle, video_inpaint, video_stitch, upscale | 4 templates |
 
-## Common Patterns
+## Common Patterns (mmf CLI)
 
 ### Text-to-Image (FLUX)
 
-```python
-wf = generate_workflow(model="flux", workflow_type="t2i",
-    prompt="cyberpunk city at night, neon lights",
-    width=1024, height=1024, steps=20, cfg=3.5)
-result = execute_workflow(wf["workflow"])
-output = wait_for_completion(result["prompt_id"])
+```bash
+mmf run --model flux --type t2i --prompt "cyberpunk city at night, neon lights" -o city.png --pretty
 ```
 
 ### Text-to-Video (LTX)
 
-```python
-wf = generate_workflow(model="ltx", workflow_type="t2v",
-    prompt="a cat walking through a garden",
-    width=768, height=512, frames=97, steps=30)
-result = execute_workflow(wf["workflow"])
-output = wait_for_completion(result["prompt_id"], timeout_seconds=900)
+```bash
+mmf run --model ltx --type t2v --prompt "a cat walking through a garden" --timeout 900 -o cat.mp4
 ```
 
-### Image-to-Video (LTX)
+### Image-to-Video (WAN)
 
-```python
-# Upload source image first
-upload = upload_image("/path/to/image.png")
-
-wf = generate_workflow(model="ltx", workflow_type="i2v",
-    prompt="the scene comes to life with gentle motion")
-# Inject the uploaded image into the workflow
-# ... then execute
+```bash
+mmf run --model wan --type i2v --image photo.png --prompt "gentle motion" -o video.mp4
 ```
 
 ### Batch Seed Variations
 
-```python
-results = batch_execute(
-    workflow=wf["workflow"],
-    mode="seeds",
-    num_variations=4,
-    start_seed=42
-)
+```bash
+mmf batch seeds workflow.json --count 4 --start-seed 42
 # Returns 4 variations with seeds 42, 43, 44, 45
 ```
 
-### Parameter Sweep
+### Batch from Directory
 
-```python
-results = batch_execute(
-    workflow=wf["workflow"],
-    mode="sweep",
-    sweep_params={"cfg": [2.5, 3.5, 4.5], "steps": [20, 30]}
-)
-# Tests all combinations: 6 total runs
+```bash
+mmf batch dir --input keyframes/ --template wan26_img2vid --prompt "motion" --output videos/
 ```
 
 ### Background Replacement (Qwen Edit)
 
-```python
-# Use the template for Qwen Edit background replacement
-template = get_template("qwen_edit_background")
-wf = create_workflow_from_template("qwen_edit_background", {
-    "IMAGE_PATH": "uploaded_image.png",
-    "EDIT_PROMPT": "Change the background to an outdoor playground with green grass and blue sky. Keep the child exactly the same.",
-    "SEED": 42,
-    "CFG": 2.0,  # CRITICAL: Keep low (2.0-2.5). Higher causes color distortion.
-    "STEPS": 20
-})
-result = execute_workflow(wf)
-output = wait_for_completion(result["prompt_id"])
+```bash
+mmf run --template qwen_edit_background --params '{
+  "IMAGE_PATH": "uploaded_image.png",
+  "EDIT_PROMPT": "Change the background to an outdoor playground with green grass and blue sky.",
+  "SEED": 42, "CFG": 2.0, "STEPS": 20
+}' -o edited.png
 ```
 
 **Qwen Edit Critical Settings:**
@@ -374,13 +341,13 @@ All errors include `isError: true` and a `code`:
 
 ## Tips
 
-1. **Always use `wait_for_completion()`** - it uses WebSocket internally, falls back to polling. NEVER poll in a loop.
-2. **Always use `generate_workflow()`** - it handles model-specific constraints
-3. **Check VRAM first** with `check_model_fits()` for large models
-4. **Use `validate_workflow(auto_fix=True)`** to auto-correct common issues
-5. **Iterate with `regenerate()`** - faster than rebuilding workflows
-6. **Enhance prompts** with `enhance_prompt()` before generation for better results
-7. **Profile slow workflows** with `get_execution_profile()` to identify bottleneck nodes
-8. **Check compatibility** with `get_compatibility_matrix()` to see what's ready to use
-9. **Read resources** for model-specific patterns when building custom workflows
-10. **For batch (>10 workflows):** Use templates + direct API (`urllib`) instead of MCP tools to save tokens
+1. **Use `mmf run`** for all execution - it blocks via WebSocket internally. NEVER poll in a loop.
+2. **Use `mmf run --model`** for auto-corrected workflows, `mmf run --template` for exact configs
+3. **Check VRAM first** with `mmf models check-fit <model>` for large models
+4. **Validate** with `mmf validate workflow.json --auto-fix` to auto-correct common issues
+5. **Enhance prompts** with `mmf enhance --prompt "..." --model wan` before generation
+6. **Profile slow workflows** with `mmf profile <prompt_id>` to identify bottleneck nodes
+7. **Check compatibility** with `mmf models compatibility --pretty` to see what's ready to use
+8. **MCP for discovery only** - `search_nodes()`, `get_model_constraints()`, `list_workflow_templates()`
+9. **Read MCP resources** for model-specific patterns when building custom workflows
+10. **For batch** use `mmf batch seeds`, `mmf batch dir`, or `mmf batch sweep`

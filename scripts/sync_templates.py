@@ -81,6 +81,12 @@ TIER2_TEMPLATES = [
     "flux_kontext_edit.json",
     "z_turbo_txt2img.json",
     "mmaudio_v2a.json",
+    "wan22_animate.json",
+    "ltx2_v2v.json",
+    "wan26_flf2v.json",
+    "wan26_camera_i2v.json",
+    "wan22_i2v_breakthrough.json",
+    "wan22_i2v_lightning.json",
 ]
 
 # Backward compat alias

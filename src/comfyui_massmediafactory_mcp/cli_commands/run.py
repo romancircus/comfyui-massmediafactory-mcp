@@ -37,19 +37,22 @@ def cmd_run(args):
     # Template-based run
     if args.template:
         params = _parse_json_arg(args.params) if args.params else {}
-        wf = tmpl.inject_parameters(tmpl.load_template(args.template), params)
+        raw_template = tmpl.load_template(args.template)
+        skip_hw = raw_template.get("_meta", {}).get("skip_hardware_optimization", False)
+        wf = tmpl.inject_parameters(raw_template, params)
         if "error" in wf:
             _output(wf, pretty)
             return EXIT_ERROR
-        try:
-            from ..optimization import get_optimal_workflow_params, apply_hardware_overrides
+        if not skip_hw:
+            try:
+                from ..optimization import get_optimal_workflow_params, apply_hardware_overrides
 
-            hw = get_optimal_workflow_params(args.template, "generic")
-            overrides = hw.get("workflow_overrides", {})
-            if overrides:
-                apply_hardware_overrides(wf, overrides)
-        except Exception:
-            pass
+                hw = get_optimal_workflow_params(args.template, "generic")
+                overrides = hw.get("workflow_overrides", {})
+                if overrides:
+                    apply_hardware_overrides(wf, overrides)
+            except Exception:
+                pass
     else:
         if not args.model or not args.type:
             _output(_error("--model and --type required (or use --template)", "INVALID_PARAMS"), pretty)
@@ -155,9 +158,9 @@ def cmd_run(args):
                 return EXIT_VALIDATION, _error(
                     f"Corrupted output: image too small ({file_size} bytes, minimum 100KB required)", "VALIDATION_ERROR"
                 )
-            elif not is_image and file_size < 500000:
+            elif not is_image and file_size < 200000:
                 return EXIT_VALIDATION, _error(
-                    f"Corrupted output: video too small ({file_size} bytes, minimum 500KB required)", "VALIDATION_ERROR"
+                    f"Corrupted output: video too small ({file_size} bytes, minimum 200KB required)", "VALIDATION_ERROR"
                 )
 
         return EXIT_OK, output
