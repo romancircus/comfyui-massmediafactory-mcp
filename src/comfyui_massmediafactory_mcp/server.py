@@ -8,30 +8,14 @@ from mcp.server.fastmcp import FastMCP
 
 from . import discovery
 from . import execution
-from . import persistence
-from . import vram
 from . import validation
-from . import sota
 from . import templates
 from . import patterns
-from . import batch
-from . import pipeline
 from . import publish
-from . import qa
-from . import models
-from . import analysis
-from . import style_learning
 from . import reference_docs
 from . import topology_validator
 from . import workflow_generator
-from . import optimization
-from . import websocket_client
-from . import visualization
-from . import rate_limiter
 from . import prompt_enhance
-from . import profiling
-from . import workflow_diff
-from . import compatibility
 from .mcp_utils import (
     mcp_error,
     mcp_tool_wrapper,
@@ -183,6 +167,8 @@ def get_progress(prompt_id: str) -> dict:
             "timestamp": ISO datetime
         }
     """
+    from . import websocket_client
+
     progress = websocket_client.get_progress_sync(prompt_id)
     if progress:
         return {"isError": False, **progress}
@@ -361,6 +347,8 @@ def workflow_library(
     cursor: str = None,
 ) -> dict:
     """Workflow library. action: save|load|list|delete|duplicate|export|import"""
+    from . import persistence
+
     if action == "save":
         if not name or not workflow:
             return mcp_error("name and workflow required for action='save'", "INVALID_PARAMS")
@@ -413,6 +401,8 @@ def workflow_library(
 @mcp_tool_wrapper
 def estimate_vram(workflow: dict) -> dict:
     """Estimate VRAM usage for workflow."""
+    from . import vram
+
     return vram.estimate_workflow_vram(workflow)
 
 
@@ -420,6 +410,8 @@ def estimate_vram(workflow: dict) -> dict:
 @mcp_tool_wrapper
 def check_model_fits(model_name: str, precision: str = "default") -> dict:
     """Check if model fits in VRAM. precision: fp32|fp16|bf16|fp8|default"""
+    from . import vram
+
     return vram.check_model_fits(model_name, precision)
 
 
@@ -509,6 +501,8 @@ def sota_query(
     available_vram_gb: float = None,
 ) -> dict:
     """SOTA queries. mode: category|recommend|check|settings|installed"""
+    from . import sota
+
     if mode == "category":
         if not category:
             return mcp_error("category required for mode='category'", "INVALID_PARAMS")
@@ -632,6 +626,8 @@ def batch_execute(
     timeout_per_job: int = 600,
 ) -> dict:
     """Batch execution. mode: batch|sweep|seeds"""
+    from . import batch
+
     if mode == "batch":
         if not parameter_sets:
             return mcp_error("parameter_sets required for mode='batch'", "INVALID_PARAMS")
@@ -658,6 +654,8 @@ def execute_pipeline_stages(
     timeout_per_stage: int = 600,
 ) -> dict:
     """Run multi-stage pipeline (e.g., image→upscale→video)."""
+    from . import pipeline
+
     return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
 
 
@@ -671,6 +669,8 @@ def run_image_to_video_pipeline(
     seed: int = 42,
 ) -> dict:
     """Generate image then animate to video."""
+    from . import pipeline
+
     return pipeline.create_image_to_video_pipeline(image_workflow, video_workflow, prompt, video_prompt, seed)
 
 
@@ -684,6 +684,8 @@ def run_upscale_pipeline(
     seed: int = 42,
 ) -> dict:
     """Generate image then upscale."""
+    from . import pipeline
+
     return pipeline.create_upscale_pipeline(base_workflow, upscale_workflow, prompt, upscale_factor, seed)
 
 
@@ -694,6 +696,8 @@ def run_upscale_pipeline(
 @mcp_tool_wrapper
 def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit: int = 10) -> dict:
     """Search Civitai for models. type: checkpoint|lora|embedding|controlnet|upscaler"""
+    from . import models
+
     return models.search_civitai(query, model_type, nsfw, limit)
 
 
@@ -701,6 +705,8 @@ def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit
 @mcp_tool_wrapper
 def download_model(url: str, model_type: str, filename: str = None, overwrite: bool = False) -> dict:
     """Download model from Civitai/HF. type: checkpoint|unet|lora|vae|controlnet|clip"""
+    from . import models
+
     valid, error_msg = _validate_url(url)
     if not valid:
         return mcp_error(error_msg, "VALIDATION_ERROR")
@@ -711,6 +717,8 @@ def download_model(url: str, model_type: str, filename: str = None, overwrite: b
 @mcp_tool_wrapper
 def get_model_info(model_path: str) -> dict:
     """Get info about installed model."""
+    from . import models
+
     return models.get_model_info(model_path)
 
 
@@ -718,6 +726,8 @@ def get_model_info(model_path: str) -> dict:
 @mcp_tool_wrapper
 def list_installed_models(model_type: str = None) -> dict:
     """List installed models by type."""
+    from . import models
+
     return models.list_installed_models(model_type)
 
 
@@ -728,6 +738,8 @@ def list_installed_models(model_type: str = None) -> dict:
 @mcp_tool_wrapper
 def get_image_dimensions(asset_id: str) -> dict:
     """Get image dimensions and recommended video size."""
+    from . import analysis
+
     return analysis.get_image_dimensions(asset_id)
 
 
@@ -735,6 +747,8 @@ def get_image_dimensions(asset_id: str) -> dict:
 @mcp_tool_wrapper
 def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] = None) -> dict:
     """Detect objects in image via VLM."""
+    from . import analysis
+
     return _to_mcp_response(analysis.detect_objects(asset_id, objects, vlm_model))
 
 
@@ -742,6 +756,8 @@ def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] =
 @mcp_tool_wrapper
 def get_video_info(asset_id: str) -> dict:
     """Get video duration, fps, frame count."""
+    from . import analysis
+
     return analysis.get_video_info(asset_id)
 
 
@@ -757,6 +773,8 @@ def qa_output(
     vlm_model: Optional[str] = None,
 ) -> dict:
     """QA check via VLM. checks: prompt_match|artifacts|faces|text|composition"""
+    from . import qa
+
     safe_prompt = _escape_user_content(prompt)
     return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=safe_prompt, checks=checks, vlm_model=vlm_model))
 
@@ -765,6 +783,8 @@ def qa_output(
 @mcp_tool_wrapper
 def check_vlm_available(vlm_model: str = None) -> dict:
     """Check if VLM (Ollama) is available for QA."""
+    from . import qa
+
     return qa.check_vlm_available(vlm_model)
 
 
@@ -786,6 +806,8 @@ def record_generation(
     notes: str = "",
 ) -> dict:
     """Record a generation for style learning. Returns record_id."""
+    from . import style_learning
+
     record_id = style_learning.record_generation(
         prompt=prompt,
         model=model,
@@ -805,6 +827,8 @@ def record_generation(
 @mcp_tool_wrapper
 def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
     """Rate a generation 0.0-1.0. Returns success status."""
+    from . import style_learning
+
     return {"success": style_learning.rate_generation(record_id, rating, notes)}
 
 
@@ -819,6 +843,8 @@ def style_suggest(
     limit: int = 5,
 ) -> dict:
     """Style suggestions. mode: prompt|seeds|similar"""
+    from . import style_learning
+
     if mode == "prompt":
         if not prompt:
             return mcp_error("prompt required for mode=prompt")
@@ -849,6 +875,8 @@ def manage_presets(
     recommended_params: dict = None,
 ) -> dict:
     """Manage style presets. action: list|get|save|delete"""
+    from . import style_learning
+
     if action == "list":
         presets = style_learning.list_style_presets()
         return {"presets": presets, "count": len(presets)}
@@ -935,6 +963,8 @@ def get_optimal_workflow_params(
         task: Task type (i2v, t2v, t2i).
         available_vram_gb: Override VRAM detection (auto-detected if None).
     """
+    from . import optimization
+
     return optimization.get_optimal_workflow_params(
         model=model,
         task=task,
@@ -951,6 +981,8 @@ def get_optimal_workflow_params(
 @mcp_tool_wrapper
 def visualize_workflow(workflow: dict) -> dict:
     """Generate Mermaid diagram from workflow for visualization."""
+    from . import visualization
+
     return visualization.visualize_workflow(workflow)
 
 
@@ -958,6 +990,8 @@ def visualize_workflow(workflow: dict) -> dict:
 @mcp_tool_wrapper
 def get_workflow_summary(workflow: dict) -> dict:
     """Get text summary of workflow structure (node types, parameters)."""
+    from . import visualization
+
     return visualization.get_workflow_summary(workflow)
 
 
@@ -970,6 +1004,8 @@ def get_workflow_summary(workflow: dict) -> dict:
 @mcp_tool_wrapper
 def get_rate_limit_status(tool_name: str = None) -> dict:
     """Get current rate limiting status. Shows requests remaining, reset time, usage."""
+    from . import rate_limiter
+
     return rate_limiter.get_rate_limit_status(tool_name)
 
 
@@ -977,6 +1013,8 @@ def get_rate_limit_status(tool_name: str = None) -> dict:
 @mcp_tool_wrapper
 def get_all_tools_rate_status() -> dict:
     """Get rate limiting status for all tools."""
+    from . import rate_limiter
+
     return rate_limiter.get_all_tools_rate_status()
 
 
@@ -984,6 +1022,8 @@ def get_all_tools_rate_status() -> dict:
 @mcp_tool_wrapper
 def get_rate_limit_summary() -> dict:
     """Get brief summary of rate limit status for dashboard display."""
+    from . import rate_limiter
+
     return rate_limiter.get_rate_limit_summary()
 
 
@@ -1196,6 +1236,8 @@ def get_execution_profile(prompt_id: str) -> dict:
     Args:
         prompt_id: The prompt_id to profile.
     """
+    from . import profiling
+
     return _to_mcp_response(profiling.get_execution_profile(prompt_id))
 
 
@@ -1211,6 +1253,8 @@ def diff_workflows(workflow_a: dict, workflow_b: dict) -> dict:
         workflow_a: First workflow JSON.
         workflow_b: Second workflow JSON.
     """
+    from . import workflow_diff
+
     return _to_mcp_response(workflow_diff.diff_workflows(workflow_a, workflow_b))
 
 
@@ -1222,6 +1266,8 @@ def get_compatibility_matrix() -> dict:
     Cross-references installed models, available VRAM, and model constraints
     to show what's ready to use vs what needs setup.
     """
+    from . import compatibility
+
     return _to_mcp_response(compatibility.get_compatibility_matrix())
 
 

@@ -28,7 +28,7 @@ from comfyui_massmediafactory_mcp.server import batch_execute
 class TestBatchExecute:
     """Tests for batch_execute() modes"""
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_batch_mode_success(self, mock_batch):
         """Test batch mode execution"""
         mock_batch.execute_batch.return_value = {
@@ -44,7 +44,7 @@ class TestBatchExecute:
         assert result.get("success") is True
         assert len(result.get("results", [])) == 2
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_sweep_mode_success(self, mock_batch):
         """Test sweep mode execution"""
         mock_batch.execute_sweep.return_value = {
@@ -64,7 +64,7 @@ class TestBatchExecute:
         assert result.get("success") is True
         assert len(result.get("results", [])) == 3
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_seeds_mode_success(self, mock_batch):
         """Test seeds mode execution"""
         mock_batch.execute_seed_variations.return_value = {
@@ -92,7 +92,7 @@ class TestBatchExecute:
         assert "error" in result
         assert "Invalid mode" in result["error"]
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_batch_missing_parameter_sets(self, mock_batch):
         """Test batch mode without parameter_sets"""
         workflow = {"1": {"class_type": "TestNode"}}
@@ -102,7 +102,7 @@ class TestBatchExecute:
         assert "error" in result
         assert "parameter_sets required" in result["error"]
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_sweep_missing_sweep_params(self, mock_batch):
         """Test sweep mode without sweep_params"""
         workflow = {"1": {"class_type": "TestNode"}}
@@ -112,7 +112,7 @@ class TestBatchExecute:
         assert "error" in result
         assert "sweep_params required" in result["error"]
 
-    @patch("comfyui_massmediafactory_mcp.server.batch")
+    @patch("comfyui_massmediafactory_mcp.batch", create=True)
     def test_batch_parallel_execution(self, mock_batch):
         """Test batch execution with parallel processing"""
         mock_batch.execute_batch.return_value = {
