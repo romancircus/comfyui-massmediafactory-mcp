@@ -450,14 +450,21 @@ def create_tts_to_video_pipeline(
     # Stage 2: Calculate frames from audio duration
     # Stage 3: Generate lip-synced video
 
-    def _get_audio_duration(stage_outputs: Dict) -> float:
+    def _get_audio_duration(stage_outputs) -> float:
         """Extract audio duration from TTS stage output."""
-        # Look for duration in metadata or calculate from audio file
-        for node_outputs in stage_outputs.values():
-            if "audio" in node_outputs:
-                for item in node_outputs["audio"]:
-                    if isinstance(item, dict) and "duration" in item:
+        # Handle list format (from wait_for_completion)
+        if isinstance(stage_outputs, list):
+            for item in stage_outputs:
+                if isinstance(item, dict) and item.get("type") == "audio":
+                    if "duration" in item:
                         return item["duration"]
+        # Handle dict format (from raw ComfyUI API)
+        elif isinstance(stage_outputs, dict):
+            for node_outputs in stage_outputs.values():
+                if isinstance(node_outputs, dict) and "audio" in node_outputs:
+                    for item in node_outputs["audio"]:
+                        if isinstance(item, dict) and "duration" in item:
+                            return item["duration"]
         # Default fallback: estimate from text length
         # ~150 words per minute = 2.5 words per second
         word_count = len(text.split())

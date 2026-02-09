@@ -96,8 +96,8 @@ def _is_model_installed(model_type_normalized: str) -> bool:
 MODEL_TYPE_MAP = {
     "flux2": ["flux2", "flux.2", "flux2-dev", "flux", "fl.2"],
     "ltx2": ["ltx2", "ltx-2", "ltxvideo", "ltx"],
-    "wan26": ["wan26", "wan 2.6", "wan2.6", "wan"],
-    "wan22": ["wan22", "wan 2.2", "wan2.2", "wan 2.2 s2v"],
+    "wan26": ["wan26", "wan 2.6", "wan2.6"],
+    "wan22": ["wan22", "wan 2.2", "wan2.2", "wan 2.2 s2v", "wan"],
     "qwen": ["qwen", "qwen-image"],
     "qwen_edit": ["qwen_edit", "qwen-edit", "qwen_image_edit"],
     "hunyuan15": ["hunyuanvideo 1.5", "hunyuan15", "hunyuan"],
@@ -115,17 +115,20 @@ def get_model_type(model_name: str) -> Optional[str]:
         return None
     model_lower = model_name.lower()
 
-    # Check for exact matches first (check "edit" variants before base "qwen")
+    # Check for exact matches first
+    # Order matters: more specific variants before general ones
+    # - qwen_edit before qwen (both contain "qwen")
+    # - wan26 before wan22 (wan22 has bare "wan" as fallback for unversioned names)
     for canonical in [
         "qwen_edit",
         "flux2",
         "ltx2",
         "wan26",
         "wan22",
+        "telestyle",
         "qwen",
         "hunyuan15",
         "sdxl",
-        "telestyle",
         "z_turbo",
         "audio",
         "utility",
@@ -329,6 +332,11 @@ def list_templates(
             # Extract model from _meta.model and normalize
             model = meta.get("model", "")
             model_type_normalized = get_model_type(model)
+
+            # Template filename can override model_type resolution for ambiguous cases
+            # (e.g., telestyle_image uses same model as qwen_edit but is a different type)
+            if f.stem.startswith("telestyle"):
+                model_type_normalized = "telestyle"
 
             # Apply model_type filter
             if model_type and model_type_normalized != model_type.lower():

@@ -195,6 +195,33 @@ def search_nodes(query: str, limit: int = 50) -> dict:
     }
 
 
+def list_models(model_type: str = "all") -> dict:
+    """
+    List models by type, matching server.py dispatch logic.
+
+    Args:
+        model_type: One of checkpoint|unet|lora|vae|controlnet|all
+
+    Returns:
+        Model list for the requested type, or all types combined.
+    """
+    if model_type == "all":
+        return get_all_models()
+
+    type_map = {
+        "checkpoint": list_checkpoints,
+        "unet": list_unets,
+        "lora": list_loras,
+        "vae": list_vaes,
+        "controlnet": list_controlnets,
+    }
+
+    if model_type not in type_map:
+        return {"error": f"Unknown model type: {model_type}. Use: checkpoint|unet|lora|vae|controlnet|all"}
+
+    return type_map[model_type]()
+
+
 def get_all_models() -> dict:
     """
     Get a summary of all available models across all types.
