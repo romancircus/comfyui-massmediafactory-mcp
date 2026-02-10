@@ -28,8 +28,6 @@ from comfyui_massmediafactory_mcp.server import (
     _escape_user_content,
     upload_image,
     download_output,
-    download_model,
-    qa_output,
 )
 
 
@@ -175,40 +173,3 @@ class TestDownloadOutputSecurity:
         result = download_output("asset-123", "../../../etc/passwd")
         assert "error" in result
         mock_execution.download_output.assert_not_called()
-
-
-class TestDownloadModelSecurity:
-    """Security tests for download_model tool"""
-
-    @patch("comfyui_massmediafactory_mcp.models", create=True)
-    def test_download_rejects_malicious_url(self, mock_models):
-        """Test that download_model blocks non-whitelisted URLs"""
-        result = download_model("https://evil.com/malware.exe", "checkpoint")
-        assert "error" in result
-        mock_models.download_model.assert_not_called()
-
-    @patch("comfyui_massmediafactory_mcp.models", create=True)
-    def test_download_accepts_valid_url(self, mock_models):
-        """Test that download_model accepts valid URLs"""
-        mock_models.download_model.return_value = {"success": True}
-        _result = download_model("https://civitai.com/models/12345", "checkpoint")
-        # Should proceed to actual download call
-        mock_models.download_model.assert_called_once()
-
-
-class TestQAOutputSecurity:
-    """Security tests for qa_output tool"""
-
-    @patch("comfyui_massmediafactory_mcp.qa", create=True)
-    def test_qa_escapes_prompt(self, mock_qa):
-        """Test that qa_output escapes user prompt"""
-        mock_qa.qa_output.return_value = {"result": "pass"}
-
-        # Call with potentially malicious prompt
-        malicious_prompt = "test\x00\x01\x02"
-        _result = qa_output("asset-123", malicious_prompt)
-
-        # Verify the qa module was called with escaped content
-        call_args = mock_qa.qa_output.call_args
-        escaped_prompt = call_args.kwargs.get("prompt") or call_args[1].get("prompt")
-        assert "\x00" not in escaped_prompt

@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List
 from mcp.server.fastmcp import FastMCP
 
 from . import discovery
@@ -90,7 +90,9 @@ def _escape_user_content(text: str) -> str:
     return cleaned[:10000]
 
 
-# Discovery Tools
+# =============================================================================
+# Discovery Tools (3)
+# =============================================================================
 
 
 @mcp.tool()
@@ -125,58 +127,9 @@ def search_nodes(query: str) -> dict:
     return discovery.search_nodes(query)
 
 
-# Execution Tools
-
-
-# @mcp.tool()  # Removed: use `mmf execute` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def execute_workflow(workflow: dict, client_id: str = "massmediafactory") -> dict:
-    """Queue workflow for execution. Returns prompt_id."""
-    return _to_mcp_response(execution.execute_workflow(workflow, client_id))
-
-
-# @mcp.tool()  # Removed: use `mmf wait` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_workflow_status(prompt_id: str = None) -> dict:
-    """Check workflow/queue status. With prompt_id: single job. Without: all jobs."""
-    if prompt_id:
-        return execution.get_workflow_status(prompt_id)
-    return execution.get_queue_status()
-
-
-# @mcp.tool()  # Removed: use `mmf run` (blocking) CLI instead (ROM-548)
-@mcp_tool_wrapper
-def wait_for_completion(prompt_id: str, timeout_seconds: int = 600) -> dict:
-    """Wait for workflow completion. Returns outputs."""
-    return _to_mcp_response(execution.wait_for_completion(prompt_id, timeout_seconds))
-
-
-# @mcp.tool()  # Removed: use `mmf wait --progress` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_progress(prompt_id: str) -> dict:
-    """Get current progress for a workflow. Returns stage, percent, eta, nodes.
-
-    Returns:
-        {
-            "stage": "queued|running|progress|completed|error",
-            "percent": 0.0-100.0,
-            "eta_seconds": float or null,
-            "nodes_completed": int,
-            "nodes_total": int,
-            "message": str or null,
-            "timestamp": ISO datetime
-        }
-    """
-    from . import websocket_client
-
-    progress = websocket_client.get_progress_sync(prompt_id)
-    if progress:
-        return {"isError": False, **progress}
-    return {
-        "isError": True,
-        "error": f"No progress found for prompt_id: {prompt_id}",
-        "hint": "Check if prompt_id is valid using get_workflow_status()",
-    }
+# =============================================================================
+# System Tools (3)
+# =============================================================================
 
 
 @mcp.tool()
@@ -200,70 +153,9 @@ def interrupt() -> dict:
     return execution.interrupt_execution()
 
 
-# Asset Tools
-
-
-# @mcp.tool()  # Removed: use `mmf run` with modified params CLI instead (ROM-548)
-@mcp_tool_wrapper
-def regenerate(
-    asset_id: str,
-    prompt: str = None,
-    negative_prompt: str = None,
-    seed: int = None,
-    steps: int = None,
-    cfg: float = None,
-) -> dict:
-    """Re-run workflow with modified params. Returns new prompt_id."""
-    return execution.regenerate(
-        asset_id=asset_id,
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        seed=seed,
-        steps=steps,
-        cfg=cfg,
-    )
-
-
-# @mcp.tool()  # Removed: use `mmf assets list` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def list_assets(
-    session_id: str = None,
-    asset_type: str = None,
-    limit: int = 20,
-    cursor: str = None,
-) -> dict:
-    """List generated assets. type: images|video|audio"""
-    result = execution.list_assets(session_id=session_id, asset_type=asset_type, limit=1000)
-    if "error" in result:
-        return _to_mcp_response(result)
-    assets = result.get("assets", [])
-    paginated = paginate(assets, cursor=cursor, limit=limit)
-    return {
-        "assets": paginated["items"],
-        "nextCursor": paginated["nextCursor"],
-        "total": paginated["total"],
-    }
-
-
-# @mcp.tool()  # Removed: use `mmf assets metadata` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_asset_metadata(asset_id: str) -> dict:
-    """Get full asset metadata including workflow."""
-    return _to_mcp_response(execution.get_asset_metadata(asset_id))
-
-
-# @mcp.tool()  # Removed: use `mmf assets view` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def view_output(asset_id: str, mode: str = "thumb") -> dict:
-    """View asset. mode: thumb|metadata"""
-    return execution.view_output(asset_id, mode)
-
-
-# @mcp.tool()  # Removed: use `mmf assets cleanup` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def cleanup_assets() -> dict:
-    """Remove expired assets (default 24h TTL)."""
-    return execution.cleanup_expired_assets()
+# =============================================================================
+# I/O Tools (2)
+# =============================================================================
 
 
 @mcp.tool()
@@ -293,7 +185,9 @@ def download_output(asset_id: str, output_path: str) -> dict:
     return execution.download_output(asset_id, resolved_path)
 
 
-# Publishing Tools
+# =============================================================================
+# Publishing Tools (3)
+# =============================================================================
 
 
 @mcp.tool()
@@ -329,93 +223,9 @@ def set_publish_dir(publish_dir: str) -> dict:
     return publish.set_publish_dir(publish_dir)
 
 
-# Workflow Library
-
-
-# @mcp.tool()  # Removed: use `mmf workflow-lib` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def workflow_library(
-    action: str,
-    name: str = None,
-    workflow: dict = None,
-    description: str = "",
-    tags: Optional[List[str]] = None,
-    source_name: str = None,
-    new_name: str = None,
-    tag_filter: str = None,
-    limit: int = 20,
-    cursor: str = None,
-) -> dict:
-    """Workflow library. action: save|load|list|delete|duplicate|export|import"""
-    from . import persistence
-
-    if action == "save":
-        if not name or not workflow:
-            return mcp_error("name and workflow required for action='save'", "INVALID_PARAMS")
-        return persistence.save_workflow(name, workflow, description, tags or [])
-    elif action == "load":
-        if not name:
-            return mcp_error("name required for action='load'", "INVALID_PARAMS")
-        return persistence.load_workflow(name)
-    elif action == "list":
-        result = persistence.list_workflows(tag_filter)
-        if "error" in result:
-            return _to_mcp_response(result)
-        workflows = result.get("workflows", [])
-        paginated = paginate(workflows, cursor=cursor, limit=limit)
-        return {
-            "workflows": paginated["items"],
-            "nextCursor": paginated["nextCursor"],
-            "total": paginated["total"],
-        }
-    elif action == "delete":
-        if not name:
-            return mcp_error("name required for action='delete'", "INVALID_PARAMS")
-        return persistence.delete_workflow(name)
-    elif action == "duplicate":
-        if not source_name or not new_name:
-            return mcp_error(
-                "source_name and new_name required for action='duplicate'",
-                "INVALID_PARAMS",
-            )
-        return persistence.duplicate_workflow(source_name, new_name)
-    elif action == "export":
-        if not name:
-            return mcp_error("name required for action='export'", "INVALID_PARAMS")
-        return persistence.export_workflow(name)
-    elif action == "import":
-        if not name or not workflow:
-            return mcp_error("name and workflow required for action='import'", "INVALID_PARAMS")
-        return persistence.import_workflow(name, workflow, description, tags)
-    else:
-        return mcp_error(
-            f"Invalid action: {action}. Use: save|load|list|delete|duplicate|export|import",
-            "INVALID_PARAMS",
-        )
-
-
-# VRAM Tools
-
-
-# @mcp.tool()  # Removed: use `mmf models estimate-vram` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def estimate_vram(workflow: dict) -> dict:
-    """Estimate VRAM usage for workflow."""
-    from . import vram
-
-    return vram.estimate_workflow_vram(workflow)
-
-
-# @mcp.tool()  # Removed: use `mmf models check-fit` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def check_model_fits(model_name: str, precision: str = "default") -> dict:
-    """Check if model fits in VRAM. precision: fp32|fp16|bf16|fp8|default"""
-    from . import vram
-
-    return vram.check_model_fits(model_name, precision)
-
-
-# Validation Tools
+# =============================================================================
+# Validation Tool (1)
+# =============================================================================
 
 
 @mcp.tool()
@@ -488,47 +298,9 @@ def check_connection(source_type: str, source_slot: int, target_type: str, targe
     return validation.check_node_compatibility(source_type, source_slot, target_type, target_input)
 
 
-# SOTA Recommendations
-
-
-# @mcp.tool()  # Removed: use `mmf sota` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def sota_query(
-    mode: str,
-    category: str = None,
-    task: str = None,
-    model_name: str = None,
-    available_vram_gb: float = None,
-) -> dict:
-    """SOTA queries. mode: category|recommend|check|settings|installed"""
-    from . import sota
-
-    if mode == "category":
-        if not category:
-            return mcp_error("category required for mode='category'", "INVALID_PARAMS")
-        return sota.get_sota_for_category(category)
-    elif mode == "recommend":
-        if not task:
-            return mcp_error("task required for mode='recommend'", "INVALID_PARAMS")
-        return sota.recommend_model_for_task(task, available_vram_gb)
-    elif mode == "check":
-        if not model_name:
-            return mcp_error("model_name required for mode='check'", "INVALID_PARAMS")
-        return sota.check_model_is_sota(model_name)
-    elif mode == "settings":
-        if not model_name:
-            return mcp_error("model_name required for mode='settings'", "INVALID_PARAMS")
-        return sota.get_optimal_settings(model_name)
-    elif mode == "installed":
-        return sota.get_available_sota_models()
-    else:
-        return mcp_error(
-            f"Invalid mode: {mode}. Use: category|recommend|check|settings|installed",
-            "INVALID_PARAMS",
-        )
-
-
-# Workflow Templates
+# =============================================================================
+# Template Tools (2)
+# =============================================================================
 
 
 @mcp.tool()
@@ -562,24 +334,9 @@ def get_template(name: str) -> dict:
     return _to_mcp_response(templates.load_template(name))
 
 
-# @mcp.tool()  # Removed: use `mmf run --template` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def create_workflow_from_template(template_name: str, parameters: dict) -> dict:
-    """Create workflow from template. Injects {{PLACEHOLDER}} values."""
-    template = templates.load_template(template_name)
-    if "error" in template:
-        return template
-    defaults = template.get("_meta", {}).get("defaults", {})
-    final_params = {**defaults, **parameters}
-    workflow = templates.inject_parameters(template, final_params)
-    return {
-        "workflow": workflow,
-        "template": template_name,
-        "parameters_used": final_params,
-    }
-
-
-# Workflow Patterns
+# =============================================================================
+# Workflow Pattern Tools (3)
+# =============================================================================
 
 
 @mcp.tool()
@@ -606,431 +363,46 @@ def get_node_chain(model: str, task: str) -> dict:
     return {"nodes": result, "model": model, "task": task, "count": len(result)}
 
 
-# Converted to MCP resource - see comfyui://patterns/available
-
-
-# Batch Execution
-
-
-# @mcp.tool()  # Removed: use `mmf batch` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def batch_execute(
-    workflow: dict,
-    mode: str,
-    parameter_sets: Optional[List[Dict[str, Any]]] = None,
-    sweep_params: dict = None,
-    fixed_params: dict = None,
-    num_variations: int = 4,
-    start_seed: int = 42,
-    parallel: int = 1,
-    timeout_per_job: int = 600,
-) -> dict:
-    """Batch execution. mode: batch|sweep|seeds"""
-    from . import batch
-
-    if mode == "batch":
-        if not parameter_sets:
-            return mcp_error("parameter_sets required for mode='batch'", "INVALID_PARAMS")
-        return batch.execute_batch(workflow, parameter_sets, parallel, timeout_per_job)
-    elif mode == "sweep":
-        if not sweep_params:
-            return mcp_error("sweep_params required for mode='sweep'", "INVALID_PARAMS")
-        return batch.execute_sweep(workflow, sweep_params, fixed_params, parallel)
-    elif mode == "seeds":
-        base_params = parameter_sets[0] if parameter_sets else {}
-        return batch.execute_seed_variations(workflow, base_params, num_variations, start_seed, parallel)
-    else:
-        return mcp_error(f"Invalid mode: {mode}. Use: batch|sweep|seeds", "INVALID_PARAMS")
-
-
-# Pipelines
-
-
-# @mcp.tool()  # Removed: use `mmf pipeline` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def execute_pipeline_stages(
-    stages: List[Dict[str, Any]],
-    initial_params: Dict[str, Any],
-    timeout_per_stage: int = 600,
-) -> dict:
-    """Run multi-stage pipeline (e.g., image→upscale→video)."""
-    from . import pipeline
-
-    return pipeline.execute_pipeline(stages, initial_params, timeout_per_stage)
-
-
-# @mcp.tool()  # Removed: use `mmf pipeline i2v` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def run_image_to_video_pipeline(
-    image_workflow: dict,
-    video_workflow: dict,
-    prompt: str,
-    video_prompt: str = None,
-    seed: int = 42,
-) -> dict:
-    """Generate image then animate to video."""
-    from . import pipeline
-
-    return pipeline.create_image_to_video_pipeline(image_workflow, video_workflow, prompt, video_prompt, seed)
-
-
-# @mcp.tool()  # Removed: use `mmf pipeline upscale` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def run_upscale_pipeline(
-    base_workflow: dict,
-    upscale_workflow: dict,
-    prompt: str,
-    upscale_factor: float = 2.0,
-    seed: int = 42,
-) -> dict:
-    """Generate image then upscale."""
-    from . import pipeline
-
-    return pipeline.create_upscale_pipeline(base_workflow, upscale_workflow, prompt, upscale_factor, seed)
-
-
-# Model Management Tools
-
-
-# @mcp.tool()  # Removed: use `mmf search-model` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def search_civitai(query: str, model_type: str = None, nsfw: bool = False, limit: int = 10) -> dict:
-    """Search Civitai for models. type: checkpoint|lora|embedding|controlnet|upscaler"""
-    from . import models
-
-    return models.search_civitai(query, model_type, nsfw, limit)
-
-
-# @mcp.tool()  # Removed: use `mmf install-model` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def download_model(url: str, model_type: str, filename: str = None, overwrite: bool = False) -> dict:
-    """Download model from Civitai/HF. type: checkpoint|unet|lora|vae|controlnet|clip"""
-    from . import models
-
-    valid, error_msg = _validate_url(url)
-    if not valid:
-        return mcp_error(error_msg, "VALIDATION_ERROR")
-    return _to_mcp_response(models.download_model(url, model_type, filename, overwrite))
-
-
-# @mcp.tool()  # Removed: use `mmf models info` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def get_model_info(model_path: str) -> dict:
-    """Get info about installed model."""
-    from . import models
-
-    return models.get_model_info(model_path)
-
-
-# @mcp.tool()  # Removed: use `mmf models list` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def list_installed_models(model_type: str = None) -> dict:
-    """List installed models by type."""
-    from . import models
-
-    return models.list_installed_models(model_type)
-
-
-# Asset Analysis
-
-
-# @mcp.tool()  # Removed: use `mmf assets dimensions` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_image_dimensions(asset_id: str) -> dict:
-    """Get image dimensions and recommended video size."""
-    from . import analysis
-
-    return analysis.get_image_dimensions(asset_id)
-
-
-# @mcp.tool()  # Removed: niche, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def detect_objects(asset_id: str, objects: List[str], vlm_model: Optional[str] = None) -> dict:
-    """Detect objects in image via VLM."""
-    from . import analysis
-
-    return _to_mcp_response(analysis.detect_objects(asset_id, objects, vlm_model))
-
-
-# @mcp.tool()  # Removed: use `mmf assets video-info` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_video_info(asset_id: str) -> dict:
-    """Get video duration, fps, frame count."""
-    from . import analysis
-
-    return analysis.get_video_info(asset_id)
-
-
-# Quality Assurance
-
-
-# @mcp.tool()  # Removed: use `mmf qa` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def qa_output(
-    asset_id: str,
-    prompt: str,
-    checks: Optional[List[str]] = None,
-    vlm_model: Optional[str] = None,
-) -> dict:
-    """QA check via VLM. checks: prompt_match|artifacts|faces|text|composition"""
-    from . import qa
-
-    safe_prompt = _escape_user_content(prompt)
-    return _to_mcp_response(qa.qa_output(asset_id=asset_id, prompt=safe_prompt, checks=checks, vlm_model=vlm_model))
-
-
-# @mcp.tool()  # Removed: niche, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def check_vlm_available(vlm_model: str = None) -> dict:
-    """Check if VLM (Ollama) is available for QA."""
-    from . import qa
-
-    return qa.check_vlm_available(vlm_model)
-
-
-# Style Learning Tools
-
-
-# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def record_generation(
-    prompt: str,
-    model: str,
-    seed: int,
-    parameters: Dict[str, Any] = None,
-    negative_prompt: str = "",
-    rating: Optional[float] = None,
-    tags: Optional[List[str]] = None,
-    outcome: str = "success",
-    qa_score: float = None,
-    notes: str = "",
-) -> dict:
-    """Record a generation for style learning. Returns record_id."""
-    from . import style_learning
-
-    record_id = style_learning.record_generation(
-        prompt=prompt,
-        model=model,
-        seed=seed,
-        parameters=parameters,
-        negative_prompt=negative_prompt,
-        rating=rating,
-        tags=tags,
-        outcome=outcome,
-        qa_score=qa_score,
-        notes=notes,
-    )
-    return {"record_id": record_id, "success": True}
-
-
-# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def rate_generation(record_id: str, rating: float, notes: str = None) -> dict:
-    """Rate a generation 0.0-1.0. Returns success status."""
-    from . import style_learning
-
-    return {"success": style_learning.rate_generation(record_id, rating, notes)}
-
-
-# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def style_suggest(
-    mode: str,
-    prompt: Optional[str] = None,
-    model: Optional[str] = None,
-    tags: Optional[List[str]] = None,
-    min_rating: float = 0.7,
-    limit: int = 5,
-) -> dict:
-    """Style suggestions. mode: prompt|seeds|similar"""
-    from . import style_learning
-
-    if mode == "prompt":
-        if not prompt:
-            return mcp_error("prompt required for mode=prompt")
-        return style_learning.suggest_prompt_enhancement(prompt=prompt, model=model, style_tags=tags)
-    elif mode == "seeds":
-        if not tags:
-            return mcp_error("tags required for mode=seeds")
-        results = style_learning.get_best_seeds_for_style(tags=tags, model=model, limit=limit)
-        return {"seeds": results, "count": len(results)}
-    elif mode == "similar":
-        if not prompt:
-            return mcp_error("prompt required for mode=similar")
-        results = style_learning.find_similar_prompts(prompt=prompt, model=model, min_rating=min_rating, limit=limit)
-        return {"similar": results, "count": len(results)}
-    else:
-        return mcp_error(f"Unknown mode: {mode}. Use: prompt|seeds|similar")
-
-
-# @mcp.tool()  # Removed: style learning, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def manage_presets(
-    action: str,
-    name: str = None,
-    description: str = None,
-    prompt_additions: str = None,
-    negative_additions: str = "",
-    recommended_model: str = None,
-    recommended_params: dict = None,
-) -> dict:
-    """Manage style presets. action: list|get|save|delete"""
-    from . import style_learning
-
-    if action == "list":
-        presets = style_learning.list_style_presets()
-        return {"presets": presets, "count": len(presets)}
-    elif action == "get":
-        if not name:
-            return mcp_error("name required for action=get")
-        preset = style_learning.get_style_preset(name)
-        return preset if preset else mcp_error(f"Preset '{name}' not found", "NOT_FOUND")
-    elif action == "save":
-        if not name or not description or not prompt_additions:
-            return mcp_error("name, description, prompt_additions required for action=save")
-        success = style_learning.save_style_preset(
-            name=name,
-            description=description,
-            prompt_additions=prompt_additions,
-            negative_additions=negative_additions,
-            recommended_model=recommended_model,
-            recommended_params=recommended_params,
-        )
-        return {"success": success}
-    elif action == "delete":
-        if not name:
-            return mcp_error("name required for action=delete")
-        success = style_learning.delete_style_preset(name)
-        return {"success": success}
-    else:
-        return mcp_error(f"Unknown action: {action}. Use: list|get|save|delete")
-
-
-# Workflow Generation
-
-
-# @mcp.tool()  # Removed: use `mmf run --model X --type Y` CLI instead (ROM-548)
-@mcp_tool_wrapper
-def generate_workflow(
-    model: str,
-    workflow_type: str,
-    prompt: str,
-    negative_prompt: str = "",
-    width: int = None,
-    height: int = None,
-    frames: int = None,
-    seed: int = None,
-    steps: int = None,
-    cfg: float = None,
-    guidance: float = None,
-) -> dict:
-    """Generate validated workflow. model: ltx|flux|wan|qwen. type: t2v|i2v|t2i"""
-    return workflow_generator.generate_workflow(
-        model=model,
-        workflow_type=workflow_type,
-        prompt=prompt,
-        negative_prompt=negative_prompt,
-        width=width,
-        height=height,
-        frames=frames,
-        seed=seed,
-        steps=steps,
-        cfg=cfg,
-        guidance=guidance,
-    )
-
-
 # =============================================================================
-# Hardware Optimization Tools
+# Prompt Tool (1)
 # =============================================================================
 
 
-# @mcp.tool()  # Removed: use `mmf models optimize` CLI instead (ROM-562)
+@mcp.tool()
 @mcp_tool_wrapper
-def get_optimal_workflow_params(
-    model: str,
-    task: str = "i2v",
-    available_vram_gb: float = None,
+def enhance_prompt(
+    prompt: str,
+    model: str = "flux",
+    style: str = None,
+    use_llm: bool = True,
+    llm_model: str = None,
 ) -> dict:
-    """Get hardware-optimized workflow parameters for model+task.
+    """Enhance a generation prompt with model-specific quality tokens and optional LLM rewriting.
 
-    Auto-detects GPU and returns optimal load_device, quantization,
-    attention_mode, and per-node overrides. RTX 5090 gets main_device
-    + fp8_fast for 3-4x speedup over conservative defaults.
+    Uses local Ollama LLM to intelligently rewrite prompts for better generation results.
+    Falls back to token injection if LLM unavailable.
 
     Args:
-        model: Model key (wan26, ltx2, flux2, qwen).
-        task: Task type (i2v, t2v, t2i).
-        available_vram_gb: Override VRAM detection (auto-detected if None).
+        prompt: The original prompt to enhance.
+        model: Target generation model (flux, sdxl, qwen, wan, ltx).
+        style: Optional style preset (cinematic, anime, photorealistic).
+        use_llm: Use Ollama LLM for intelligent rewriting (default True).
+        llm_model: Ollama model to use (default: qwen3:8b).
     """
-    from . import optimization
-
-    return optimization.get_optimal_workflow_params(
-        model=model,
-        task=task,
-        available_vram_gb=available_vram_gb,
+    return _to_mcp_response(
+        prompt_enhance.enhance_prompt(
+            prompt=prompt,
+            model=model,
+            style=style,
+            use_llm=use_llm,
+            llm_model=llm_model,
+        )
     )
 
 
 # =============================================================================
-# Workflow Visualization Tools
+# MCP Resources (13)
 # =============================================================================
-
-
-# @mcp.tool()  # Removed: visualization, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def visualize_workflow(workflow: dict) -> dict:
-    """Generate Mermaid diagram from workflow for visualization."""
-    from . import visualization
-
-    return visualization.visualize_workflow(workflow)
-
-
-# @mcp.tool()  # Removed: visualization, use CLI instead (ROM-548)
-@mcp_tool_wrapper
-def get_workflow_summary(workflow: dict) -> dict:
-    """Get text summary of workflow structure (node types, parameters)."""
-    from . import visualization
-
-    return visualization.get_workflow_summary(workflow)
-
-
-# =============================================================================
-# Rate Limiting Dashboard Tools
-# =============================================================================
-
-
-# @mcp.tool()  # Removed: internal debugging only (ROM-562)
-@mcp_tool_wrapper
-def get_rate_limit_status(tool_name: str = None) -> dict:
-    """Get current rate limiting status. Shows requests remaining, reset time, usage."""
-    from . import rate_limiter
-
-    return rate_limiter.get_rate_limit_status(tool_name)
-
-
-# @mcp.tool()  # Removed: internal debugging only (ROM-562)
-@mcp_tool_wrapper
-def get_all_tools_rate_status() -> dict:
-    """Get rate limiting status for all tools."""
-    from . import rate_limiter
-
-    return rate_limiter.get_all_tools_rate_status()
-
-
-# @mcp.tool()  # Removed: internal debugging only (ROM-562)
-@mcp_tool_wrapper
-def get_rate_limit_summary() -> dict:
-    """Get brief summary of rate limit status for dashboard display."""
-    from . import rate_limiter
-
-    return rate_limiter.get_rate_limit_summary()
-
-
-# Converted to MCP resource - see comfyui://workflows/supported
-
-
-# MCP Resources
 
 
 @mcp.resource(
@@ -1166,7 +538,7 @@ def resource_skeleton_qwen_t2i() -> str:
 
 
 @mcp.resource(
-    "comfyui://patterns/available",
+    "comfyui://docs/patterns/available",
     name="Available Patterns",
     description="List of all workflow patterns and supported models",
     mime_type="application/json",
@@ -1187,88 +559,6 @@ def resource_supported_workflows() -> str:
     """Supported workflow types."""
     result = workflow_generator.list_supported_workflows()
     return json.dumps(result, indent=2)
-
-
-# =============================================================================
-# SOTA Feature Tools
-# =============================================================================
-
-
-@mcp.tool()
-@mcp_tool_wrapper
-def enhance_prompt(
-    prompt: str,
-    model: str = "flux",
-    style: str = None,
-    use_llm: bool = True,
-    llm_model: str = None,
-) -> dict:
-    """Enhance a generation prompt with model-specific quality tokens and optional LLM rewriting.
-
-    Uses local Ollama LLM to intelligently rewrite prompts for better generation results.
-    Falls back to token injection if LLM unavailable.
-
-    Args:
-        prompt: The original prompt to enhance.
-        model: Target generation model (flux, sdxl, qwen, wan, ltx).
-        style: Optional style preset (cinematic, anime, photorealistic).
-        use_llm: Use Ollama LLM for intelligent rewriting (default True).
-        llm_model: Ollama model to use (default: qwen3:8b).
-    """
-    return _to_mcp_response(
-        prompt_enhance.enhance_prompt(
-            prompt=prompt,
-            model=model,
-            style=style,
-            use_llm=use_llm,
-            llm_model=llm_model,
-        )
-    )
-
-
-# @mcp.tool()  # Removed: use `mmf profile` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def get_execution_profile(prompt_id: str) -> dict:
-    """Get per-node execution timing for a completed workflow.
-
-    Shows which nodes took the longest, helping optimize workflow performance.
-
-    Args:
-        prompt_id: The prompt_id to profile.
-    """
-    from . import profiling
-
-    return _to_mcp_response(profiling.get_execution_profile(prompt_id))
-
-
-# @mcp.tool()  # Removed: use `mmf diff` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def diff_workflows(workflow_a: dict, workflow_b: dict) -> dict:
-    """Compare two workflows and show node/parameter differences.
-
-    Useful for comparing template versions, debugging parameter changes,
-    or understanding what changed between generations.
-
-    Args:
-        workflow_a: First workflow JSON.
-        workflow_b: Second workflow JSON.
-    """
-    from . import workflow_diff
-
-    return _to_mcp_response(workflow_diff.diff_workflows(workflow_a, workflow_b))
-
-
-# @mcp.tool()  # Removed: use `mmf models compatibility` CLI instead (ROM-562)
-@mcp_tool_wrapper
-def get_compatibility_matrix() -> dict:
-    """Get model compatibility matrix showing installed models, VRAM fit, and supported workflow types.
-
-    Cross-references installed models, available VRAM, and model constraints
-    to show what's ready to use vs what needs setup.
-    """
-    from . import compatibility
-
-    return _to_mcp_response(compatibility.get_compatibility_matrix())
 
 
 def main():

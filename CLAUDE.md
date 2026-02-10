@@ -131,7 +131,7 @@ There are two complementary generation paths. Choose based on your needs:
 - Best for: prompt-to-output with standard settings
 
 **Path B: `mmf run --template` - Template-Based Workflows**
-- 43 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
+- 49 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
 - Exact configurations preserved, no auto-correction
 - Best for: specialized workflows, batch production, jinyang overnight
 
@@ -249,13 +249,13 @@ Access via `ReadMcpResourceTool`:
 | `comfyui://patterns/available` | All available patterns |
 | `comfyui://workflows/supported` | Supported model+type combos |
 
-## Supported Models & Workflows (9 models, 43 templates)
+## Supported Models & Workflows (9 models, 49 templates)
 
 | Model | Supported Types | Templates |
 |-------|-----------------|-----------|
-| `flux` | t2i, controlnet, lora, face_id, inpaint, edit | 8 templates |
-| `ltx` | t2v, i2v, v2v, audio_reactive | 6 templates |
-| `wan` | t2v, i2v, s2v, flf2v, camera_i2v, animate | 10 templates |
+| `flux` | t2i, controlnet, lora, face_id, inpaint, edit, multiref | 9 templates |
+| `ltx` | t2v, i2v, v2v, audio_reactive | 7 templates |
+| `wan` | t2v, i2v, s2v, flf2v, camera_i2v, animate, phantom | 12 templates |
 | `qwen` | t2i, controlnet, poster, edit (background) | 4 templates |
 | `hunyuan` | t2v, i2v | 2 templates |
 | `z_turbo` | t2i (4-step fast) | 1 template |
@@ -263,6 +263,7 @@ Access via `ReadMcpResourceTool`:
 | `cogvideox` | t2v | (model registered, no template yet) |
 | `audio` | tts (chatterbox, f5, qwen3, voice clone), v2a (mmaudio) | 7 templates |
 | `utility` | telestyle, video_inpaint, video_stitch, upscale | 4 templates |
+| `pony` | turnaround_sheet, expression_sheet | 2 templates |
 
 ## Common Patterns (mmf CLI)
 
