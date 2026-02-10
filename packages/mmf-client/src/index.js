@@ -269,7 +269,7 @@ export function wanI2V({
     FORCE_OFFLOAD_SAMPLER: true,
   });
   const args = buildArgs([
-    `run --template wan26_img2vid`,
+    `run --template wan21_img2vid`,
     `--params '${esc(params)}'`,
     output ? `--output '${esc(output)}'` : '',
   ]);

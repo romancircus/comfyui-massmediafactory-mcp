@@ -1,52 +1,56 @@
 {
   "_meta": {
-    "description": "Wan 2.1 T2V workflow using WanVideoWrapper nodes",
-    "model": "Wan 2.1 T2V",
-    "type": "txt2vid",
+    "description": "Wan 2.1/2.2 I2V workflow using WanVideoWrapper nodes",
+    "model": "Wan 2.1 I2V 14B",
+    "type": "img2vid",
     "parameters": [
+      "IMAGE_PATH",
       "PROMPT",
       "NEGATIVE",
       "SEED",
-      "WIDTH",
-      "HEIGHT",
       "FRAMES",
+      "FPS",
       "STEPS",
       "CFG",
       "SHIFT",
-      "FPS",
+      "WIDTH",
+      "HEIGHT",
+      "NOISE_AUG",
       "LOAD_DEVICE",
       "QUANTIZATION",
       "ATTENTION_MODE",
       "FORCE_OFFLOAD_SAMPLER"
     ],
     "defaults": {
-      "WIDTH": 832,
-      "HEIGHT": 480,
       "SEED": 42,
       "FRAMES": 81,
+      "FPS": 16,
       "STEPS": 30,
       "CFG": 5.0,
       "SHIFT": 5.0,
-      "FPS": 16,
-      "NEGATIVE": "worst quality, blurry, distorted, low resolution",
+      "WIDTH": 832,
+      "HEIGHT": 480,
+      "NOISE_AUG": 0.0,
+      "PROMPT": "smooth motion, high quality video",
+      "NEGATIVE": "worst quality, blurry, jittery, static, no motion",
       "LOAD_DEVICE": "offload_device",
-      "QUANTIZATION": "disabled",
+      "QUANTIZATION": "fp8_e4m3fn_scaled",
       "ATTENTION_MODE": "sdpa",
       "FORCE_OFFLOAD_SAMPLER": true
     },
-    "vram_min": 12,
+    "vram_min": 16,
     "tags": [
       "model:wan",
       "priority:recommended"
     ],
     "version": "1.0.0",
-    "notes": "v2: Rewritten from DownloadAndLoadWanModel (non-existent) to WanVideoWrapper nodes (installed). Uses WanVideoEmptyEmbeds for T2V (no image input). Model: Wan2.1-T2V-1.3B (only T2V model currently installed).",
-    "hub_hash": "2b7deea83adc854d"
+    "notes": "v2: Rewritten from DownloadAndLoadWanModel (non-existent) to WanVideoWrapper nodes (installed). Reference: KDH-Automation/scripts/batch_i2v_choking.py",
+    "hub_hash": "df80bc234fca1f60"
   },
   "1": {
     "class_type": "WanVideoModelLoader",
     "inputs": {
-      "model": "Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors",
+      "model": "wan_i2v_fp8/Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
       "base_precision": "bf16",
       "quantization": "{{QUANTIZATION}}",
       "load_device": "{{LOAD_DEVICE}}",
@@ -69,6 +73,20 @@
     }
   },
   "4": {
+    "class_type": "LoadWanVideoClipTextEncoder",
+    "inputs": {
+      "model_name": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
+      "precision": "fp16",
+      "load_device": "offload_device"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "6": {
     "class_type": "WanVideoTextEncode",
     "inputs": {
       "positive_prompt": "{{PROMPT}}",
@@ -80,15 +98,49 @@
       "force_offload": true
     }
   },
-  "5": {
-    "class_type": "WanVideoEmptyEmbeds",
+  "7": {
+    "class_type": "WanVideoClipVisionEncode",
+    "inputs": {
+      "clip_vision": [
+        "4",
+        0
+      ],
+      "image_1": [
+        "5",
+        0
+      ],
+      "strength_1": 1.0,
+      "strength_2": 1.0,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": true
+    }
+  },
+  "8": {
+    "class_type": "WanVideoImageToVideoEncode",
     "inputs": {
       "width": "{{WIDTH}}",
       "height": "{{HEIGHT}}",
-      "num_frames": "{{FRAMES}}"
+      "num_frames": "{{FRAMES}}",
+      "noise_aug_strength": "{{NOISE_AUG}}",
+      "start_latent_strength": 1.0,
+      "end_latent_strength": 1.0,
+      "force_offload": true,
+      "vae": [
+        "2",
+        0
+      ],
+      "clip_embeds": [
+        "7",
+        0
+      ],
+      "start_image": [
+        "5",
+        0
+      ]
     }
   },
-  "6": {
+  "9": {
     "class_type": "WanVideoSampler",
     "inputs": {
       "model": [
@@ -96,11 +148,11 @@
         0
       ],
       "image_embeds": [
-        "5",
+        "8",
         0
       ],
       "text_embeds": [
-        "4",
+        "6",
         0
       ],
       "steps": "{{STEPS}}",
@@ -112,7 +164,7 @@
       "riflex_freq_index": 0
     }
   },
-  "7": {
+  "10": {
     "class_type": "WanVideoDecode",
     "inputs": {
       "vae": [
@@ -120,7 +172,7 @@
         0
       ],
       "samples": [
-        "6",
+        "9",
         0
       ],
       "enable_vae_tiling": false,
@@ -130,24 +182,24 @@
       "tile_stride_y": 128
     }
   },
-  "8": {
+  "11": {
     "class_type": "CreateVideo",
     "inputs": {
       "images": [
-        "7",
+        "10",
         0
       ],
       "fps": "{{FPS}}"
     }
   },
-  "9": {
+  "12": {
     "class_type": "SaveVideo",
     "inputs": {
       "video": [
-        "8",
+        "11",
         0
       ],
-      "filename_prefix": "wan26_t2v",
+      "filename_prefix": "wan21_i2v",
       "format": "mp4",
       "codec": "h264"
     }

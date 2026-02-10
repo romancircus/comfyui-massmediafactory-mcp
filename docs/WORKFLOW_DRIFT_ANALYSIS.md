@@ -12,7 +12,7 @@
 |-------|-------------|------------|
 | LTX-2 | CheckpointLoaderSimple | **LTXVLoader** |
 | FLUX.2 | CheckpointLoaderSimple | **UNETLoader + DualCLIPLoader + VAELoader** (3 nodes!) |
-| Wan 2.6 | CheckpointLoaderSimple | **WanVideoModelLoader** |
+| Wan 2.1 | CheckpointLoaderSimple | **WanVideoModelLoader** |
 
 **Why it breaks:** Output slots differ. LTXVLoader: [MODEL=0, CLIP=1, VAE=2]. DualCLIPLoader: [CLIP=0] only.
 
@@ -53,7 +53,7 @@ SamplerCustom (takes model, sampler, sigmas, latent)
 |-------|-------------|------------|
 | LTX-2 | 7.0 | **3.0** (ONLY) |
 | FLUX.2 | 7.5 | **3.5** (via FluxGuidance node) |
-| Wan 2.6 | 7.0 | **5.0** |
+| Wan 2.1 | 7.0 | **5.0** |
 
 **Why it breaks:** LTX-2 at CFG 7.0 = oversaturated, broken output.
 
@@ -63,7 +63,7 @@ SamplerCustom (takes model, sampler, sigmas, latent)
 |-------|-------------|------------|
 | FLUX.2 | EmptyLatentImage | **EmptySD3LatentImage** |
 | LTX-2 | EmptyLatentVideo | **EmptyLTXVLatentVideo** |
-| Wan 2.6 | (missing) | **EmptyWanLatentVideo** |
+| Wan 2.1 | (missing) | **EmptyWanLatentVideo** |
 
 **Why it breaks:** Incompatible latent format = black frames or crash.
 
@@ -72,7 +72,7 @@ SamplerCustom (takes model, sampler, sigmas, latent)
 | Model | Claude Uses | Should Use |
 |-------|-------------|------------|
 | FLUX.2 | CLIPTextEncode from CheckpointLoader | **DualCLIPLoader** (clip_l + t5xxl) |
-| Wan 2.6 | Generic CLIPTextEncode | **CLIPLoader** with type="wan" |
+| Wan 2.1 | Generic CLIPTextEncode | **CLIPLoader** with type="wan" |
 
 **Why it breaks:** Wrong text encoder architecture = prompts not understood.
 
@@ -194,7 +194,7 @@ def get_workflow_skeleton(model: str, task: str) -> dict:
     """Get exact working node structure for model+task.
 
     Args:
-        model: "ltx2", "flux2", "wan26", "qwen", "sdxl"
+        model: "ltx2", "flux2", "wan21", "qwen", "sdxl"
         task: "txt2vid", "img2vid", "txt2img"
 
     Returns:

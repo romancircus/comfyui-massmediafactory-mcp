@@ -131,7 +131,7 @@ sudo systemctl restart comfyui
 - generate_qwen_bio() → qwen_txt2img template
 - generate_qwen_bio_async() → + async wrapper
 - generate_ltx_video() → ltx2_txt2vid_distilled template
-- generate_wan_i2v() → wan26_img2vid template
+- generate_wan_i2v() → wan21_img2vid template
 - upload_image() → MCP upload_image()
 - download_image() → MCP download_output()
 
@@ -157,7 +157,7 @@ class MCPComfyUIAdapter:
     def generate_qwen_bio(prompt, reference_image, ...)
         # Uses: create_workflow_from_template("qwen_txt2img", {params})
     def generate_wan_i2v(input_image, prompt, ...)
-        # Uses: create_workflow_from_template("wan26_img2vid", {params})
+        # Uses: create_workflow_from_template("wan21_img2vid", {params})
     def generate_ltx_video(...)
         # Uses: create_workflow_from_template("ltx2_txt2vid_distilled", {params})
 ```
@@ -182,7 +182,7 @@ class MCPComfyUIAdapter:
 **Files:** Update 8+ scripts
 
 #### 2.4 Workflow JSON Cleanup (ROM-217)
-- [ ] Remove `workflows/wan_i2v_standard.json` → use MCP `wan26_img2vid`
+- [ ] Remove `workflows/wan_i2v_standard.json` → use MCP `wan21_img2vid`
 - [ ] Remove `workflows/ltx2_i2v_distilled_fp8.json` → use MCP `ltx2_img2vid`
 - [ ] Remove `workflows/qwen_bio_generation.json` → use MCP `qwen_txt2img`
 - [ ] Keep `workflows/pokemon_bio_transform.json` → complex FLUX+IP-Adapter workflow (project-specific, keep custom)

@@ -110,9 +110,9 @@ scheduler: LTXVScheduler
 15. `flux2_ultimate_upscale` - 4K upscaling ✅ Have
 16. `flux2_redux` - Style transfer ❌ Need
 
-#### Wan 2.6 Family (2 workflows)
-17. `wan26_img2vid` - Image-to-video ✅ Have
-18. `wan26_txt2vid` - Text-to-video ❌ Need
+#### Wan 2.1 Family (2 workflows)
+17. `wan21_img2vid` - Image-to-video ✅ Have
+18. `wan21_txt2vid` - Text-to-video ❌ Need
 
 #### HunyuanVideo 1.5 (2 workflows)
 19. `hunyuan15_txt2vid` - Text-to-video ❌ Need
@@ -209,7 +209,7 @@ GET https://openart.ai/api/workflows?category=video&sort=popular
 - [ ] `ltx2_canny2vid` - Edge-guided generation
 
 ### Task 3: Expand Model Coverage
-- [ ] `wan26_txt2vid` - Wan text-to-video
+- [ ] `wan21_txt2vid` - Wan text-to-video
 - [ ] `hunyuan15_txt2vid` - HunyuanVideo 1.5
 - [ ] `qwen_inpaint` - Qwen inpainting
 

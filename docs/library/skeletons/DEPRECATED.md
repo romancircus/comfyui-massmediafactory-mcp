@@ -9,7 +9,7 @@ Workflow skeletons have been moved to `src/comfyui_massmediafactory_mcp/patterns
 1. **Single Source of Truth**: All workflow patterns, model constraints, and node chains are now in one place
 2. **Better LLM Support**: patterns.py includes validation and drift prevention
 3. **Direct API Format**: Skeletons now use ComfyUI API format directly (no conversion needed)
-4. **Comprehensive Coverage**: patterns.py includes all models (LTX-2, FLUX.2, Wan 2.6, Qwen, SDXL, HunyuanVideo 1.5)
+4. **Comprehensive Coverage**: patterns.py includes all models (LTX-2, FLUX.2, Wan 2.1, Qwen, SDXL, HunyuanVideo 1.5)
 
 ## Migration
 
@@ -34,7 +34,7 @@ These files are kept for reference only:
 | `ltx_video_t2v.json` | `patterns.WORKFLOW_SKELETONS[("ltx2", "txt2vid")]` |
 | `ltx_video_i2v.json` | `patterns.WORKFLOW_SKELETONS[("ltx2", "img2vid")]` |
 | `flux_dev_t2i.json` | `patterns.WORKFLOW_SKELETONS[("flux2", "txt2img")]` |
-| `wan_t2v.json` | `patterns.WORKFLOW_SKELETONS[("wan26", "txt2vid")]` |
+| `wan_t2v.json` | `patterns.WORKFLOW_SKELETONS[("wan21", "txt2vid")]` |
 | `qwen_t2i.json` | `patterns.WORKFLOW_SKELETONS[("qwen", "txt2img")]` |
 
 ## Do Not Modify

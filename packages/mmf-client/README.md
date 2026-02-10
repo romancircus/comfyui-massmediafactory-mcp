@@ -415,7 +415,7 @@ Import template names as constants:
 ```javascript
 import {
   TEMPLATE_QWEN_TXT2IMG,
-  TEMPLATE_WAN26_IMG2VID,
+  TEMPLATE_WAN21_IMG2VID,
   TEMPLATE_LTX2_IMG2VID,
   PIPELINE_VIRAL_SHORT,
 } from '@romancircus/mmf-client';
@@ -428,7 +428,7 @@ import {
 | `TEMPLATE_QWEN_TXT2IMG` | Qwen-Image-2512 text-to-image |
 | `TEMPLATE_FLUX2_FACE_ID` | FLUX.2 Face ID with IP-Adapter |
 | `TEMPLATE_FLUX_KONTEXT_EDIT` | FLUX Kontext character editing |
-| `TEMPLATE_WAN26_IMG2VID` | Wan 2.6 Image-to-Video |
+| `TEMPLATE_WAN21_IMG2VID` | Wan 2.1 Image-to-Video |
 | `TEMPLATE_WAN22_S2V` | Wan 2.2 Sound-to-Video |
 | `TEMPLATE_WAN22_ANIMATE` | Wan 2.2 Character animation |
 | `TEMPLATE_WAN22_PHANTOM` | Phantom multi-subject S2V |

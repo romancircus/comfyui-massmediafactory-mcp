@@ -18,6 +18,8 @@ def run_pipeline(name: str, args) -> dict:
         "viral-short": _pipeline_viral_short,
         "t2v-styled": _pipeline_t2v_styled,
         "bio-to-video": _pipeline_bio_to_video,
+        "ltx-av": _pipeline_ltx_av,
+        "wan-720p": _pipeline_wan_720p,
     }
     fn = pipelines.get(name)
     if fn is None:
@@ -118,7 +120,11 @@ def _pipeline_i2v(args) -> dict:
 
     # Select template based on model
     template_map = {
-        "wan": "wan26_img2vid",
+        "wan": "wan22_i2v_enhanced",
+        "wan21": "wan21_img2vid",
+        "wan22": "wan22_i2v_enhanced",
+        "wan-nag": "wan22_i2v_nag",
+        "wan-720p": "wan22_i2v_720p",
         "ltx": "ltx2_img2vid",
         "hunyuan": "hunyuan15_img2vid",
     }
@@ -134,7 +140,41 @@ def _pipeline_i2v(args) -> dict:
         return template
 
     # Model-specific tested defaults
-    if model == "wan":
+    if model in ("wan", "wan22", "wan-nag"):
+        params = {
+            "IMAGE_PATH": upload["name"],
+            "PROMPT": args.prompt,
+            "NEGATIVE": "blurry, low quality, distorted, watermark",
+            "SEED": seed,
+            "CFG": 5.0,
+            "SHIFT": 5.0,
+            "STEPS": 30,
+            "FRAMES": 81,
+            "WIDTH": 832,
+            "HEIGHT": 480,
+            "FPS": 16,
+            "NOISE_AUG": 0.0,
+            "FETA_WEIGHT": 2.0,
+            "SLG_BLOCKS": "10",
+        }
+    elif model == "wan-720p":
+        params = {
+            "IMAGE_PATH": upload["name"],
+            "PROMPT": args.prompt,
+            "NEGATIVE": "blurry, low quality, distorted, watermark",
+            "SEED": seed,
+            "CFG": 5.0,
+            "SHIFT": 5.0,
+            "STEPS": 30,
+            "FRAMES": 49,
+            "WIDTH": 1280,
+            "HEIGHT": 720,
+            "FPS": 16,
+            "NOISE_AUG": 0.0,
+            "FETA_WEIGHT": 2.0,
+            "SLG_BLOCKS": "10",
+        }
+    elif model == "wan21":
         params = {
             "IMAGE_PATH": upload["name"],
             "PROMPT": args.prompt,
@@ -336,8 +376,8 @@ def _pipeline_viral_short(args) -> dict:
     if not styled_asset:
         return {"error": "Styled asset not found", "code": "PIPELINE_ERROR", "stage": "i2v"}
 
-    # Stage 3: Animate styled image with WAN I2V
-    i2v_template = tmpl.load_template("wan26_img2vid")
+    # Stage 3: Animate styled image with WAN 2.2 I2V (upgraded from wan21_img2vid)
+    i2v_template = tmpl.load_template("wan22_i2v_enhanced")
     if "error" in i2v_template:
         return i2v_template
 
@@ -355,6 +395,8 @@ def _pipeline_viral_short(args) -> dict:
         "HEIGHT": 480,
         "FPS": 16,
         "NOISE_AUG": 0.0,
+        "FETA_WEIGHT": 2.0,
+        "SLG_BLOCKS": "10",
     }
     i2v_wf = tmpl.inject_parameters(i2v_template, i2v_params)
 
@@ -557,8 +599,8 @@ def _pipeline_bio_to_video(args) -> dict:
     if not creature_asset:
         return {"error": "Creature image asset not found", "code": "PIPELINE_ERROR", "stage": "i2v"}
 
-    # Stage 2: Animate with WAN I2V
-    i2v_template = tmpl.load_template("wan26_img2vid")
+    # Stage 2: Animate with WAN 2.2 I2V (upgraded from wan21_img2vid)
+    i2v_template = tmpl.load_template("wan22_i2v_enhanced")
     if "error" in i2v_template:
         return i2v_template
 
@@ -575,6 +617,8 @@ def _pipeline_bio_to_video(args) -> dict:
         "HEIGHT": 480,
         "FPS": 16,
         "NOISE_AUG": 0.0,
+        "FETA_WEIGHT": 2.0,
+        "SLG_BLOCKS": "10",
     }
     i2v_wf = tmpl.inject_parameters(i2v_template, i2v_params)
 
@@ -605,3 +649,105 @@ def _pipeline_bio_to_video(args) -> dict:
         "i2v": {"prompt_id": i2v_exec["prompt_id"]},
     }
     return i2v_output
+
+
+def _pipeline_ltx_av(args) -> dict:
+    """LTX-2 Audio+Video generation with STGGuiderAdvanced."""
+    from . import execution, templates as tmpl
+
+    if not args.prompt:
+        return {"error": "--prompt required for ltx-av pipeline", "code": "INVALID_PARAMS"}
+
+    seed = args.seed if args.seed is not None else random.randint(1, 2**32 - 1)
+
+    template = tmpl.load_template("ltx2_av_generate")
+    if "error" in template:
+        return template
+
+    params = {
+        "PROMPT": args.prompt,
+        "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+        "SEED": seed,
+        "WIDTH": 768,
+        "HEIGHT": 512,
+        "FRAMES": 97,
+        "FPS": 24,
+        "STEPS": 30,
+    }
+    wf = tmpl.inject_parameters(template, params)
+
+    exec_result = execution.execute_workflow(wf)
+    if "error" in exec_result:
+        return exec_result
+
+    timeout = args.timeout or 600
+    output = execution.wait_for_completion(exec_result["prompt_id"], timeout_seconds=timeout, workflow=wf)
+
+    if getattr(args, "output", None) and output.get("outputs"):
+        asset_id = output["outputs"][0].get("asset_id")
+        if asset_id:
+            dl = execution.download_output(asset_id, args.output)
+            if "error" in dl:
+                output["download_error"] = dl["error"]
+            else:
+                output["downloaded"] = dl
+
+    output["pipeline"] = "ltx-av"
+    return output
+
+
+def _pipeline_wan_720p(args) -> dict:
+    """Wan 2.2 I2V at 720P (1280x720) with FETA+SLG."""
+    from . import execution, templates as tmpl
+
+    if not args.image:
+        return {"error": "--image required for wan-720p pipeline", "code": "INVALID_PARAMS"}
+    if not args.prompt:
+        return {"error": "--prompt required for wan-720p pipeline", "code": "INVALID_PARAMS"}
+
+    seed = args.seed if args.seed is not None else random.randint(1, 2**32 - 1)
+
+    upload = execution.upload_image(args.image)
+    if "error" in upload:
+        return upload
+
+    template = tmpl.load_template("wan22_i2v_720p")
+    if "error" in template:
+        return template
+
+    params = {
+        "IMAGE_PATH": upload["name"],
+        "PROMPT": args.prompt,
+        "NEGATIVE": "blurry, low quality, distorted, watermark, static",
+        "SEED": seed,
+        "CFG": 5.0,
+        "SHIFT": 5.0,
+        "STEPS": 30,
+        "FRAMES": 49,
+        "WIDTH": 1280,
+        "HEIGHT": 720,
+        "FPS": 16,
+        "NOISE_AUG": 0.0,
+        "FETA_WEIGHT": 2.0,
+        "SLG_BLOCKS": "10",
+    }
+    wf = tmpl.inject_parameters(template, params)
+
+    exec_result = execution.execute_workflow(wf)
+    if "error" in exec_result:
+        return exec_result
+
+    timeout = args.timeout or 900  # Longer timeout for 720P
+    output = execution.wait_for_completion(exec_result["prompt_id"], timeout_seconds=timeout, workflow=wf)
+
+    if getattr(args, "output", None) and output.get("outputs"):
+        asset_id = output["outputs"][0].get("asset_id")
+        if asset_id:
+            dl = execution.download_output(asset_id, args.output)
+            if "error" in dl:
+                output["download_error"] = dl["error"]
+            else:
+                output["downloaded"] = dl
+
+    output["pipeline"] = "wan-720p"
+    return output

@@ -14,6 +14,12 @@ from typing import Dict, List, Tuple, Any, Optional
 from .model_registry import (
     MODEL_CONSTRAINTS as REGISTRY_CONSTRAINTS,
 )
+from .node_registry import (
+    get_node_output_types,
+    get_type_compatibility,
+    _FALLBACK_OUTPUT_TYPES,
+    _FALLBACK_TYPE_COMPATIBILITY,
+)
 
 
 def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
@@ -44,7 +50,7 @@ def _build_validation_constraints() -> Dict[str, Dict[str, Any]]:
         }
         result[model_key] = constraint
 
-        # Create aliases (ltx -> ltx2, flux -> flux2, wan -> wan26)
+        # Create aliases (ltx -> ltx2, flux -> flux2, wan -> wan21)
         base_name = model_key.rstrip("0123456789_")
         if base_name != model_key and base_name not in result:
             result[base_name] = constraint
@@ -82,84 +88,19 @@ MODEL_CONSTRAINTS = _build_validation_constraints()
 # Video-unsafe samplers
 VIDEO_UNSAFE_SAMPLERS = ["euler_ancestral", "dpmpp_2m_sde", "dpmpp_sde"]
 
-# Type compatibility matrix - maps output types to compatible input names
-TYPE_COMPATIBILITY = {
-    "MODEL": ["model", "unet"],
-    "CLIP": ["clip"],
-    "VAE": ["vae"],
-    "CONDITIONING": ["positive", "negative", "conditioning"],
-    "LATENT": ["latent_image", "samples", "latent"],
-    "IMAGE": ["image", "images", "pixels"],
-    "SIGMAS": ["sigmas"],
-    "SAMPLER": ["sampler"],
-    "MASK": ["mask"],
-    "NOISE": ["noise"],
-    "GUIDER": ["guider"],
-    "WANMODEL": ["wan_model"],
-    "IMAGEEMBEDS": ["image_embeds"],
-    "GEMMA_MODEL": ["gemma_model", "clip"],
-}
+# Backward-compatible exports (tests and external code may import these directly)
+TYPE_COMPATIBILITY = _FALLBACK_TYPE_COMPATIBILITY
+NODE_OUTPUT_TYPES = _FALLBACK_OUTPUT_TYPES
 
-# Node output types - maps node class to their output slot types
-NODE_OUTPUT_TYPES = {
-    # Loaders
-    "CheckpointLoaderSimple": ["MODEL", "CLIP", "VAE"],
-    "UNETLoader": ["MODEL"],
-    "CLIPLoader": ["CLIP"],
-    "DualCLIPLoader": ["CLIP"],
-    "VAELoader": ["VAE"],
-    "LoraLoader": ["MODEL", "CLIP"],
-    "LoraLoaderModelOnly": ["MODEL"],
-    "LTXVLoader": ["MODEL", "CLIP", "VAE"],
-    "HunyuanVideoModelLoader": ["MODEL", "VAE"],
-    "WanVideoModelLoader": ["WANVIDEOMODEL"],
-    "WanVideoVAELoader": ["WANVAE"],
-    "LoadWanVideoT5TextEncoder": ["WANTEXTENCODER"],
-    "LoadWanVideoClipTextEncoder": ["CLIP_VISION"],
-    "WanVideoTextEncode": ["WANVIDEOTEXTEMBEDS"],
-    "WanVideoClipVisionEncode": ["WANVIDIMAGE_CLIPEMBEDS"],
-    "WanVideoImageToVideoEncode": ["WANVIDIMAGE_EMBEDS"],
-    "WanVideoEmptyEmbeds": ["WANVIDIMAGE_EMBEDS"],
-    "LTXVGemmaCLIPModelLoader": ["GEMMA_MODEL"],
-    # Encoding
-    "CLIPTextEncode": ["CONDITIONING"],
-    "FluxGuidance": ["CONDITIONING"],
-    "LTXVConditioning": ["CONDITIONING", "CONDITIONING"],
-    "LTXVGemmaEnhancePrompt": ["STRING"],
-    # Latent
-    "EmptyLatentImage": ["LATENT"],
-    "EmptySD3LatentImage": ["LATENT"],
-    "EmptyLTXVLatentVideo": ["LATENT"],
-    "EmptyHunyuanLatentVideo": ["LATENT"],
-    "EmptyWanLatentVideo": ["LATENT"],
-    "LTXVImgToVideo": ["CONDITIONING", "CONDITIONING", "LATENT"],
-    # Samplers
-    "KSampler": ["LATENT"],
-    "SamplerCustom": ["LATENT", "LATENT"],
-    "SamplerCustomAdvanced": ["LATENT", "LATENT"],
-    "HunyuanVideoSampler": ["LATENT"],
-    "WanVideoSampler": ["LATENT", "LATENT"],
-    "KSamplerSelect": ["SAMPLER"],
-    "BasicScheduler": ["SIGMAS"],
-    "LTXVScheduler": ["SIGMAS"],
-    "RandomNoise": ["NOISE"],
-    "BasicGuider": ["GUIDER"],
-    # Decode/Encode
-    "VAEDecode": ["IMAGE"],
-    "VAEEncode": ["LATENT"],
-    "HunyuanVideoVAEDecode": ["IMAGE"],
-    "WanVideoDecode": ["IMAGE"],
-    "HunyuanVideoImageEncode": ["IMAGE_EMBEDS"],
-    # Image
-    "LoadImage": ["IMAGE", "MASK"],
-    "ImageScale": ["IMAGE"],
-    "LTXVPreprocess": ["IMAGE"],
-    # Output
-    "SaveImage": [],
-    "SaveAnimatedWEBP": [],
-    "CreateVideo": ["VIDEO"],
-    "SaveVideo": [],
-}
+
+def _get_type_compat() -> Dict[str, List[str]]:
+    """Get type compatibility map (dynamic with fallback)."""
+    return get_type_compatibility()
+
+
+def _get_output_types() -> Dict[str, List[str]]:
+    """Get node output types (dynamic with fallback)."""
+    return get_node_output_types()
 
 
 def validate_connection_types(workflow: dict) -> List[str]:
@@ -175,6 +116,9 @@ def validate_connection_types(workflow: dict) -> List[str]:
         List of error messages (empty if all connections valid)
     """
     errors = []
+
+    node_output_types = _get_output_types()
+    type_compatibility = _get_type_compat()
 
     for node_id, node_data in workflow.items():
         if node_id.startswith("_"):
@@ -201,8 +145,8 @@ def validate_connection_types(workflow: dict) -> List[str]:
                 if not source_class:
                     continue
 
-                # Get output types for source node
-                output_types = NODE_OUTPUT_TYPES.get(source_class, [])
+                # Get output types for source node (dynamic registry)
+                output_types = node_output_types.get(source_class, [])
                 if not output_types:
                     # Unknown node type, skip validation
                     continue
@@ -218,14 +162,14 @@ def validate_connection_types(workflow: dict) -> List[str]:
                 output_type = output_types[source_slot]
 
                 # Check if input name is compatible with output type
-                compatible_inputs = TYPE_COMPATIBILITY.get(output_type, [])
+                compatible_inputs = type_compatibility.get(output_type, [])
                 input_name_lower = input_name.lower()
 
                 # Check if input name matches any compatible input
                 if compatible_inputs and input_name_lower not in compatible_inputs:
                     # Check if it's a known mismatch (not just an unknown input)
                     _known_input = False
-                    for type_name, type_inputs in TYPE_COMPATIBILITY.items():
+                    for type_name, type_inputs in type_compatibility.items():
                         if input_name_lower in type_inputs:
                             _known_input = True
                             if type_name != output_type:

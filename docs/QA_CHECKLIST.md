@@ -164,8 +164,8 @@ grep -n "comfyui_url\|ComfyUIHYMotionClient" src/animation_gen.py | head -20
   - `ltx2_txt2vid.json`
   - `qwen_edit_background.json`
   - `qwen_txt2img.json`
-  - `wan26_img2vid.json`
-  - `wan26_txt2vid.json`
+  - `wan21_img2vid.json`
+  - `wan21_txt2vid.json`
 
 **Success Criteria (Pre-Migration):**
 - `visual_gen_mcp.py` not found (not yet created)

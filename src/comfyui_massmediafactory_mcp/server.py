@@ -16,6 +16,7 @@ from . import reference_docs
 from . import topology_validator
 from . import workflow_generator
 from . import prompt_enhance
+from . import node_registry
 from .mcp_utils import (
     mcp_error,
     mcp_tool_wrapper,
@@ -431,12 +432,12 @@ def resource_pattern_flux() -> str:
 
 @mcp.resource(
     "comfyui://docs/patterns/wan",
-    name="Wan 2.6 Pattern",
-    description="LLM reference pattern for Wan 2.6 workflow generation",
+    name="Wan 2.1 Pattern",
+    description="LLM reference pattern for Wan 2.1 workflow generation",
     mime_type="text/markdown",
 )
 def resource_pattern_wan() -> str:
-    """Wan 2.6 pattern documentation."""
+    """Wan 2.1 pattern documentation."""
     result = reference_docs.get_model_pattern("wan")
     return result.get("pattern", json.dumps(result))
 
@@ -559,6 +560,100 @@ def resource_supported_workflows() -> str:
     """Supported workflow types."""
     result = workflow_generator.list_supported_workflows()
     return json.dumps(result, indent=2)
+
+
+# =============================================================================
+# Dynamic Node Discovery Resources (Priority 4: MCP Resource Enrichment)
+# =============================================================================
+
+
+@mcp.resource(
+    "comfyui://nodes/registry",
+    name="Node Registry",
+    description="Auto-discovered output types for all installed ComfyUI nodes. Updated from /object_info.",
+    mime_type="application/json",
+)
+def resource_node_registry() -> str:
+    """All installed node output types, auto-discovered from ComfyUI."""
+    output_types = node_registry.get_node_output_types()
+    stats = node_registry.get_registry_stats()
+    return json.dumps(
+        {
+            "stats": stats,
+            "nodes": {k: v for k, v in sorted(output_types.items()) if v},  # Only nodes with outputs
+        },
+        indent=2,
+    )
+
+
+@mcp.resource(
+    "comfyui://nodes/categories",
+    name="Node Categories",
+    description="All installed nodes grouped by category (loaders, samplers, conditioning, etc.)",
+    mime_type="application/json",
+)
+def resource_node_categories() -> str:
+    """Installed nodes grouped by category."""
+    try:
+        from .client import get_client
+
+        client = get_client()
+        object_info = client.get_object_info()
+        if "error" in object_info:
+            return json.dumps({"error": object_info["error"]})
+
+        categories = {}
+        for class_type, node_info in object_info.items():
+            if not isinstance(node_info, dict):
+                continue
+            cat = node_info.get("category", "uncategorized")
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(
+                {
+                    "name": class_type,
+                    "outputs": node_info.get("output", []),
+                    "output_names": node_info.get("output_name", []),
+                }
+            )
+
+        return json.dumps(
+            {"total_nodes": sum(len(v) for v in categories.values()), "categories": dict(sorted(categories.items()))},
+            indent=2,
+        )
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.resource(
+    "comfyui://nodes/type-map",
+    name="Type Compatibility Map",
+    description="Auto-discovered mapping of output types to compatible input names across all nodes",
+    mime_type="application/json",
+)
+def resource_type_map() -> str:
+    """Type compatibility map built from all installed node schemas."""
+    type_compat = node_registry.get_type_compatibility()
+    return json.dumps({"types": dict(sorted(type_compat.items())), "count": len(type_compat)}, indent=2)
+
+
+@mcp.resource(
+    "comfyui://models/installed",
+    name="Installed Models",
+    description="All installed models (checkpoints, UNETs, LoRAs, VAEs, ControlNets) with counts",
+    mime_type="application/json",
+)
+def resource_installed_models() -> str:
+    """Summary of all installed models by type."""
+    result = discovery.get_all_models()
+    summary = {}
+    for model_type, data in result.items():
+        if isinstance(data, dict):
+            summary[model_type] = {
+                "count": data.get("count", 0),
+                "files": data.get(model_type, data.get("clips", data.get("controlnets", []))),
+            }
+    return json.dumps(summary, indent=2)
 
 
 def main():

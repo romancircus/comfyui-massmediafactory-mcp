@@ -11,13 +11,14 @@ Cross-references installed models, VRAM availability, and supported workflow typ
 MODEL_KEYWORDS = {
     "flux2": ["flux"],
     "ltx2": ["ltx"],
-    "wan26": ["wan"],
+    "wan21": ["wan"],
     "qwen": ["qwen"],
     "qwen_edit": ["qwen"],
     "sdxl": ["sdxl", "sd_xl"],
     "hunyuan15": ["hunyuan"],
     "z_turbo": ["z-image", "z_image", "zimage", "z_turbo", "z-turbo"],
     "cogvideox_5b": ["cogvideo", "cogvideox"],
+    "wan22": ["wan"],
 }
 
 # Approximate VRAM requirements (GB, at recommended precision with overhead).
@@ -25,7 +26,8 @@ MODEL_KEYWORDS = {
 VRAM_REQUIREMENTS = {
     "flux2": 12.0,
     "ltx2": 8.0,
-    "wan26": 12.0,
+    "wan21": 12.0,
+    "wan22": 12.0,
     "qwen": 10.0,
     "qwen_edit": 10.0,
     "sdxl": 6.0,
@@ -37,8 +39,9 @@ VRAM_REQUIREMENTS = {
 # Workflow type mappings (what each model can do).
 WORKFLOW_TYPES = {
     "flux2": ["t2i", "controlnet", "edit", "inpaint", "face_id", "lora"],
-    "ltx2": ["t2v", "i2v", "v2v", "audio2vid"],
-    "wan26": ["t2v", "i2v", "flf2v", "camera_i2v"],
+    "ltx2": ["t2v", "i2v", "v2v", "audio2vid", "av_generate", "looping", "extend", "upscale"],
+    "wan21": ["t2v", "i2v", "flf2v", "camera_i2v"],
+    "wan22": ["t2v", "i2v", "s2v", "animate", "720p", "nag"],
     "qwen": ["t2i", "controlnet", "poster"],
     "qwen_edit": ["edit"],
     "sdxl": ["t2i"],

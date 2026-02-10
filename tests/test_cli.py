@@ -551,7 +551,7 @@ class TestCmdTemplates:
     @patch("comfyui_massmediafactory_mcp.templates.list_templates")
     def test_templates_list(self, mock_list, capsys):
         mock_list.return_value = {
-            "templates": [{"name": "flux2_txt2img"}, {"name": "wan26_img2vid"}],
+            "templates": [{"name": "flux2_txt2img"}, {"name": "wan21_img2vid"}],
             "count": 2,
         }
 
@@ -1160,16 +1160,16 @@ class TestModelTypeResolution:
         assert get_model_type("Wan 2.2") == "wan22"
         assert get_model_type("wan 2.2 s2v") == "wan22"
 
-    def test_wan26_resolves_correctly(self):
+    def test_wan21_resolves_correctly(self):
         from comfyui_massmediafactory_mcp.templates import get_model_type
 
-        assert get_model_type("Wan 2.6 14B") == "wan26"
-        assert get_model_type("wan2.6") == "wan26"
+        assert get_model_type("Wan 2.6 14B") == "wan21"
+        assert get_model_type("wan2.6") == "wan21"
 
     def test_bare_wan_falls_back_to_wan22(self):
         from comfyui_massmediafactory_mcp.templates import get_model_type
 
-        # Bare "wan" should match wan22 as fallback (not wan26)
+        # Bare "wan" should match wan22 as fallback (not wan21)
         assert get_model_type("wan") == "wan22"
 
     def test_telestyle_resolves_not_qwen_edit(self):
@@ -1315,13 +1315,13 @@ class TestPipelineRetryWired:
 
 
 class TestWanModelTypeResolution:
-    """Wan 2.1 _meta.model values must route to wan26 pipeline convention, not wan22."""
+    """Wan 2.1 _meta.model values must route to wan21 pipeline convention, not wan22."""
 
-    def test_wan21_resolves_to_wan26(self):
+    def test_wan21_resolves_to_wan21(self):
         from comfyui_massmediafactory_mcp.templates import get_model_type
 
-        assert get_model_type("Wan 2.1 I2V 14B") == "wan26"
-        assert get_model_type("Wan 2.1 T2V") == "wan26"
+        assert get_model_type("Wan 2.1 I2V 14B") == "wan21"
+        assert get_model_type("Wan 2.1 T2V") == "wan21"
 
     def test_wan22_resolves_to_wan22(self):
         from comfyui_massmediafactory_mcp.templates import get_model_type

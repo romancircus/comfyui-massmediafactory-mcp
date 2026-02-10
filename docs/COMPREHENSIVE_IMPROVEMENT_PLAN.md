@@ -32,7 +32,7 @@ Our documentation is based on the **official examples site**, which is the autho
 | Type | Templates |
 |------|-----------|
 | Image Gen | qwen_txt2img, flux2_txt2img, qwen_poster_design, flux2_face_id, flux2_edit_by_text, flux2_lora_stack, flux2_union_controlnet, flux2_grounding_dino_inpaint, flux2_ultimate_upscale |
-| Video Gen | ltx2_txt2vid, ltx2_txt2vid_distilled, ltx2_img2vid, ltx2_audio_reactive, wan26_img2vid, video_inpaint, video_stitch |
+| Video Gen | ltx2_txt2vid, ltx2_txt2vid_distilled, ltx2_img2vid, ltx2_audio_reactive, wan21_img2vid, video_inpaint, video_stitch |
 | Audio/TTS | audio_tts_f5, audio_tts_voice_clone, chatterbox_tts, qwen3_tts_custom_voice, qwen3_tts_voice_clone, qwen3_tts_voice_design |
 
 ### Missing Templates (30+ from official categories)

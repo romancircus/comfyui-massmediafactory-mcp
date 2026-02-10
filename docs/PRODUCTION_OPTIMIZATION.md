@@ -87,7 +87,7 @@ output = wait_for_completion(result["prompt_id"])
 ```python
 # ✅ DO: Use MCP to find the right template
 templates = list_workflow_templates()
-template = get_template("wan26_txt2vid")
+template = get_template("wan21_txt2vid")
 ```
 
 **Validation & QA**
@@ -157,8 +157,8 @@ def discover_and_validate():
     # Use MCP to find the right model and constraints
     from mcp import get_model_constraints, get_node_chain
 
-    constraints = get_model_constraints("wan26")  # MCP call
-    workflow_skeleton = get_node_chain("wan26", "t2v")  # MCP call
+    constraints = get_model_constraints("wan21")  # MCP call
+    workflow_skeleton = get_node_chain("wan21", "t2v")  # MCP call
 
     # Validate workflow with MCP
     validate_workflow(workflow_skeleton, auto_fix=True)
@@ -312,7 +312,7 @@ def parameterized_execute(template, params_list):
 
 if __name__ == "__main__":
     # One-time template discovery (MCP)
-    template = get_template_via_mcp("wan26_txt2vid")
+    template = get_template_via_mcp("wan21_txt2vid")
 
     # Production batch (Direct API)
     params = [{"seed": i, "cfg": 2.5} for i in range(151)]
@@ -388,7 +388,7 @@ if __name__ == "__main__":
 
 ```python
 #!/usr/bin/env python3
-"""Generate 151 Wan 2.6 videos overnight via direct API"""
+"""Generate 151 Wan 2.1 videos overnight via direct API"""
 
 import urllib.request
 import json

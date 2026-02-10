@@ -41,9 +41,9 @@ def get_model_pattern(model: str) -> dict:
         "ltx2-distilled": "Pattern: LTX-2 Distilled",
         "flux": "Pattern: FLUX",
         "flux2": "Pattern: FLUX",
-        "wan": "Pattern: Wan 2.6",
-        "wan2": "Pattern: Wan 2.6",
-        "wan26": "Pattern: Wan 2.6",
+        "wan": "Pattern: Wan 2.1",
+        "wan2": "Pattern: Wan 2.1",
+        "wan21": "Pattern: Wan 2.1",
         "qwen": "Pattern: Qwen",
     }
 

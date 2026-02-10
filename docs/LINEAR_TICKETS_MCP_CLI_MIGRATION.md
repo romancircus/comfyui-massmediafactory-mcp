@@ -92,7 +92,7 @@ Migrate to CLI and delete the unused MCP client.
 * Delete `visual_gen_mcp.py` (never used, broken)
 * Update `batch_produce.py` to use CLI
 * Add `--retry 3` to all generation calls
-* Use SOTA templates: `qwen_txt2img` (images), `wan26_img2vid` (video)
+* Use SOTA templates: `qwen_txt2img` (images), `wan21_img2vid` (video)
 * Test single image generation
 * Test batch video generation
 * Update CLAUDE.md documentation

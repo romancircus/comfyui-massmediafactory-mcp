@@ -44,7 +44,7 @@
       "priority:experimental"
     ],
     "version": "1.0.0",
-    "notes": "WAN 2.2 I2V A14B HIGH (experimental). Same pipeline as wan26_img2vid.json but with WAN 2.2 model. Uses same VAE (2.1), T5, CLIP. Higher default steps (35) and noise_aug (0.1) per model card.",
+    "notes": "WAN 2.2 I2V A14B HIGH (experimental). Same pipeline as wan21_img2vid.json but with WAN 2.2 model. Uses same VAE (2.1), T5, CLIP. Higher default steps (35) and noise_aug (0.1) per model card.",
     "hub_hash": "77071c4203822079"
   },
   "1": {

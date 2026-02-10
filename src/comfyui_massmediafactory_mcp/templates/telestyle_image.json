@@ -16,10 +16,10 @@
       "STEPS": 20
     },
     "agent_notes": {
-      "usage": "For styling keyframes BEFORE I2V animation (Wan 2.6). Pass keyframe as CONTENT_IMAGE, character style key as STYLE_IMAGE.",
+      "usage": "For styling keyframes BEFORE I2V animation (Wan 2.1). Pass keyframe as CONTENT_IMAGE, character style key as STYLE_IMAGE.",
       "prompt": "Fixed TeleStyle prompt - transfers style of Figure 2 (style) to Figure 1 (content) while preserving content characteristics.",
       "cfg": "Keep 2.0-2.5. Higher causes color distortion.",
-      "pipeline": "Keyframe -> TeleStyle Image -> Styled Keyframe -> Wan 2.6 I2V",
+      "pipeline": "Keyframe -> TeleStyle Image -> Styled Keyframe -> Wan 2.1 I2V",
       "vram": "~16GB with FP8 quantization",
       "size": "Auto-detected from content image via GetImageSize node."
     },

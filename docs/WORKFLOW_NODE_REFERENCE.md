@@ -494,9 +494,9 @@ CheckpointLoaderSimple → CLIPTextEncode(+) → KSampler
 
 ---
 
-## Wan 2.6 Workflows
+## Wan 2.1 Workflows
 
-### wan26_img2vid (Image-to-Video)
+### wan21_img2vid (Image-to-Video)
 
 **Key Nodes:**
 

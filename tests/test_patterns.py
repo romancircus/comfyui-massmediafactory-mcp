@@ -57,9 +57,9 @@ class TestWorkflowSkeletons:
         assert "error" not in skeleton
         assert "_meta" in skeleton
 
-    def test_get_wan26_img2vid(self):
-        """Test getting Wan 2.6 img2vid skeleton"""
-        skeleton = patterns.get_workflow_skeleton("wan26", "img2vid")
+    def test_get_wan21_img2vid(self):
+        """Test getting Wan 2.1 img2vid skeleton"""
+        skeleton = patterns.get_workflow_skeleton("wan21", "img2vid")
         assert "error" not in skeleton
         assert "_meta" in skeleton
 
@@ -194,7 +194,7 @@ class TestListAvailablePatterns:
     def test_all_models_in_list(self):
         """Test that all expected models are listed"""
         result = patterns.list_available_patterns()
-        expected_models = ["ltx2", "flux2", "wan26", "qwen", "sdxl", "hunyuan15"]
+        expected_models = ["ltx2", "flux2", "wan21", "qwen", "sdxl", "hunyuan15"]
         for model in expected_models:
             assert model in result["models"], f"Model {model} not in available patterns"
 

@@ -26,7 +26,7 @@ Migrating from direct ComfyUI client calls to ComfyUI MassMediaFactory MCP templ
 | `generate_qwen_bio_txt2img()` | Bio images (Canny ControlNet) | `qwen_txt2img` + `flux2_union_controlnet` | Use ControlNet directly |
 | `generate_qwen_bio()` | Bio images (IP-Adapter) | `flux2_txt2img` | Direct replacement (simpler) |
 | `generate_ltx_i2v_video()` | Creature videos | `ltx2_img2vid` | Direct replacement |
-| `generate_wan_t2v()` | T2V videos | `wan26_txt2vid` | Direct replacement |
+| `generate_wan_t2v()` | T2V videos | `wan21_txt2vid` | Direct replacement |
 | `generate_sdxl_image()` | SDXL images | `sdxl_txt2img` | Direct replacement |
 
 #### Migration Example: Python
@@ -233,7 +233,7 @@ async function generateMovieFrame(prompt) {
 |----------|-------|----------|-------------|
 | `flux2_union_controlnet` | FLUX.2-dev | Structure preservation | Need structure from reference |
 | `flux2_grounding_dino_inpaint` | FLUX.2-dev | Precise object editing | Inpainting specific objects |
-| `wan26_img2vid` | Wan 2.6 | Image-to-video | Converting stills to motion |
+| `wan21_img2vid` | Wan 2.1 | Image-to-video | Converting stills to motion |
 
 ### Text-to-Video Templates
 
@@ -241,7 +241,7 @@ async function generateMovieFrame(prompt) {
 |----------|-------|----------|-------------|
 | `ltx2_txt2vid` | LTX-2 19B | Fast T2V | Speed matters (3-4x faster) |
 | `ltx2_txt2vid_distilled` | LTX-2 Distilled | Fastest T2V | Maximum speed needed |
-| `wan26_txt2vid` | Wan 2.6 14B | Human motion quality | Character movement quality |
+| `wan21_txt2vid` | Wan 2.1 14B | Human motion quality | Character movement quality |
 | `hunyuan15_txt2vid` | HunyuanVideo 1.5 | Complex scenes | Detailed, complex backgrounds |
 
 ### Special Purpose Templates
@@ -366,7 +366,7 @@ workflow = create_workflow_from_template("flux2_txt2img", {
 ```python
 # Upload first, then use filename
 asset_id = comfyui_mcp_upload_image("/path/to/image.png")
-workflow = create_workflow_from_template("wan26_img2vid", {
+workflow = create_workflow_from_template("wan21_img2vid", {
     "IMAGE_PATH": asset_id  # Use asset ID from upload
 })
 ```
@@ -621,7 +621,7 @@ results = comfyui_mcp_batch_execute(
 |-------|----------------|---------------------|
 | Qwen | shift=7.0 (critical) | 3.1 = blurry, 7.0 = sharp |
 | LTX-2 | frames=8n+1 (9, 17, 25, 33...) | 8-frame groups |
-| Wan 2.6 | shift=8.0, cfg=5.0 | Human motion quality |
+| Wan 2.1 | shift=8.0, cfg=5.0 | Human motion quality |
 | FLUX.2 | guidance=3.5-4.0 | Character consistency |
 
 ---

@@ -90,10 +90,12 @@ mmf run --template qwen_txt2img --params '{"PROMPT":"test","SEED":42}'
 mmf pipeline viral-short --prompt "dancing character" --style-image style.png -o video.mp4
 mmf pipeline i2v --image keyframe.png --prompt "gentle breathing" -o video.mp4
 mmf pipeline upscale --image input.png --factor 2 -o upscaled.png
+mmf pipeline ltx-av --prompt "a cat meowing loudly" -o cat_av.mp4
+mmf pipeline wan-720p --image photo.png --prompt "gentle motion" -o hd_video.mp4
 
 # Batch
 mmf batch seeds workflow.json --count 8 --start-seed 42
-mmf batch dir --input keyframes/ --template wan26_img2vid --prompt "motion" --output videos/
+mmf batch dir --input keyframes/ --template wan21_img2vid --prompt "motion" --output videos/
 
 # System
 mmf stats --pretty                    # GPU info
@@ -131,7 +133,7 @@ There are two complementary generation paths. Choose based on your needs:
 - Best for: prompt-to-output with standard settings
 
 **Path B: `mmf run --template` - Template-Based Workflows**
-- 49 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, inpainting)
+- 57 templates including advanced workflows (ControlNet, LoRA stacking, TTS, upscaling, AV generation, long video, video extension)
 - Exact configurations preserved, no auto-correction
 - Best for: specialized workflows, batch production, jinyang overnight
 
@@ -152,7 +154,7 @@ There are two complementary generation paths. Choose based on your needs:
 mmf run --model flux --type t2i --prompt "cyberpunk city" -o output.png --pretty
 
 # Or with more control:
-mmf run --template wan26_img2vid --params '{"IMAGE_PATH":"img.png","PROMPT":"motion"}' --timeout 600
+mmf run --template wan21_img2vid --params '{"IMAGE_PATH":"img.png","PROMPT":"motion"}' --timeout 600
 
 # Check progress on a running job:
 mmf progress <prompt_id>
@@ -249,13 +251,13 @@ Access via `ReadMcpResourceTool`:
 | `comfyui://patterns/available` | All available patterns |
 | `comfyui://workflows/supported` | Supported model+type combos |
 
-## Supported Models & Workflows (9 models, 49 templates)
+## Supported Models & Workflows (10 models, 57 templates)
 
 | Model | Supported Types | Templates |
 |-------|-----------------|-----------|
 | `flux` | t2i, controlnet, lora, face_id, inpaint, edit, multiref | 9 templates |
-| `ltx` | t2v, i2v, v2v, audio_reactive | 7 templates |
-| `wan` | t2v, i2v, s2v, flf2v, camera_i2v, animate, phantom | 12 templates |
+| `ltx` | t2v, i2v, v2v, audio_reactive, av_generate, looping, extend, upscale, q8 | 12 templates |
+| `wan` | t2v, i2v, s2v, flf2v, camera_i2v, animate, phantom, nag, 720p | 15 templates |
 | `qwen` | t2i, controlnet, poster, edit (background) | 4 templates |
 | `hunyuan` | t2v, i2v | 2 templates |
 | `z_turbo` | t2i (4-step fast) | 1 template |
@@ -282,7 +284,29 @@ mmf run --model ltx --type t2v --prompt "a cat walking through a garden" --timeo
 ### Image-to-Video (WAN)
 
 ```bash
+# Default: Wan 2.2 A14B with FETA + SLG quality boost
 mmf run --model wan --type i2v --image photo.png --prompt "gentle motion" -o video.mp4
+
+# NAG quality boost (best quality, slower)
+mmf pipeline i2v --image photo.png --prompt "gentle motion" --model wan-nag -o video.mp4
+
+# 720P high-res (1280x720, 49 frames)
+mmf pipeline i2v --image photo.png --prompt "gentle motion" --model wan-720p -o video.mp4
+
+# Legacy Wan 2.1 (if needed)
+mmf pipeline i2v --image photo.png --prompt "gentle motion" --model wan21 -o video.mp4
+```
+
+### Audio+Video Generation (LTX-2)
+
+```bash
+mmf pipeline ltx-av --prompt "a cat meowing loudly in a room" -o cat_av.mp4
+```
+
+### Long Video (LTX-2 Looping)
+
+```bash
+mmf run --template ltx2_looping --params '{"PROMPT":"a waterfall flowing","TOTAL_FRAMES":257}' -o long.mp4
 ```
 
 ### Batch Seed Variations
@@ -295,7 +319,7 @@ mmf batch seeds workflow.json --count 4 --start-seed 42
 ### Batch from Directory
 
 ```bash
-mmf batch dir --input keyframes/ --template wan26_img2vid --prompt "motion" --output videos/
+mmf batch dir --input keyframes/ --template wan21_img2vid --prompt "motion" --output videos/
 ```
 
 ### Background Replacement (Qwen Edit)

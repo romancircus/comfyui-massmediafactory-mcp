@@ -248,7 +248,7 @@ USER INPUT: mmf run --model flux --type t2i --prompt "a dragon"
 │                    TEMPLATE PROCESSING FLOW                                   │
 └──────────────────────────────────────────────────────────────────────────────┘
 
-USER INPUT: mmf run --template wan26_img2vid \
+USER INPUT: mmf run --template wan21_img2vid \
             --params '{"PROMPT":"motion","IMAGE":"img.png"}'
 
          │
@@ -256,7 +256,7 @@ USER INPUT: mmf run --template wan26_img2vid \
 ┌────────────────────────────────────────┐
 │ 1. TEMPLATE LOADING                    │
 │    templates.load_template(name)       │
-│    Read: templates/wan26_img2vid.json  │
+│    Read: templates/wan21_img2vid.json  │
 └────────────┬───────────────────────────┘
              │
              ▼

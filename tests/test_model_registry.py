@@ -50,9 +50,9 @@ class TestModelConstraints:
         assert "error" not in constraints
         assert constraints["cfg"]["via"] == "FluxGuidance"
 
-    def test_wan26_constraints_exist(self):
-        """Test Wan 2.6 constraints are defined"""
-        constraints = model_registry.get_model_constraints("wan26")
+    def test_wan21_constraints_exist(self):
+        """Test Wan 2.1 constraints are defined"""
+        constraints = model_registry.get_model_constraints("wan21")
         assert "error" not in constraints
         assert "sampler_params" in constraints
 
@@ -113,18 +113,18 @@ class TestModelDefaults:
         assert defaults["height"] == 1024
         assert defaults["guidance"] == 3.5
 
-    def test_wan26_defaults(self):
-        """Test Wan 2.6 default values"""
-        defaults = model_registry.get_model_defaults("wan26")
+    def test_wan21_defaults(self):
+        """Test Wan 2.1 default values"""
+        defaults = model_registry.get_model_defaults("wan21")
         assert defaults["width"] == 832
         assert defaults["height"] == 480
         assert defaults["frames"] == 81
 
     def test_qwen_defaults(self):
-        """Test Qwen default values"""
+        """Test Qwen default values (1328 is official 1:1 native from HuggingFace)"""
         defaults = model_registry.get_model_defaults("qwen")
-        assert defaults["width"] == 1296
-        assert defaults["height"] == 1296
+        assert defaults["width"] == 1328
+        assert defaults["height"] == 1328
 
     def test_hunyuan15_defaults(self):
         """Test HunyuanVideo 1.5 default values"""
@@ -149,9 +149,9 @@ class TestModelAliases:
         """Test 'flux' alias resolves to 'flux2'"""
         assert model_registry.resolve_model_name("flux") == "flux2"
 
-    def test_wan_resolves_to_wan26(self):
-        """Test 'wan' alias resolves to 'wan26'"""
-        assert model_registry.resolve_model_name("wan") == "wan26"
+    def test_wan_resolves_to_wan21(self):
+        """Test 'wan' alias resolves to 'wan21'"""
+        assert model_registry.resolve_model_name("wan") == "wan21"
 
     def test_hunyuan_resolves_to_hunyuan15(self):
         """Test 'hunyuan' alias resolves to 'hunyuan15'"""
@@ -161,7 +161,7 @@ class TestModelAliases:
         """Test canonical names remain unchanged"""
         assert model_registry.resolve_model_name("ltx2") == "ltx2"
         assert model_registry.resolve_model_name("flux2") == "flux2"
-        assert model_registry.resolve_model_name("wan26") == "wan26"
+        assert model_registry.resolve_model_name("wan26") == "wan21"
         assert model_registry.resolve_model_name("qwen") == "qwen"
         assert model_registry.resolve_model_name("sdxl") == "sdxl"
 
@@ -174,7 +174,7 @@ class TestModelAliases:
         """Test alias resolution is case-insensitive"""
         assert model_registry.resolve_model_name("LTX") == "ltx2"
         assert model_registry.resolve_model_name("Flux") == "flux2"
-        assert model_registry.resolve_model_name("WAN") == "wan26"
+        assert model_registry.resolve_model_name("WAN") == "wan21"
 
 
 class TestWorkflowTypeAliases:
@@ -215,7 +215,7 @@ class TestCanonicalModelKey:
     def test_wan_i2v_resolves(self):
         """Test wan/i2v resolves correctly"""
         key = model_registry.get_canonical_model_key("wan", "i2v")
-        assert key == ("wan26", "img2vid")
+        assert key == ("wan21", "img2vid")
 
     def test_hunyuan_t2v_resolves(self):
         """Test hunyuan/t2v resolves correctly"""
@@ -239,7 +239,7 @@ class TestListFunctions:
     def test_list_supported_models(self):
         """Test listing supported models"""
         models = model_registry.list_supported_models()
-        expected = ["ltx2", "flux2", "wan26", "qwen", "sdxl", "hunyuan15", "qwen_edit"]
+        expected = ["ltx2", "flux2", "wan21", "qwen", "sdxl", "hunyuan15", "qwen_edit"]
         for model in expected:
             assert model in models, f"Model {model} not in supported models"
 
@@ -265,9 +265,9 @@ class TestUtilityFunctions:
         assert model_registry.is_video_model("flux2") is False
         assert model_registry.is_video_model("flux") is False
 
-    def test_is_video_model_wan26(self):
-        """Test Wan 2.6 is identified as video model"""
-        assert model_registry.is_video_model("wan26") is True
+    def test_is_video_model_wan21(self):
+        """Test Wan 2.1 is identified as video model"""
+        assert model_registry.is_video_model("wan21") is True
 
     def test_is_video_model_qwen(self):
         """Test Qwen is not identified as video model"""
@@ -368,7 +368,7 @@ class TestConstraintStructure:
 
     def test_video_models_have_frames(self):
         """Test video models have frame constraints"""
-        video_models = ["ltx2", "wan26", "hunyuan15"]
+        video_models = ["ltx2", "wan21", "hunyuan15"]
         for model in video_models:
             constraints = model_registry.get_model_constraints(model)
             assert "frames" in constraints, f"Video model {model} missing frames constraint"

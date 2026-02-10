@@ -25,7 +25,7 @@ A comprehensive module containing:
 2. **Central Registry** (`_MODEL_REGISTRY`):
    - `ltx2` - LTX-Video 2.0
    - `flux2` - FLUX.2
-   - `wan26` - Wan 2.6
+   - `wan21` - Wan 2.1
    - `qwen` - Qwen Image
    - `sdxl` - SDXL
    - `hunyuan15` - HunyuanVideo 1.5

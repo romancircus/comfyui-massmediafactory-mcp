@@ -65,7 +65,7 @@ This document provides an in-depth analysis of the ComfyUI workflow references g
 - ltx2_txt2vid_distilled ✅
 - ltx2_img2vid ✅
 - ltx2_audio_reactive ✅
-- wan26_img2vid ✅
+- wan21_img2vid ✅
 - video_inpaint ✅
 - video_stitch ✅
 
@@ -93,7 +93,7 @@ This document provides an in-depth analysis of the ComfyUI workflow references g
 | Template | Model | Why Critical |
 |----------|-------|--------------|
 | `ltx2_i2v_distilled` | LTX-2 Distilled | Fast I2V - 3x faster |
-| `wan26_txt2vid` | Wan 2.6 | Text-to-video for Wan |
+| `wan21_txt2vid` | Wan 2.1 | Text-to-video for Wan |
 | `hunyuan15_txt2vid` | HunyuanVideo 1.5 | Major SOTA model |
 | `hunyuan15_i2v` | HunyuanVideo 1.5 | I2V for Hunyuan |
 | `sdxl_txt2img` | SDXL | Most popular base |
@@ -243,7 +243,7 @@ def explain_workflow(workflow: dict) -> str:
 |------|-------|-------------|
 | Add template validation | `templates/__init__.py` | Validate on load |
 | Create ltx2_i2v_distilled | `templates/` | Fast I2V template |
-| Create wan26_txt2vid | `templates/` | Wan text-to-video |
+| Create wan21_txt2vid | `templates/` | Wan text-to-video |
 | Document HunyuanVideo patterns | `docs/` | Official workflow study |
 
 ### Phase 2: High Priority (Week 1)
@@ -300,13 +300,13 @@ def explain_workflow(workflow: dict) -> str:
 ```
 **Key nodes:** CheckpointLoaderSimple, LTXVGemmaCLIPModelLoader, LTXVPreprocess, LTXVImgToVideo
 
-#### 2. wan26_txt2vid.json
+#### 2. wan21_txt2vid.json
 
 ```json
 {
   "_meta": {
-    "description": "Wan 2.6 text-to-video",
-    "model": "Wan 2.6 14B",
+    "description": "Wan 2.1 text-to-video",
+    "model": "Wan 2.1 14B",
     "type": "txt2vid",
     "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
     "defaults": {

@@ -63,12 +63,12 @@ PATTERN_DESCRIPTIONS = {
         "use_cases": ["creating images from text", "illustration", "concept art"],
     },
     # Wan Patterns
-    "wan26_img2vid": {
+    "wan21_img2vid": {
         "description": "Advanced image-to-video with superior motion quality and temporal consistency",
         "tags": ["video", "image", "animation", "motion", "high-quality", "consistent"],
         "use_cases": ["professional video animation", "high-quality motion", "film production"],
     },
-    "wan26_txt2vid": {
+    "wan21_txt2vid": {
         "description": "High-fidelity text-to-video with excellent human motion and scene understanding",
         "tags": ["video", "generation", "human-motion", "scene", "high-fidelity"],
         "use_cases": ["human animation", "scene generation", "storytelling"],

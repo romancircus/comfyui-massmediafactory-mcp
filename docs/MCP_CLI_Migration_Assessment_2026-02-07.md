@@ -147,7 +147,7 @@ comfyui-massmediafactory-mcp (Hub)
 ├── templates/ (34 templates)
 │   ├── flux2_txt2img.json
 │   ├── ltx2_txt2vid.json
-│   ├── wan26_img2vid.json
+│   ├── wan21_img2vid.json
 │   └── qwen_txt2img.json
 │
 ├── manifest.json (drift detection)

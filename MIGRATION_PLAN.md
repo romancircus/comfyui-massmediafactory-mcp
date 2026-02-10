@@ -234,7 +234,7 @@ PROMPT, IMAGE_PATH, SEED, WIDTH, HEIGHT, STEPS, CFG, DENOISE
 **Purpose:** Replace `ComfyUIExecutor.executeWan22S2V()`.
 
 **Nodes:**
-- WanVideoWrapper nodes (same pattern as wan26_img2vid)
+- WanVideoWrapper nodes (same pattern as wan21_img2vid)
 - `WanVideoModelLoader` → wan2.2_s2v_14B_fp8_scaled.safetensors (already installed!)
 - Standard Wan I2V pipeline but with S2V model
 
@@ -412,7 +412,7 @@ Each active KDH script gets updated to use `mmf.js`:
 | `generateViralVideosPipelineB.js` | `executor.executeLtxTxt2Vid({...})` | `mmf.ltxT2V({...})` |
 | `generateViralVideosPipelineB.js` | `executor.executeTeleStyleVideo({...})` | `mmf.teleStyleVideo({...})` |
 | `runWanVideoBatch.js` | Manual fetch() to /prompt | `mmf.wanI2V({...})` in loop |
-| `runWanMotionControl.js` | Manual fetch() to /prompt | `mmf run --template wan26_img2vid` |
+| `runWanMotionControl.js` | Manual fetch() to /prompt | `mmf run --template wan21_img2vid` |
 | `runWanBabyDance.js` | Manual fetch() to /prompt | `mmf.wanI2V({...})` in loop |
 
 **Python scripts (execute_keyframes.py, batch_i2v_choking.py, etc.):** Replace urllib.request calls with `subprocess.run("mmf ...")`.
@@ -478,7 +478,7 @@ Pokedex loads FLUX.2, Z-turbo, Qwen-Edit, Wan, LTX-2 as native Python diffusers 
 - Qwen-Edit: `TextEncodeQwenImageEdit` → `qwen_edit_background` template
 - Z-Image: `NunchakuZImageTurboLoraStackV4`, `ZImageFunControlnet` → new template needed
 - Kontext: `FluxKontextImageScale` → new template needed
-- Wan I2V: `WanVideoWrapper` suite → `wan26_img2vid` template
+- Wan I2V: `WanVideoWrapper` suite → `wan21_img2vid` template
 - LTX-2: Full suite → `ltx2_img2vid`, `ltx2_txt2vid` templates
 
 ### 4.2 What Gets Deleted (~4,800 lines)
@@ -731,9 +731,9 @@ jinyang uses direct urllib to ComfyUI API for batch generation (>50 jobs). This 
 ### 5.2 New Pattern
 
 ```
-< 50 jobs:  mmf batch queue --manifest jobs.json --template wan26_img2vid
+< 50 jobs:  mmf batch queue --manifest jobs.json --template wan21_img2vid
 > 50 jobs:  Keep direct urllib (100x cost savings)
-            BUT use: mmf templates get wan26_img2vid > /tmp/template.json
+            BUT use: mmf templates get wan21_img2vid > /tmp/template.json
             to fetch templates from the hub (single source of truth)
 ```
 

@@ -33,7 +33,7 @@ _installed_models_cache: Optional[List[str]] = None
 MODEL_FILENAME_KEYWORDS = {
     "flux2": ["flux"],
     "ltx2": ["ltx"],
-    "wan26": ["wan"],
+    "wan21": ["wan"],
     "wan22": ["wan"],
     "qwen": ["qwen"],
     "qwen_edit": ["qwen"],
@@ -96,7 +96,7 @@ def _is_model_installed(model_type_normalized: str) -> bool:
 MODEL_TYPE_MAP = {
     "flux2": ["flux2", "flux.2", "flux2-dev", "flux", "fl.2"],
     "ltx2": ["ltx2", "ltx-2", "ltxvideo", "ltx"],
-    "wan26": ["wan26", "wan 2.6", "wan2.6", "wan 2.1", "wan2.1"],
+    "wan21": ["wan21", "wan 2.1", "wan2.1", "wan26", "wan 2.6", "wan2.6"],
     "wan22": ["wan22", "wan 2.2", "wan2.2", "wan 2.2 s2v", "wan"],
     "qwen": ["qwen", "qwen-image"],
     "qwen_edit": ["qwen_edit", "qwen-edit", "qwen_image_edit"],
@@ -118,12 +118,12 @@ def get_model_type(model_name: str) -> Optional[str]:
     # Check for exact matches first
     # Order matters: more specific variants before general ones
     # - qwen_edit before qwen (both contain "qwen")
-    # - wan26 before wan22 (wan22 has bare "wan" as fallback for unversioned names)
+    # - wan21 before wan22 (wan22 has bare "wan" as fallback for unversioned names)
     for canonical in [
         "qwen_edit",
         "flux2",
         "ltx2",
-        "wan26",
+        "wan21",
         "wan22",
         "telestyle",
         "qwen",
@@ -305,7 +305,7 @@ def list_templates(
     Args:
         validate: Whether to validate each template (default False for speed)
         only_installed: Filter to only templates with installed models
-        model_type: Filter by model type (flux2, ltx2, wan26, etc.)
+        model_type: Filter by model type (flux2, ltx2, wan21, etc.)
         tags: Filter templates with specific tags (AND matching)
 
     Returns:

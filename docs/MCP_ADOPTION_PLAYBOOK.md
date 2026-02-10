@@ -12,7 +12,7 @@
 | Category | Templates | Use Cases | Model Type |
 |----------|----------|-----------|------------|
 | **Text-to-Image** (5) | `flux2_txt2img`, `flux2_ultimate_upscale`, `qwen_txt2img`, `sdxl_txt2img`, `qwen_poster_design` | Character generation, posters, upscaling | FLUX.2, Qwen, SDXL |
-| **Text-to-Video** (7) | `ltx2_txt2vid`, `ltx2_txt2vid_distilled`, `ltx2_audio_reactive`, `wan26_txt2vid`, `hunyuan15_txt2vid`, `telestyle_video` | Narrative video, fast render, audio-synced | LTX-2, Wan 2.6, Hunyuan |
+| **Text-to-Video** (7) | `ltx2_txt2vid`, `ltx2_txt2vid_distilled`, `ltx2_audio_reactive`, `wan21_txt2vid`, `hunyuan15_txt2vid`, `telestyle_video` | Narrative video, fast render, audio-synced | LTX-2, Wan 2.1, Hunyuan |
 | **Image-to-Video** (3) | `ltx2_img2vid`, `ltx2_i2v_distilled`, `hunyuan15_img2vid` | Image animation, character motion | LTX-2, Hunyuan |
 | **Image Editing** (4) | `flux2_edit_by_text`, `qwen_edit_background`, `flux2_face_id`, `video_inpaint` | Background replacement, face preservation, video cleanup | FLUX.2, Qwen Edit, Generic |
 | **Advanced Control** (3) | `flux2_union_controlnet`, `flux2_grounding_dino_inpaint`, `flux2_lora_stack` | ControlNet, inpainting, style mixing | FLUX.2 |
@@ -258,7 +258,7 @@ For overnight work:
 |-------|------|-----------|
 | FLUX.2 | txt2img | flux2_txt2img, flux2_ultimate_upscale |
 | LTX-2 | txt2vid/i2v | ltx2_txt2vid, ltx2_img2vid |
-| Wan 2.6 | txt2vid/i2v | wan26_txt2vid, wan26_img2vid |
+| Wan 2.1 | txt2vid/i2v | wan21_txt2vid, wan21_img2vid |
 | Qwen Edit | edit | qwen_edit_background |
 
 ### Critical Settings
@@ -624,9 +624,9 @@ workflow = inject_parameters(template, {
 - `ltx2_audio_reactive` - Audio-synced video
 - `ltx2_i2v_distilled` - Fast I2V
 
-### Wan 2.6 Templates (2)
-- `wan26_txt2vid` - Text-to-video
-- `wan26_img2vid` - Image-to-video
+### Wan 2.1 Templates (2)
+- `wan21_txt2vid` - Text-to-video
+- `wan21_img2vid` - Image-to-video
 
 ### Qwen Templates (4)
 - `qwen_txt2img` - Portrait generation

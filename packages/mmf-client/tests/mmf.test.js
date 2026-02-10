@@ -185,7 +185,7 @@ describe('@romancircus/mmf-client', () => {
       });
 
       const callArgs = mockExecSync.mock.calls[0];
-      expect(callArgs[0]).toContain('mmf run --template wan26_img2vid');
+      expect(callArgs[0]).toContain('mmf run --template wan21_img2vid');
       expect(callArgs[0]).toContain('IMAGE_PATH');
       expect(callArgs[1].timeout).toBe(VIDEO_TIMEOUT);
     });

@@ -16,7 +16,7 @@ export declare const DEFAULT_RETRY_FLAGS: string;
 export declare const TEMPLATE_QWEN_TXT2IMG: string;
 export declare const TEMPLATE_FLUX2_FACE_ID: string;
 export declare const TEMPLATE_FLUX_KONTEXT_EDIT: string;
-export declare const TEMPLATE_WAN26_IMG2VID: string;
+export declare const TEMPLATE_WAN21_IMG2VID: string;
 export declare const TEMPLATE_WAN22_S2V: string;
 export declare const TEMPLATE_WAN22_ANIMATE: string;
 export declare const TEMPLATE_WAN22_PHANTOM: string;

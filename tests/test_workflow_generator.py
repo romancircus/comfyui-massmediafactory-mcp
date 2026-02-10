@@ -106,7 +106,7 @@ class TestWorkflowGeneration:
 
     def test_wan_txt2vid_generation(self):
         """Test Wan text-to-video workflow generation"""
-        result = workflow_generator.generate_workflow("wan26", "txt2vid", "A sunset timelapse")
+        result = workflow_generator.generate_workflow("wan21", "txt2vid", "A sunset timelapse")
         assert "workflow" in result
         assert result["workflow"] is not None
 
@@ -125,7 +125,7 @@ class TestModelAliases:
         assert "workflow" in result
 
     def test_wan_alias(self):
-        """Test that 'wan' maps to 'wan26'"""
+        """Test that 'wan' maps to 'wan21'"""
         result = workflow_generator.generate_workflow("wan", "t2v", "A landscape")
         assert "workflow" in result
 
@@ -218,12 +218,12 @@ class TestDefaultValues:
         assert params["HEIGHT"] == 1024
 
     def test_hunyuan_defaults(self):
-        """Test HunyuanVideo default values"""
+        """Test HunyuanVideo default values (129 frames, 15fps per official docs)"""
         result = workflow_generator.generate_workflow("hunyuan15", "txt2vid", "A dragon")
         params = result["parameters_used"]
         assert params["WIDTH"] == 1280
         assert params["HEIGHT"] == 720
-        assert params["FRAMES"] == 81
+        assert params["FRAMES"] == 129
 
 
 class TestSkeletonLoading:
@@ -268,7 +268,7 @@ class TestListSupportedWorkflows:
             "flux",
             "flux2",
             "wan",
-            "wan26",
+            "wan21",
             "qwen",
             "sdxl",
             "hunyuan",

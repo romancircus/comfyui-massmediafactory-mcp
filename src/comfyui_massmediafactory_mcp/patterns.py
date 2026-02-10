@@ -600,10 +600,10 @@ WORKFLOW_SKELETONS = {
             "inputs": {"images": ["12", 0], "filename_prefix": "flux2_output"},
         },
     },
-    ("wan26", "img2vid"): {
+    ("wan21", "img2vid"): {
         "_meta": {
-            "description": "Wan 2.6 image-to-video",
-            "model": "Wan 2.6 14B",
+            "description": "Wan 2.1 image-to-video",
+            "model": "Wan 2.1 14B",
             "type": "img2vid",
             "parameters": ["IMAGE_PATH", "PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES"],
             "defaults": {
@@ -720,13 +720,13 @@ WORKFLOW_SKELETONS = {
         "12": {
             "class_type": "SaveVideo",
             "_meta": {"title": "Save Video"},
-            "inputs": {"video": ["11", 0], "filename_prefix": "wan26_i2v", "format": "mp4", "codec": "h264"},
+            "inputs": {"video": ["11", 0], "filename_prefix": "wan21_i2v", "format": "mp4", "codec": "h264"},
         },
     },
-    ("wan26", "txt2vid"): {
+    ("wan21", "txt2vid"): {
         "_meta": {
-            "description": "Wan 2.6 text-to-video using WanVideoWrapper nodes",
-            "model": "Wan 2.6 14B",
+            "description": "Wan 2.1 text-to-video using WanVideoWrapper nodes",
+            "model": "Wan 2.1 14B",
             "type": "txt2vid",
             "parameters": ["PROMPT", "NEGATIVE", "SEED", "WIDTH", "HEIGHT", "FRAMES", "STEPS", "CFG", "SHIFT", "FPS"],
             "defaults": {
@@ -813,7 +813,7 @@ WORKFLOW_SKELETONS = {
         "9": {
             "class_type": "SaveVideo",
             "_meta": {"title": "Save Video"},
-            "inputs": {"video": ["8", 0], "filename_prefix": "wan26_t2v", "format": "mp4", "codec": "h264"},
+            "inputs": {"video": ["8", 0], "filename_prefix": "wan21_t2v", "format": "mp4", "codec": "h264"},
         },
     },
     ("qwen", "txt2img"): {
@@ -1361,7 +1361,7 @@ NODE_CHAINS = {
         },
         {"id": "13", "class_type": "SaveImage", "inputs": {"images": ["12", 0]}, "outputs": {}},
     ],
-    ("wan26", "img2vid"): [
+    ("wan21", "img2vid"): [
         {"id": "1", "class_type": "WanVideoModelLoader", "outputs": {"WANVIDEOMODEL": 0}},
         {"id": "2", "class_type": "WanVideoVAELoader", "outputs": {"WANVAE": 0}},
         {"id": "3", "class_type": "LoadWanVideoT5TextEncoder", "outputs": {"WANTEXTENCODER": 0}},
@@ -1400,7 +1400,7 @@ NODE_CHAINS = {
         {"id": "11", "class_type": "CreateVideo", "inputs": {"images": ["10", 0]}, "outputs": {"VIDEO": 0}},
         {"id": "12", "class_type": "SaveVideo", "inputs": {"video": ["11", 0]}, "outputs": {}},
     ],
-    ("wan26", "txt2vid"): [
+    ("wan21", "txt2vid"): [
         {"id": "1", "class_type": "WanVideoModelLoader", "outputs": {"WANVIDEOMODEL": 0}},
         {"id": "2", "class_type": "WanVideoVAELoader", "outputs": {"WANVAE": 0}},
         {"id": "3", "class_type": "LoadWanVideoT5TextEncoder", "outputs": {"WANTEXTENCODER": 0}},
@@ -1542,7 +1542,7 @@ def get_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
     Cache TTL: 5 minutes. Cache stats available via get_cache_stats().
 
     Args:
-        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl)
+        model: Model identifier (ltx2, flux2, wan21, qwen, sdxl)
         task: Task type (txt2vid, img2vid, txt2img, txt2vid_distilled)
 
     Returns:
@@ -1572,7 +1572,7 @@ def get_model_constraints(model: str) -> Dict[str, Any]:
     Get hard constraints for a model.
 
     Args:
-        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl, hunyuan15)
+        model: Model identifier (ltx2, flux2, wan21, qwen, sdxl, hunyuan15)
 
     Returns:
         Constraints dict with cfg, resolution, frames, required_nodes, forbidden_nodes

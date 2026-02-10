@@ -125,7 +125,7 @@ SOTA_MODELS = {
                 "rtx5090_note": "fp16 requires 38GB - use fp8 on RTX 5090",
             },
             {
-                "name": "Wan 2.6",
+                "name": "Wan 2.1",
                 "comfyui_files": ["wan2.6_i2v_fp8.safetensors", "wan2.6.safetensors"],
                 "vram_fp16": 32,  # Too tight for RTX 5090
                 "vram_fp8": 16,
@@ -271,7 +271,7 @@ TASK_MODEL_MATRIX = {
     "talking_head": {
         "recommended": "LTX-2 19B",
         "reason": "Native audio input with lip sync support",
-        "alternatives": ["Wan 2.6"],
+        "alternatives": ["Wan 2.1"],
         "precision": "fp8",  # MUST use fp8 on RTX 5090
         "prompt_tip": "Describe motion, not appearance: 'the person speaks, lips move naturally'",
         "requires_audio": True,
@@ -279,7 +279,7 @@ TASK_MODEL_MATRIX = {
     "music_video": {
         "recommended": "LTX-2 19B",
         "reason": "Audio-reactive generation syncs with music",
-        "alternatives": ["Wan 2.6"],
+        "alternatives": ["Wan 2.1"],
         "precision": "fp8",
         "requires_audio": True,
     },
@@ -291,14 +291,14 @@ TASK_MODEL_MATRIX = {
         "requires_audio": True,
     },
     "image_to_video": {
-        "recommended": "Wan 2.6",
+        "recommended": "Wan 2.1",
         "reason": "Best motion quality and physics for I2V",
         "alternatives": ["LTX-2 19B", "HunyuanVideo 1.5"],
         "precision": "fp8",
         "prompt_tip": "Describe the CHANGE: 'camera pans left, subject walks forward'",
     },
     "action_sequence": {
-        "recommended": "Wan 2.6",
+        "recommended": "Wan 2.1",
         "reason": "High-dynamic motion and physics simulation",
         "alternatives": ["LTX-2 19B"],
         "precision": "fp8",
@@ -311,7 +311,7 @@ TASK_MODEL_MATRIX = {
         "precision": "fp16",  # HunyuanVideo fits in fp16
     },
     "b_roll": {
-        "recommended": "Wan 2.6",
+        "recommended": "Wan 2.1",
         "reason": "Smooth motion for background footage",
         "alternatives": ["LTX-2 19B"],
         "precision": "fp8",

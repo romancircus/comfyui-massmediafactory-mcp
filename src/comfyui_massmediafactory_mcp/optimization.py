@@ -59,8 +59,8 @@ COMPUTE_QUANTIZATION = {
 
 # Timing estimates per model (seconds, for main_device + fp8_fast)
 TIMING_ESTIMATES = {
-    ("wan26", "i2v"): {"full_gpu": 150, "gpu_with_offload": 300, "cpu_offload": 510},
-    ("wan26", "t2v"): {"full_gpu": 60, "gpu_with_offload": 120, "cpu_offload": 200},
+    ("wan21", "i2v"): {"full_gpu": 150, "gpu_with_offload": 300, "cpu_offload": 510},
+    ("wan21", "t2v"): {"full_gpu": 60, "gpu_with_offload": 120, "cpu_offload": 200},
     ("ltx2", "t2v"): {"full_gpu": 45, "gpu_with_offload": 90, "cpu_offload": 150},
     ("ltx2", "i2v"): {"full_gpu": 50, "gpu_with_offload": 100, "cpu_offload": 160},
     ("flux2", "t2i"): {"full_gpu": 15, "gpu_with_offload": 25, "cpu_offload": 45},
@@ -71,6 +71,15 @@ TIMING_ESTIMATES = {
     ("hunyuan15", "i2v"): {"full_gpu": 130, "gpu_with_offload": 260, "cpu_offload": 500},
     ("z_turbo", "t2i"): {"full_gpu": 3, "gpu_with_offload": 5, "cpu_offload": 10},
     ("cogvideox_5b", "t2v"): {"full_gpu": 90, "gpu_with_offload": 180, "cpu_offload": 360},
+    # Wan 2.2 A14B MoE (same active params as wan21, slightly faster with MoE routing)
+    ("wan22", "t2v"): {"full_gpu": 140, "gpu_with_offload": 280, "cpu_offload": 480},
+    ("wan22", "i2v"): {"full_gpu": 150, "gpu_with_offload": 300, "cpu_offload": 510},
+    ("wan22", "720p"): {"full_gpu": 200, "gpu_with_offload": 400, "cpu_offload": 720},
+    # LTX-2 extended capabilities
+    ("ltx2", "av_generate"): {"full_gpu": 50, "gpu_with_offload": 100, "cpu_offload": 180},
+    ("ltx2", "looping"): {"full_gpu": 120, "gpu_with_offload": 240, "cpu_offload": 480},
+    ("ltx2", "extend"): {"full_gpu": 60, "gpu_with_offload": 120, "cpu_offload": 200},
+    ("ltx2", "upscale"): {"full_gpu": 70, "gpu_with_offload": 140, "cpu_offload": 250},
 }
 
 # ============================================================================
@@ -94,6 +103,9 @@ HARDWARE_PARAMS_MAP = {
         "load_device": "load_device",
     },
     "WanVideoSampler": {
+        "force_offload": "force_offload",
+    },
+    "WanVideoSamplerv2": {
         "force_offload": "force_offload",
     },
     "WanVideoTextEncode": {
@@ -130,7 +142,8 @@ HARDWARE_PARAMS_MAP = {
 
 # VRAM key mapping: model registry key → vram.py key
 _VRAM_KEYS = {
-    "wan26": "wan2.6",
+    "wan21": "wan2.1",
+    "wan22": "wan2.1",
     "wan": "wan",
     "ltx2": "ltx-2",
     "flux2": "flux2",
@@ -240,7 +253,7 @@ def get_optimal_workflow_params(
     recommendation. Used by generate_workflow() and batch scripts.
 
     Args:
-        model: Model key (wan26, ltx2, flux2, qwen, etc.)
+        model: Model key (wan21, ltx2, flux2, qwen, etc.)
         task: Task type (i2v, t2v, t2i, edit)
         available_vram_gb: Override VRAM (auto-detected if None)
         compute_capability: Override compute cap (auto-detected if None)

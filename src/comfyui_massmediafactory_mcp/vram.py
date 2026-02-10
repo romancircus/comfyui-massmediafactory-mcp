@@ -136,7 +136,16 @@ MODEL_VRAM_ESTIMATES = {
         "default": 16.0,
         "rtx5090_recommended": "fp8",
     },
-    "wan2.6": {
+    "wan2.2": {
+        "fp32": 64.0,
+        "fp16": 32.0,
+        "bf16": 32.0,
+        "fp8": 16.0,
+        "default": 16.0,
+        "rtx5090_recommended": "fp8",
+        "rtx5090_note": "Same 14B active params as wan2.6 (MoE routing). Use fp8 for safety margin.",
+    },
+    "wan2.1": {
         "fp32": 64.0,
         "fp16": 32.0,  # Too tight on RTX 5090
         "bf16": 32.0,
@@ -144,6 +153,15 @@ MODEL_VRAM_ESTIMATES = {
         "default": 16.0,
         "rtx5090_recommended": "fp8",
         "rtx5090_note": "fp16 uses full 32GB - use fp8 for safety margin",
+    },
+    # Backward compat alias — wan2.6 was a misnomer for wan2.1
+    "wan2.6": {
+        "fp32": 64.0,
+        "fp16": 32.0,
+        "bf16": 32.0,
+        "fp8": 16.0,
+        "default": 16.0,
+        "rtx5090_recommended": "fp8",
     },
     "hunyuan": {
         "fp32": 48.0,
@@ -169,7 +187,7 @@ MODEL_VRAM_ESTIMATES = {
         "fp8": 4.0,
         "default": 8.0,
         "rtx5090_recommended": "fp16",
-        "rtx5090_note": "Deprecated - use Wan 2.6 or LTX-2 instead",
+        "rtx5090_note": "Deprecated - use Wan 2.1 or LTX-2 instead",
     },
     # Fallback
     "unknown": {
@@ -253,8 +271,11 @@ def detect_model_type(model_name: str) -> Tuple[str, str]:
             return "ltx-2", precision
         return "ltx", precision
     elif "wan" in name_lower:
+        if "2.2" in name_lower or "22" in name_lower:
+            return "wan2.2", precision
+        # Real model files on disk may say "2.6" or "26" — they are Wan 2.1
         if "2.6" in name_lower or "26" in name_lower:
-            return "wan2.6", precision
+            return "wan2.1", precision
         return "wan2", precision
     elif "hunyuan" in name_lower:
         if "video" in name_lower:
@@ -299,7 +320,8 @@ def get_rtx5090_recommendation(model_name: str) -> dict:
         "will_fit": will_fit,
         "note": vram_table.get("rtx5090_note", ""),
         "warning": vram_table.get("rtx5090_warning"),
-        "is_video_model": model_type in ["ltx", "ltx-2", "ltx-2-19b", "wan", "wan2", "wan2.6", "hunyuan-video", "svd"],
+        "is_video_model": model_type
+        in ["ltx", "ltx-2", "ltx-2-19b", "wan", "wan2", "wan2.1", "wan2.2", "wan2.6", "hunyuan-video", "svd"],
     }
 
 

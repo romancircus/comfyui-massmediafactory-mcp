@@ -152,7 +152,7 @@ def resolve_parameters(
     # --guidance maps to SHIFT or GUIDANCE depending on model.
     # Qwen/Wan skeletons use {{SHIFT}}, Flux uses {{GUIDANCE}}.
     canonical = resolve_model_name(model)
-    _shift_models = {"qwen", "wan26", "wan22"}
+    _shift_models = {"qwen", "wan21", "wan22"}
     _guidance_models = {"flux2"}
 
     if canonical in _shift_models:

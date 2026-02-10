@@ -41,7 +41,7 @@ mmf run --model flux --type t2i --prompt "a dragon in the clouds" -o dragon.png
 mmf run --model wan --type i2v --image photo.png --prompt "gentle motion" -o video.mp4
 
 # Template-based (49 templates available)
-mmf run --template wan26_img2vid --params '{"IMAGE_PATH":"img.png","PROMPT":"motion"}'
+mmf run --template wan21_img2vid --params '{"IMAGE_PATH":"img.png","PROMPT":"motion"}'
 
 # Batch seed variations
 mmf batch seeds workflow.json --count 8 --start-seed 42

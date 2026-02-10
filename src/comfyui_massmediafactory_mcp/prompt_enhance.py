@@ -35,7 +35,7 @@ MODEL_QUALITY_TOKENS = {
         "suffix": ", high quality, detailed, professional",
         "style_guide": "Qwen works well with clear, descriptive prompts. Focus on subject and composition.",
     },
-    "wan26": {
+    "wan21": {
         "prefix": "",
         "suffix": "",  # No suffix — WAN I2V prompts are motion-only
         "style_guide": (
@@ -143,7 +143,7 @@ def _build_negative(prompt: str, canonical_model: str) -> Optional[str]:
 
     Args:
         prompt: The original positive prompt.
-        canonical_model: Canonical model name from registry (wan26, ltx2, flux2, etc.)
+        canonical_model: Canonical model name from registry (wan21, ltx2, flux2, etc.)
 
     Returns:
         Negative prompt string, or None if model has no negative defaults.
@@ -182,9 +182,9 @@ def _enhance_with_llm(
     style_instruction = f" The style should be {style}." if style else ""
 
     # Video models get specialized system prompts
-    video_models = ("wan26", "ltx2", "hunyuan15", "cogvideox_5b")
+    video_models = ("wan21", "ltx2", "hunyuan15", "cogvideox_5b")
     if canonical_model in video_models:
-        word_limit = "80-120 words" if canonical_model == "wan26" else "200 words"
+        word_limit = "80-120 words" if canonical_model == "wan21" else "200 words"
         system_prompt = f"""You are an expert at writing prompts for AI video generation models.
 Your task: Rewrite the user's prompt to get better results from the {canonical_model} model.
 

@@ -20,8 +20,8 @@ export const TEMPLATE_FLUX_KONTEXT_EDIT = 'flux_kontext_edit';
 
 // ── Video Generation Templates ────────────────────────────────────────────
 
-/** Wan 2.6 Image-to-Video template */
-export const TEMPLATE_WAN26_IMG2VID = 'wan26_img2vid';
+/** Wan 2.1 Image-to-Video template */
+export const TEMPLATE_WAN21_IMG2VID = 'wan21_img2vid';
 
 /** Wan 2.2 Sound-to-Video (wav2vec2 audio sync) template */
 export const TEMPLATE_WAN22_S2V = 'wan22_s2v';
@@ -64,7 +64,7 @@ export default {
   TEMPLATE_QWEN_TXT2IMG,
   TEMPLATE_FLUX2_FACE_ID,
   TEMPLATE_FLUX_KONTEXT_EDIT,
-  TEMPLATE_WAN26_IMG2VID,
+  TEMPLATE_WAN21_IMG2VID,
   TEMPLATE_WAN22_S2V,
   TEMPLATE_WAN22_ANIMATE,
   TEMPLATE_WAN22_PHANTOM,

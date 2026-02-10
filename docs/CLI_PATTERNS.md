@@ -210,7 +210,7 @@ const retryFlags = opts.noRetry
 
 ```javascript
 // Default: 3 retries on VRAM, timeout, connection
-const args = `run --template wan26_img2vid --params '${params}' --retry 3 --retry-on vram,timeout,connection`;
+const args = `run --template wan21_img2vid --params '${params}' --retry 3 --retry-on vram,timeout,connection`;
 
 // System commands: no retry
 export function freeMemory(unload = true) {
@@ -386,7 +386,7 @@ const args = `run --template qwen_txt2img --params '${esc(params)}'`;
 | Category | Templates | Use Case |
 |----------|-----------|----------|
 | **Image Gen** | qwen_txt2img, flux2_txt2img, flux2_face_id | Characters, keyframes |
-| **Video Gen** | wan26_img2vid, wan22_animate, ltx2_txt2vid | Video clips |
+| **Video Gen** | wan21_img2vid, wan22_animate, ltx2_txt2vid | Video clips |
 | **Style Transfer** | telestyle_image, telestyle_video | 3D physics style |
 | **Editing** | qwen_edit_background, flux_kontext_edit | Consistency, background |
 | **Audio** | ltx2_audio_reactive, mmaudio_v2a, wan22_s2v | Sound sync |
@@ -549,7 +549,7 @@ wanI2V({
 })
 ```
 
-**Template:** `wan26_img2vid`
+**Template:** `wan21_img2vid`
 **Timeout:** 15 minutes
 **Critical:** `noiseAug=0.03` for character consistency
 
@@ -968,7 +968,7 @@ if (result.error) throw new Error(result.error);
 |----------|----------|-----------------|
 | `qwen_txt2img` | Character portraits | shift=7.0 |
 | `flux2_face_id` | Face consistency | IP-Adapter weight |
-| `wan26_img2vid` | Standard I2V | noiseAug=0.03 |
+| `wan21_img2vid` | Standard I2V | noiseAug=0.03 |
 | `ltx2_txt2vid` | Fast T2V | frames=8n+1 |
 | `telestyle_image` | Character consistency | cfg=2.0-2.5 |
 
@@ -982,7 +982,7 @@ mmf models constraints wan                   # Model limits
 
 # Execution
 mmf run --model qwen --type t2i --prompt "..."
-mmf run --template wan26_img2vid --params '{"PROMPT":"..."}'
+mmf run --template wan21_img2vid --params '{"PROMPT":"..."}'
 mmf pipeline i2v --image photo.png --prompt "..."
 mmf batch seeds workflow.json --count 8
 

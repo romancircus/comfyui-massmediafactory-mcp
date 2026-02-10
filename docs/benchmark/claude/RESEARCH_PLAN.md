@@ -41,7 +41,7 @@
 | Model | Release Date | Status in MCP | Research Needed |
 |-------|--------------|---------------|-----------------|
 | **LTX-2** | Dec 2025 | Supported | Verify 19B vs 8B settings |
-| **Wan 2.6** | Jan 2026 | Supported | Check I2V constraints |
+| **Wan 2.1** | Jan 2026 | Supported | Check I2V constraints |
 | **HunyuanVideo 1.5** | Dec 2025 | Supported | Verify resolution limits |
 | **CogVideoX-5B** | Sep 2024 | Not supported | Add support? |
 | **AnimateDiff v3** | 2024 | Not supported | Add support? |
@@ -189,7 +189,7 @@
 |---------------|-----------|------------|
 | **FLUX.2** | FluxGuidance v2? | Check |
 | **LTX-2** | LTXVLoader 19B | Verify |
-| **Wan 2.6** | WanVideo new nodes | Verify |
+| **Wan 2.1** | WanVideo new nodes | Verify |
 | **HunyuanVideo** | HunyuanVideo v1.5 | Verify |
 
 **Research Tasks:**

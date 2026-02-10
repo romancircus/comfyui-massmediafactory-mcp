@@ -54,7 +54,7 @@ Instead of documentation Claude can't access, we add MCP tools that return exact
 |------|-------------|-------|
 | #2 | Template validation on load | templates/__init__.py |
 | #3 | ltx2_i2v_distilled template | templates/ |
-| #4 | wan26_txt2vid template | templates/ |
+| #4 | wan21_txt2vid template | templates/ |
 | #5 | Document HunyuanVideo patterns | docs/ |
 | #6 | hunyuan15_txt2vid template | templates/ |
 | #7 | sdxl_txt2img template | templates/ |
@@ -80,7 +80,7 @@ WORKFLOW_SKELETONS = {
         # ... complete working workflow
     },
     ("flux2", "txt2img"): {...},
-    ("wan26", "img2vid"): {...},
+    ("wan21", "img2vid"): {...},
 }
 
 @mcp.tool()

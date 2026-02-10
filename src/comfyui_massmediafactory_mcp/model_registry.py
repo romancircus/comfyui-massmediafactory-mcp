@@ -185,10 +185,16 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
         display_name="LTX-Video 2.0",
         model_type="video",
         cfg=CFGSpec(
-            min=2.5, max=4.0, default=3.0, note="LTX-2 is optimized for low CFG. Higher values cause artifacts."
+            min=1.0,
+            max=7.0,
+            default=3.0,
+            note="Dev model: 2.5-7.0. Distilled model: 1.0. Default 3.0 for dev.",
         ),
         resolution=ResolutionSpec(
-            divisible_by=8, native=[768, 512], max=[1920, 1088], note="Width and height must be divisible by 8"
+            divisible_by=32,
+            native=[768, 512],
+            max=[1920, 1088],
+            note="Must be divisible by 32 (official). Non-32 gets padded/cropped.",
         ),
         frames=FrameSpec(
             default=97,
@@ -196,7 +202,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
             valid_examples=[9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121],
             note="Frame count must be 8n+1 format",
         ),
-        steps=StepsSpec(default=30, min=25, max=35),
+        steps=StepsSpec(default=30, min=8, max=50),
         scheduler=SchedulerSpec(default="euler", max_shift=2.05, base_shift=0.95, stretch=True),
         required_nodes={
             "loader": "CheckpointLoaderSimple",
@@ -235,7 +241,7 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
         resolution=ResolutionSpec(
             divisible_by=16, native=[1024, 1024], max=[2048, 2048], note="Width and height must be divisible by 16"
         ),
-        steps=StepsSpec(default=20, min=15, max=50),
+        steps=StepsSpec(default=28, min=15, max=50),
         scheduler=SchedulerSpec(default="simple", note="Use 'simple' scheduler"),
         required_nodes={
             "loader": ["UNETLoader", "DualCLIPLoader", "VAELoader"],
@@ -255,16 +261,26 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
         clip_models={"clip_name1": "clip_l.safetensors", "clip_name2": "t5xxl_fp16.safetensors", "type": "flux"},
         negative_default="blurry, low quality, distorted, text, watermark, oversaturated, underexposed",
     ),
-    "wan26": ModelConstraints(
-        display_name="Wan 2.1/2.2 I2V (WanVideoWrapper)",
+    "wan21": ModelConstraints(
+        display_name="Wan 2.1 I2V (WanVideoWrapper)",
         model_type="video",
         cfg=CFGSpec(min=4.0, max=7.0, default=5.0, note="Wan uses standard CFG in WanVideoSampler"),
         resolution=ResolutionSpec(
             divisible_by=8, native=[832, 480], note="Use 480p for faster generation, 720p for quality"
         ),
-        frames=FrameSpec(default=81, max=121, note="81 frames is ~5s at 16fps"),
+        frames=FrameSpec(
+            default=81,
+            max=121,
+            formula="4k+1",
+            valid_examples=[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81],
+            note="81 frames is ~5s at 16fps. Frames must be 4k+1.",
+        ),
         steps=StepsSpec(default=30, min=20, max=50),
-        sampler_params={"shift": 5.0, "scheduler": "unipc"},
+        sampler_params={
+            "shift": 5.0,
+            "scheduler": "unipc",
+            "note": "Official diffusers: shift=3.0 for 480P, 5.0 for 720P. ComfyUI WanVideoWrapper uses 5.0 by default.",
+        },
         required_nodes={
             "loader": "WanVideoModelLoader",
             "vae": "WanVideoVAELoader",
@@ -292,9 +308,11 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
     "qwen": ModelConstraints(
         display_name="Qwen Image",
         model_type="image",
-        cfg=CFGSpec(min=3.0, max=5.0, default=3.5, note="Qwen works best with low CFG (3.0-4.0)"),
+        cfg=CFGSpec(min=3.0, max=5.0, default=4.0, note="Official: true_cfg_scale=4.0. Range 3.0-5.0."),
         resolution=ResolutionSpec(
-            divisible_by=8, native=[1296, 1296], note="1296x1296 is native, good for text rendering"
+            divisible_by=8,
+            native=[1328, 1328],
+            note="1328x1328 is official 1:1 native. Supports arbitrary divisible-by-8.",
         ),
         steps=StepsSpec(default=50, min=35, max=60),
         shift={
@@ -342,10 +360,22 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
     "hunyuan15": ModelConstraints(
         display_name="HunyuanVideo 1.5",
         model_type="video",
-        cfg=CFGSpec(min=4.0, max=8.0, default=6.0),
+        cfg=CFGSpec(min=4.0, max=8.0, default=6.0, note="Uses embedded_guidance_scale=6.0"),
         resolution=ResolutionSpec(divisible_by=16, native=[1280, 720], note="720p native, supports up to 1080p"),
-        frames=FrameSpec(default=81, max=129, note="129 frames is ~5 seconds at 24fps"),
+        frames=FrameSpec(
+            default=129,
+            max=129,
+            formula="4k+1",
+            valid_examples=[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81, 129],
+            note="129 frames is ~8.6s at 15fps. Official default is 129. Frames must be 4k+1.",
+        ),
         steps=StepsSpec(default=30, min=20, max=50),
+        shift={
+            "480p_t2v": 5.0,
+            "720p_t2v": 9.0,
+            "720p_i2v": 7.0,
+            "note": "Official flow_shift values per resolution/task.",
+        },
         required_nodes={
             "loader": "HunyuanVideoModelLoader",
             "sampler": "HunyuanVideoSampler",
@@ -413,6 +443,47 @@ _MODEL_REGISTRY: Dict[str, ModelConstraints] = {
         },
         negative_default="blurry, low quality, distorted, text, watermark",
     ),
+    "wan22": ModelConstraints(
+        display_name="Wan 2.2 A14B MoE (WanVideoWrapper)",
+        model_type="video",
+        cfg=CFGSpec(min=4.0, max=8.0, default=5.0, note="MoE benefits from CFG scheduling; wider range than wan21"),
+        resolution=ResolutionSpec(
+            divisible_by=8, native=[832, 480], max=[1280, 720], note="Supports up to 720P with VAE tiling"
+        ),
+        frames=FrameSpec(
+            default=81,
+            max=121,
+            formula="4k+1",
+            valid_examples=[1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77, 81],
+            note="81 frames is ~5s at 16fps; use 49 for 720P. Frames must be 4k+1.",
+        ),
+        steps=StepsSpec(default=30, min=20, max=50),
+        sampler_params={
+            "shift": 5.0,
+            "scheduler": "unipc",
+            "note": "Official diffusers: shift=3.0 for 480P, 5.0 for 720P. ComfyUI WanVideoWrapper uses 5.0 by default.",
+        },
+        required_nodes={
+            "loader": "WanVideoModelLoader",
+            "vae": "WanVideoVAELoader",
+            "text_encoder": "LoadWanVideoT5TextEncoder",
+            "text_encode": "WanVideoTextEncode",
+            "sampler": ["WanVideoSampler", "WanVideoSamplerv2"],
+            "decoder": "WanVideoDecode",
+            "output": "SaveVideo",
+        },
+        forbidden_nodes={
+            "CheckpointLoaderSimple": "Use WanVideoModelLoader",
+            "KSampler": "Use WanVideoSampler",
+            "DownloadAndLoadWanModel": "Non-existent node, use WanVideoModelLoader",
+        },
+        negative_default=(
+            "static image, frozen, sudden motion, flickering, morphing, "
+            "shape shifting, identity change, camera shake, rapid cuts, "
+            "text, watermark, blurry, low quality, jerky motion, "
+            "multiple subjects, extra limbs"
+        ),
+    ),
     "cogvideox_5b": ModelConstraints(
         display_name="CogVideoX-5B",
         model_type="video",
@@ -456,10 +527,17 @@ MODEL_ALIASES: Dict[str, str] = {
     "flux.2": "flux2",
     "flux-2": "flux2",
     "flux.2-dev": "flux2",
-    # Wan aliases
-    "wan": "wan26",
-    "wan2.6": "wan26",
-    "wan-2.6": "wan26",
+    # Wan 2.1 aliases
+    "wan": "wan21",
+    "wan2.1": "wan21",
+    "wan-2.1": "wan21",
+    # Backward-compat alias (wan26 was a misnomer for wan21)
+    "wan26": "wan21",
+    "wan2.6": "wan21",
+    "wan-2.6": "wan21",
+    # Wan 2.2 aliases
+    "wan2.2": "wan22",
+    "wan-2.2": "wan22",
     # HunyuanVideo aliases
     "hunyuan": "hunyuan15",
     "hunyuan1.5": "hunyuan15",
@@ -529,16 +607,21 @@ MODEL_SKELETON_MAP: Dict[Tuple[str, str], Tuple[str, str]] = {
     ("flux", "text-to-image"): ("flux2", "txt2img"),
     ("flux2", "t2i"): ("flux2", "txt2img"),
     ("flux2", "txt2img"): ("flux2", "txt2img"),
-    # Wan 2.6 Text-to-Video
-    ("wan", "t2v"): ("wan26", "txt2vid"),
-    ("wan", "txt2vid"): ("wan26", "txt2vid"),
-    ("wan26", "t2v"): ("wan26", "txt2vid"),
-    ("wan26", "txt2vid"): ("wan26", "txt2vid"),
-    # Wan 2.6 Image-to-Video
-    ("wan", "i2v"): ("wan26", "img2vid"),
-    ("wan", "img2vid"): ("wan26", "img2vid"),
-    ("wan26", "i2v"): ("wan26", "img2vid"),
-    ("wan26", "img2vid"): ("wan26", "img2vid"),
+    # Wan 2.1 Text-to-Video
+    ("wan", "t2v"): ("wan21", "txt2vid"),
+    ("wan", "txt2vid"): ("wan21", "txt2vid"),
+    ("wan21", "t2v"): ("wan21", "txt2vid"),
+    ("wan21", "txt2vid"): ("wan21", "txt2vid"),
+    # Wan 2.1 Image-to-Video
+    ("wan", "i2v"): ("wan21", "img2vid"),
+    ("wan", "img2vid"): ("wan21", "img2vid"),
+    ("wan21", "i2v"): ("wan21", "img2vid"),
+    ("wan21", "img2vid"): ("wan21", "img2vid"),
+    # Backward-compat aliases (wan26 was a misnomer)
+    ("wan26", "t2v"): ("wan21", "txt2vid"),
+    ("wan26", "txt2vid"): ("wan21", "txt2vid"),
+    ("wan26", "i2v"): ("wan21", "img2vid"),
+    ("wan26", "img2vid"): ("wan21", "img2vid"),
     # Qwen Text-to-Image
     ("qwen", "t2i"): ("qwen", "txt2img"),
     ("qwen", "txt2img"): ("qwen", "txt2img"),
@@ -555,6 +638,16 @@ MODEL_SKELETON_MAP: Dict[Tuple[str, str], Tuple[str, str]] = {
     ("hunyuan", "img2vid"): ("hunyuan15", "img2vid"),
     ("hunyuan15", "i2v"): ("hunyuan15", "img2vid"),
     ("hunyuan15", "img2vid"): ("hunyuan15", "img2vid"),
+    # Wan 2.2 Text-to-Video
+    ("wan22", "t2v"): ("wan22", "txt2vid"),
+    ("wan22", "txt2vid"): ("wan22", "txt2vid"),
+    ("wan2.2", "t2v"): ("wan22", "txt2vid"),
+    ("wan-2.2", "t2v"): ("wan22", "txt2vid"),
+    # Wan 2.2 Image-to-Video
+    ("wan22", "i2v"): ("wan22", "img2vid"),
+    ("wan22", "img2vid"): ("wan22", "img2vid"),
+    ("wan2.2", "i2v"): ("wan22", "img2vid"),
+    ("wan-2.2", "i2v"): ("wan22", "img2vid"),
     # Z-Image-Turbo Text-to-Image
     ("z_turbo", "t2i"): ("z_turbo", "txt2img"),
     ("z_turbo", "txt2img"): ("z_turbo", "txt2img"),
@@ -585,22 +678,22 @@ MODEL_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "flux2": {
         "width": 1024,
         "height": 1024,
-        "steps": 20,
+        "steps": 28,
         "guidance": 3.5,
     },
-    "wan26": {
+    "wan21": {
         "width": 832,
         "height": 480,
         "frames": 81,
         "steps": 30,
         "cfg": 5.0,
-        "fps": 24,
+        "fps": 16,
     },
     "qwen": {
-        "width": 1296,
-        "height": 1296,
+        "width": 1328,
+        "height": 1328,
         "steps": 50,
-        "cfg": 3.5,
+        "cfg": 4.0,
         "shift": 7.0,
     },
     "sdxl": {
@@ -612,10 +705,18 @@ MODEL_DEFAULTS: Dict[str, Dict[str, Any]] = {
     "hunyuan15": {
         "width": 1280,
         "height": 720,
-        "frames": 81,
+        "frames": 129,
         "steps": 30,
         "cfg": 6.0,
-        "fps": 24,
+        "fps": 15,
+    },
+    "wan22": {
+        "width": 832,
+        "height": 480,
+        "frames": 81,
+        "steps": 30,
+        "cfg": 5.0,
+        "fps": 16,
     },
     "qwen_edit": {
         "width": 720,
@@ -670,10 +771,10 @@ def resolve_model_name(model: str) -> str:
     Resolve a model name or alias to its canonical name.
 
     Args:
-        model: Model name or alias (e.g., "ltx", "flux", "wan26")
+        model: Model name or alias (e.g., "ltx", "flux", "wan21")
 
     Returns:
-        Canonical model name (e.g., "ltx2", "flux2", "wan26")
+        Canonical model name (e.g., "ltx2", "flux2", "wan21")
     """
     model_lower = model.lower()
     return MODEL_ALIASES.get(model_lower, model_lower)
@@ -803,7 +904,7 @@ def get_negative_default(model: str) -> Optional[str]:
     Get the default negative prompt for a model.
 
     Args:
-        model: Model name or alias (e.g., "wan", "wan26", "ltx", "flux")
+        model: Model name or alias (e.g., "wan", "wan21", "ltx", "flux")
 
     Returns:
         Negative prompt string, or None if model not found

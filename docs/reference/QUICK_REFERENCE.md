@@ -10,7 +10,7 @@ One-page reference for building valid ComfyUI workflows.
 |-------|---------|-------|
 | LTX-2 | SamplerCustom | Use LTXVScheduler for sigmas |
 | FLUX.2 | SamplerCustomAdvanced | Use BasicGuider + RandomNoise |
-| Wan 2.6 | WanSampler | Built-in sampler, no separate scheduler |
+| Wan 2.1 | WanSampler | Built-in sampler, no separate scheduler |
 | HunyuanVideo | HunyuanVideoSampler | Built-in CFG, no FluxGuidance |
 | Qwen | KSampler | Standard sampler OK |
 | SDXL | KSampler | Standard sampler OK |
@@ -23,7 +23,7 @@ One-page reference for building valid ComfyUI workflows.
 |-------|--------------|--------|-----|
 | FLUX.2 | 16 | 1024x1024 | 2048x2048 |
 | LTX-2 | 8 | 768x512 | 1920x1088 |
-| Wan 2.6 | 8 | 832x480 | 1280x720 |
+| Wan 2.1 | 8 | 832x480 | 1280x720 |
 | HunyuanVideo | 16 | 1280x720 | 1920x1080 |
 | Qwen | 8 | 1296x1296 | 2048x2048 |
 | SDXL | 8 | 1024x1024 | 2048x2048 |
@@ -35,7 +35,7 @@ One-page reference for building valid ComfyUI workflows.
 | Model | Rule | Valid Examples |
 |-------|------|----------------|
 | LTX-2 | 8n+1 | 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121 |
-| Wan 2.6 | Any | 81 default (~3.4s at 24fps) |
+| Wan 2.1 | Any | 81 default (~3.4s at 24fps) |
 | HunyuanVideo | Any | 81-129 typical |
 
 ---
@@ -46,7 +46,7 @@ One-page reference for building valid ComfyUI workflows.
 |-------|-------|---------|-------|
 | LTX-2 | 2.5-4.0 | 3.0 | Low CFG works best |
 | FLUX.2 | 2.5-5.0 | 3.5 | Via FluxGuidance node (not cfg param) |
-| Wan 2.6 | 4.0-7.0 | 5.0 | Standard CFG in sampler |
+| Wan 2.1 | 4.0-7.0 | 5.0 | Standard CFG in sampler |
 | HunyuanVideo | 4.0-8.0 | 6.0 | Standard CFG in sampler |
 | Qwen | 3.0-8.0 | 7.0 | Standard CFG |
 | SDXL | 5.0-10.0 | 7.0 | Standard CFG |
@@ -69,7 +69,7 @@ UNETLoader + DualCLIPLoader + VAELoader
 -> SamplerCustomAdvanced -> VAEDecode -> SaveImage
 ```
 
-### Wan 2.6 Video
+### Wan 2.1 Video
 ```
 DownloadAndLoadWanModel -> WanSampler -> WanVAEDecode -> VHS_VideoCombine
 ```
@@ -97,8 +97,8 @@ CheckpointLoaderSimple -> CLIPTextEncode (x2) -> EmptyLatentImage
 | FLUX.2 | KSampler | SamplerCustomAdvanced |
 | FLUX.2 | CheckpointLoaderSimple | UNETLoader + DualCLIPLoader |
 | FLUX.2 | EmptyLatentImage | EmptySD3LatentImage |
-| Wan 2.6 | KSampler | WanSampler |
-| Wan 2.6 | VAEEncode | WanImageEncode |
+| Wan 2.1 | KSampler | WanSampler |
+| Wan 2.1 | VAEEncode | WanImageEncode |
 | HunyuanVideo | KSampler | HunyuanVideoSampler |
 | HunyuanVideo | SamplerCustom | HunyuanVideoSampler |
 

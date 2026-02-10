@@ -19,7 +19,7 @@ def create_workflow_skeleton(model: str, task: str) -> Dict[str, Any]:
     Returns a complete, tested workflow structure.
 
     Args:
-        model: Model identifier (ltx2, flux2, wan26, qwen, sdxl)
+        model: Model identifier (ltx2, flux2, wan21, qwen, sdxl)
         task: Task type (txt2vid, img2vid, txt2img)
 
     Returns:
