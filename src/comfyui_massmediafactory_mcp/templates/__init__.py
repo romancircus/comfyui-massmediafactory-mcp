@@ -96,7 +96,7 @@ def _is_model_installed(model_type_normalized: str) -> bool:
 MODEL_TYPE_MAP = {
     "flux2": ["flux2", "flux.2", "flux2-dev", "flux", "fl.2"],
     "ltx2": ["ltx2", "ltx-2", "ltxvideo", "ltx"],
-    "wan26": ["wan26", "wan 2.6", "wan2.6"],
+    "wan26": ["wan26", "wan 2.6", "wan2.6", "wan 2.1", "wan2.1"],
     "wan22": ["wan22", "wan 2.2", "wan2.2", "wan 2.2 s2v", "wan"],
     "qwen": ["qwen", "qwen-image"],
     "qwen_edit": ["qwen_edit", "qwen-edit", "qwen_image_edit"],

@@ -1312,3 +1312,19 @@ class TestPipelineRetryWired:
 
         mock_retry.assert_called_once()
         assert mock_retry.call_args[0][1] == 3  # max_retries=3
+
+
+class TestWanModelTypeResolution:
+    """Wan 2.1 _meta.model values must route to wan26 pipeline convention, not wan22."""
+
+    def test_wan21_resolves_to_wan26(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        assert get_model_type("Wan 2.1 I2V 14B") == "wan26"
+        assert get_model_type("Wan 2.1 T2V") == "wan26"
+
+    def test_wan22_resolves_to_wan22(self):
+        from comfyui_massmediafactory_mcp.templates import get_model_type
+
+        assert get_model_type("Wan 2.2 S2V") == "wan22"
+        assert get_model_type("Wan 2.2 I2V A14B HIGH") == "wan22"

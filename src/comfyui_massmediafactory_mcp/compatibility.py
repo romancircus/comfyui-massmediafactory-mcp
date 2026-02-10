@@ -39,16 +39,12 @@ WORKFLOW_TYPES = {
     "flux2": ["t2i", "controlnet", "edit", "inpaint", "face_id", "lora"],
     "ltx2": ["t2v", "i2v", "v2v", "audio2vid"],
     "wan26": ["t2v", "i2v", "flf2v", "camera_i2v"],
-    "wan22": ["t2v", "i2v", "s2v", "animate"],
     "qwen": ["t2i", "controlnet", "poster"],
     "qwen_edit": ["edit"],
     "sdxl": ["t2i"],
     "hunyuan15": ["t2v", "i2v"],
     "z_turbo": ["t2i"],
     "cogvideox_5b": ["t2v"],
-    "telestyle": ["style_transfer"],
-    "audio": ["tts", "v2a"],
-    "utility": ["upscale", "inpaint", "stitch"],
 }
 
 
