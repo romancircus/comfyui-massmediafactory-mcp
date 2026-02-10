@@ -16,6 +16,14 @@ repos:
         language: python
         stages: [commit-msg]
 
+      - id: check-agents-symlink
+        name: Verify AGENTS.md symlink
+        entry: python scripts/precommit_linear_hooks.py check-agents-symlink
+        language: python
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: validate-templates
         name: Validate MCP template compliance
         entry: python scripts/precommit_template_hooks.py
