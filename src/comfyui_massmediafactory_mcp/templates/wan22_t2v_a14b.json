@@ -1,0 +1,219 @@
+{
+  "_meta": {
+    "description": "Wan 2.2 Text-to-Video A14B MoE with FETA+SLG quality boost \u2014 massive quality jump over Wan 2.1 1.3B T2V",
+    "model": "Wan 2.2 T2V A14B HIGH",
+    "type": "txt2vid",
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "SHIFT",
+      "WIDTH",
+      "HEIGHT",
+      "FETA_WEIGHT",
+      "SLG_BLOCKS",
+      "LOAD_DEVICE",
+      "QUANTIZATION",
+      "ATTENTION_MODE",
+      "FORCE_OFFLOAD_SAMPLER"
+    ],
+    "defaults": {
+      "SEED": 42,
+      "FRAMES": 81,
+      "FPS": 16,
+      "STEPS": 30,
+      "CFG": 5.0,
+      "SHIFT": 5.0,
+      "WIDTH": 832,
+      "HEIGHT": 480,
+      "FETA_WEIGHT": 2.0,
+      "SLG_BLOCKS": "10",
+      "PROMPT": "high quality video, smooth motion",
+      "NEGATIVE": "worst quality, blurry, jittery, static, no motion",
+      "LOAD_DEVICE": "offload_device",
+      "QUANTIZATION": "disabled",
+      "ATTENTION_MODE": "sdpa",
+      "FORCE_OFFLOAD_SAMPLER": true
+    },
+    "vram_min": 18,
+    "tags": [
+      "model:wan",
+      "capability:t2v",
+      "capability:enhanced",
+      "priority:recommended"
+    ],
+    "version": "1.0.0",
+    "notes": "Wan 2.2 A14B MoE T2V model \u2014 uses HIGH noise expert for text-to-video. Replaces Wan 2.1 1.3B T2V (wan21_txt2vid) with dramatically better quality. Uses WanVideoEmptyEmbeds instead of WanVideoImageToVideoEncode (no image input). FETA+SLG quality boost included.",
+    "hub_hash": "78bac3e7e16f1705"
+  },
+  "1": {
+    "class_type": "WanVideoModelLoader",
+    "_meta": {
+      "title": "Load Wan 2.2 T2V Model"
+    },
+    "inputs": {
+      "model": "wan_t2v_22/T2V/Wan2_2-T2V-A14B_HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "base_precision": "bf16",
+      "quantization": "{{QUANTIZATION}}",
+      "load_device": "{{LOAD_DEVICE}}",
+      "attention_mode": "{{ATTENTION_MODE}}"
+    }
+  },
+  "2": {
+    "class_type": "WanVideoVAELoader",
+    "_meta": {
+      "title": "Load Wan VAE"
+    },
+    "inputs": {
+      "model_name": "wan_2.1_vae.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "3": {
+    "class_type": "LoadWanVideoT5TextEncoder",
+    "_meta": {
+      "title": "Load T5 Text Encoder"
+    },
+    "inputs": {
+      "model_name": "umt5_xxl_fp16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device"
+    }
+  },
+  "6": {
+    "class_type": "WanVideoTextEncode",
+    "_meta": {
+      "title": "Encode Text Prompt"
+    },
+    "inputs": {
+      "positive_prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "t5": [
+        "3",
+        0
+      ],
+      "force_offload": true
+    }
+  },
+  "8": {
+    "class_type": "WanVideoEmptyEmbeds",
+    "_meta": {
+      "title": "Create Empty Image Embeds (T2V)"
+    },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "num_frames": "{{FRAMES}}"
+    }
+  },
+  "20": {
+    "class_type": "WanVideoEnhanceAVideo",
+    "_meta": {
+      "title": "FETA Enhancement"
+    },
+    "inputs": {
+      "weight": "{{FETA_WEIGHT}}",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "21": {
+    "class_type": "WanVideoSLG",
+    "_meta": {
+      "title": "SLG Skip Uncond"
+    },
+    "inputs": {
+      "blocks": "{{SLG_BLOCKS}}",
+      "start_percent": 0.1,
+      "end_percent": 1.0
+    }
+  },
+  "9": {
+    "class_type": "WanVideoSampler",
+    "_meta": {
+      "title": "Sample Video (T2V Enhanced)"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "image_embeds": [
+        "8",
+        0
+      ],
+      "text_embeds": [
+        "6",
+        0
+      ],
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "shift": "{{SHIFT}}",
+      "seed": "{{SEED}}",
+      "force_offload": "{{FORCE_OFFLOAD_SAMPLER}}",
+      "scheduler": "unipc",
+      "riflex_freq_index": 0,
+      "feta_args": [
+        "20",
+        0
+      ],
+      "slg_args": [
+        "21",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "WanVideoDecode",
+    "_meta": {
+      "title": "Decode Video"
+    },
+    "inputs": {
+      "vae": [
+        "2",
+        0
+      ],
+      "samples": [
+        "9",
+        0
+      ],
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128
+    }
+  },
+  "11": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    },
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "12": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    },
+    "inputs": {
+      "video": [
+        "11",
+        0
+      ],
+      "filename_prefix": "wan22_t2v_a14b",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

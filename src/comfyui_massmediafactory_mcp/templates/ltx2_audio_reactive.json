@@ -37,7 +37,7 @@
       "priority:experimental"
     ],
     "version": "1.0.0",
-    "hub_hash": "45e16b73635f92c1"
+    "hub_hash": "d8677b5c9c943e9d"
   },
   "1": {
     "class_type": "CheckpointLoaderSimple",

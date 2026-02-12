@@ -1,0 +1,279 @@
+{
+  "_meta": {
+    "description": "Wan 2.2 I2V A14B at 720P (1280x720) with VAE tiling and FETA+SLG quality boost",
+    "model": "Wan 2.2 I2V A14B HIGH",
+    "type": "img2vid",
+    "parameters": [
+      "IMAGE_PATH",
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "SHIFT",
+      "WIDTH",
+      "HEIGHT",
+      "NOISE_AUG",
+      "FETA_WEIGHT",
+      "SLG_BLOCKS",
+      "LOAD_DEVICE",
+      "QUANTIZATION",
+      "ATTENTION_MODE",
+      "FORCE_OFFLOAD_SAMPLER"
+    ],
+    "defaults": {
+      "SEED": 42,
+      "FRAMES": 49,
+      "FPS": 16,
+      "STEPS": 30,
+      "CFG": 5.0,
+      "SHIFT": 5.0,
+      "WIDTH": 1280,
+      "HEIGHT": 720,
+      "NOISE_AUG": 0.0,
+      "FETA_WEIGHT": 2.0,
+      "SLG_BLOCKS": "10",
+      "PROMPT": "smooth motion, high quality video",
+      "NEGATIVE": "worst quality, blurry, jittery, static, no motion",
+      "LOAD_DEVICE": "offload_device",
+      "QUANTIZATION": "disabled",
+      "ATTENTION_MODE": "sdpa",
+      "FORCE_OFFLOAD_SAMPLER": true
+    },
+    "vram_min": 24,
+    "tags": [
+      "model:wan",
+      "capability:720p",
+      "capability:enhanced",
+      "priority:quality"
+    ],
+    "version": "1.0.0",
+    "notes": "720P (1280x720) variant with fewer frames (49 vs 81) to fit in VRAM. Uses VAE tiling for decode. FETA+SLG quality boost included. Requires force_offload on RTX 5090.",
+    "hub_hash": "8dc186e93ec817d3"
+  },
+  "1": {
+    "class_type": "WanVideoModelLoader",
+    "_meta": {
+      "title": "Load Wan 2.2 I2V Model"
+    },
+    "inputs": {
+      "model": "wan_i2v_22/Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
+      "base_precision": "bf16",
+      "quantization": "{{QUANTIZATION}}",
+      "load_device": "{{LOAD_DEVICE}}",
+      "attention_mode": "{{ATTENTION_MODE}}"
+    }
+  },
+  "2": {
+    "class_type": "WanVideoVAELoader",
+    "_meta": {
+      "title": "Load Wan VAE"
+    },
+    "inputs": {
+      "model_name": "wan_2.1_vae.safetensors",
+      "precision": "bf16"
+    }
+  },
+  "3": {
+    "class_type": "LoadWanVideoT5TextEncoder",
+    "_meta": {
+      "title": "Load T5 Text Encoder"
+    },
+    "inputs": {
+      "model_name": "umt5_xxl_fp16.safetensors",
+      "precision": "bf16",
+      "load_device": "offload_device"
+    }
+  },
+  "4": {
+    "class_type": "LoadWanVideoClipTextEncoder",
+    "_meta": {
+      "title": "Load CLIP Vision Encoder"
+    },
+    "inputs": {
+      "model_name": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
+      "precision": "fp16",
+      "load_device": "offload_device"
+    }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Input Image"
+    },
+    "inputs": {
+      "image": "{{IMAGE_PATH}}"
+    }
+  },
+  "6": {
+    "class_type": "WanVideoTextEncode",
+    "_meta": {
+      "title": "Encode Text Prompt"
+    },
+    "inputs": {
+      "positive_prompt": "{{PROMPT}}",
+      "negative_prompt": "{{NEGATIVE}}",
+      "t5": [
+        "3",
+        0
+      ],
+      "force_offload": true
+    }
+  },
+  "7": {
+    "class_type": "WanVideoClipVisionEncode",
+    "_meta": {
+      "title": "Encode CLIP Vision"
+    },
+    "inputs": {
+      "clip_vision": [
+        "4",
+        0
+      ],
+      "image_1": [
+        "5",
+        0
+      ],
+      "strength_1": 1.0,
+      "strength_2": 1.0,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": true
+    }
+  },
+  "8": {
+    "class_type": "WanVideoImageToVideoEncode",
+    "_meta": {
+      "title": "Encode I2V Conditioning (720P)"
+    },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "num_frames": "{{FRAMES}}",
+      "noise_aug_strength": "{{NOISE_AUG}}",
+      "start_latent_strength": 1.0,
+      "end_latent_strength": 1.0,
+      "force_offload": true,
+      "vae": [
+        "2",
+        0
+      ],
+      "clip_embeds": [
+        "7",
+        0
+      ],
+      "start_image": [
+        "5",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "WanVideoEnhanceAVideo",
+    "_meta": {
+      "title": "FETA Enhancement"
+    },
+    "inputs": {
+      "weight": "{{FETA_WEIGHT}}",
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
+  "21": {
+    "class_type": "WanVideoSLG",
+    "_meta": {
+      "title": "SLG Skip Uncond"
+    },
+    "inputs": {
+      "blocks": "{{SLG_BLOCKS}}",
+      "start_percent": 0.1,
+      "end_percent": 1.0
+    }
+  },
+  "9": {
+    "class_type": "WanVideoSampler",
+    "_meta": {
+      "title": "Sample Video (720P Enhanced)"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "image_embeds": [
+        "8",
+        0
+      ],
+      "text_embeds": [
+        "6",
+        0
+      ],
+      "steps": "{{STEPS}}",
+      "cfg": "{{CFG}}",
+      "shift": "{{SHIFT}}",
+      "seed": "{{SEED}}",
+      "force_offload": "{{FORCE_OFFLOAD_SAMPLER}}",
+      "scheduler": "unipc",
+      "riflex_freq_index": 0,
+      "feta_args": [
+        "20",
+        0
+      ],
+      "slg_args": [
+        "21",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "WanVideoDecode",
+    "_meta": {
+      "title": "Decode Video (VAE Tiling)"
+    },
+    "inputs": {
+      "vae": [
+        "2",
+        0
+      ],
+      "samples": [
+        "9",
+        0
+      ],
+      "enable_vae_tiling": true,
+      "tile_x": 544,
+      "tile_y": 544,
+      "tile_stride_x": 288,
+      "tile_stride_y": 256
+    }
+  },
+  "11": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    },
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "12": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    },
+    "inputs": {
+      "video": [
+        "11",
+        0
+      ],
+      "filename_prefix": "wan22_i2v_720p",
+      "format": "mp4",
+      "codec": "h264"
+    }
+  }
+}

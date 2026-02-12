@@ -234,3 +234,51 @@ def get_all_models() -> dict:
         "clips": list_clip_models(),
         "controlnets": list_controlnets(),
     }
+
+
+# =============================================================================
+# Extended Discovery (Priority 2: ComfyUI server.py endpoints)
+# =============================================================================
+
+
+def list_embeddings() -> dict:
+    """List available text embeddings for prompt use."""
+    client = get_client()
+    result = client.get_embeddings()
+    if "error" in result:
+        return result
+    return {"embeddings": result if isinstance(result, list) else list(result), "count": len(result)}
+
+
+def list_model_folders() -> dict:
+    """List all model folder types configured in ComfyUI."""
+    client = get_client()
+    return client.list_model_folders()
+
+
+def list_models_in_folder(folder: str) -> dict:
+    """List all models in a specific folder type."""
+    client = get_client()
+    result = client.list_models_in_folder(folder)
+    if "error" in result:
+        return result
+    models = result if isinstance(result, list) else []
+    return {"folder": folder, "models": models, "count": len(models)}
+
+
+def get_model_metadata(folder: str, filename: str) -> dict:
+    """
+    Get safetensors metadata for a model (training params, architecture info).
+
+    Args:
+        folder: Model folder type (e.g., "checkpoints", "loras").
+        filename: Model filename.
+    """
+    client = get_client()
+    return client.get_model_metadata(folder, filename)
+
+
+def get_server_features() -> dict:
+    """Get ComfyUI server feature flags (capabilities of this version)."""
+    client = get_client()
+    return client.get_features()

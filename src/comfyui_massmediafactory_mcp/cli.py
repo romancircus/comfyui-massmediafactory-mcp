@@ -79,6 +79,9 @@ from .cli_commands.system import (  # noqa: F401
     cmd_regenerate,
     cmd_sota,
     cmd_diff,
+    cmd_search_workflow,
+    cmd_import_workflow,
+    cmd_node_registry,
 )
 from .cli_commands.assets import cmd_assets_list, cmd_assets_metadata, cmd_assets_cleanup, cmd_publish, cmd_workflow_lib  # noqa: F401
 from .cli_commands.pipeline import cmd_pipeline, cmd_telestyle  # noqa: F401

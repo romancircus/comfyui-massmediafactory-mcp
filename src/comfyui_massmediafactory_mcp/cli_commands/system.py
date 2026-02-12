@@ -218,6 +218,90 @@ def cmd_diff(args):
     return EXIT_OK if "error" not in result else EXIT_ERROR
 
 
+def cmd_search_workflow(args):
+    """Search CivitAI for ComfyUI workflows."""
+    from ..civitai import search_workflows
+
+    pretty = args.pretty or _is_pretty()
+    result = search_workflows(
+        query=args.query,
+        limit=args.limit,
+        sort=args.sort,
+        period=args.period,
+    )
+    _output(result, pretty)
+    return EXIT_OK if "error" not in result else EXIT_ERROR
+
+
+def cmd_import_workflow(args):
+    """Import a CivitAI workflow as a local template."""
+    import json as _json
+    from ..civitai import fetch_workflow_from_url, convert_to_template
+    from pathlib import Path
+
+    pretty = args.pretty or _is_pretty()
+
+    # Fetch the workflow
+    fetch_result = fetch_workflow_from_url(args.url)
+    if "error" in fetch_result:
+        _output(fetch_result, pretty)
+        return EXIT_ERROR
+
+    workflow = fetch_result["workflow"]
+
+    # Convert to template
+    result = convert_to_template(
+        workflow=workflow,
+        name=args.name,
+        model=args.model or "unknown",
+        task=args.task or "unknown",
+        description=args.description or "",
+    )
+
+    template = result["template"]
+
+    # Save to templates directory if --save flag
+    if args.save:
+        # Validate template name (prevent path traversal)
+        import re as _re
+
+        if not _re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}$", args.name):
+            _output(
+                _error("Template name must be alphanumeric/underscore/dash, 1-64 chars, no path separators", "INVALID_PARAMS"),
+                pretty,
+            )
+            return EXIT_ERROR
+
+        templates_dir = Path(__file__).parent.parent / "templates"
+        out_path = (templates_dir / f"{args.name}.json").resolve()
+        if not out_path.is_relative_to(templates_dir.resolve()):
+            _output(_error("Path traversal detected in template name", "INVALID_PARAMS"), pretty)
+            return EXIT_ERROR
+        out_path.write_text(_json.dumps(template, indent=2))
+        result["saved_to"] = str(out_path)
+
+    _output(result, pretty)
+    return EXIT_OK
+
+
+def cmd_node_registry(args):
+    """Show dynamic node registry stats or dump the full registry."""
+    from ..node_registry import get_node_output_types, get_registry_stats
+
+    pretty = args.pretty or _is_pretty()
+
+    if args.dump:
+        output_types = get_node_output_types(force_refresh=args.refresh)
+        result = {"nodes": output_types, "count": len(output_types)}
+    else:
+        if args.refresh:
+            get_node_output_types(force_refresh=True)
+        result = get_registry_stats()
+
+    _output(result, pretty)
+    return EXIT_OK
+
+
 def register_commands(sub, add_common=_add_common_args, **_kwargs):
     """Register system subcommands."""
     p_stats = sub.add_parser("stats", help="GPU VRAM and system info")
@@ -293,3 +377,27 @@ def register_commands(sub, add_common=_add_common_args, **_kwargs):
     p_diff.add_argument("workflow_b", help="Second workflow JSON or @file.json")
     add_common(p_diff)
     p_diff.set_defaults(func=cmd_diff)
+
+    p_sw = sub.add_parser("search-workflow", help="Search CivitAI for ComfyUI workflows")
+    p_sw.add_argument("query", help="Search query (e.g., 'flux portrait')")
+    p_sw.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
+    p_sw.add_argument("--sort", default="Most Reactions", help="Sort: 'Most Reactions', 'Newest', 'Most Comments'")
+    p_sw.add_argument("--period", default="Month", help="Period: Day, Week, Month, Year, AllTime")
+    add_common(p_sw)
+    p_sw.set_defaults(func=cmd_search_workflow)
+
+    p_iw = sub.add_parser("import-workflow", help="Import CivitAI workflow as local template")
+    p_iw.add_argument("url", help="CivitAI URL or direct workflow JSON URL")
+    p_iw.add_argument("--name", required=True, help="Template name (e.g., flux_portrait_custom)")
+    p_iw.add_argument("--model", help="Model type (auto-detected if omitted)")
+    p_iw.add_argument("--task", help="Task type (auto-detected if omitted)")
+    p_iw.add_argument("--description", help="Template description")
+    p_iw.add_argument("--save", action="store_true", help="Save to templates directory")
+    add_common(p_iw)
+    p_iw.set_defaults(func=cmd_import_workflow)
+
+    p_nr = sub.add_parser("node-registry", help="Dynamic node output type registry")
+    p_nr.add_argument("--dump", action="store_true", help="Dump full registry (all node output types)")
+    p_nr.add_argument("--refresh", action="store_true", help="Force re-fetch from ComfyUI")
+    add_common(p_nr)
+    p_nr.set_defaults(func=cmd_node_registry)

@@ -181,8 +181,8 @@ class ComfyUIWebSocketClient:
                         message="Using cached result",
                     )
 
-            # Handle execution_complete (some ComfyUI versions use this)
-            elif msg_type == "execution_complete":
+            # Handle execution_success (canonical) and execution_complete (legacy)
+            elif msg_type in ("execution_success", "execution_complete"):
                 prompt_id = data.get("data", {}).get("prompt_id", "")
                 if prompt_id == target_prompt_id:
                     return ProgressEvent(

@@ -3,7 +3,10 @@
     "comfyui-massmediafactory": {
       "type": "stdio",
       "command": "python3",
-      "args": ["-m", "comfyui_massmediafactory_mcp.server"]
+      "args": [
+        "-m",
+        "comfyui_massmediafactory_mcp.server"
+      ]
     }
   }
 }

@@ -1,0 +1,355 @@
+{
+  "_meta": {
+    "description": "LTX-2 19B text-to-video with LTXQ8Patch quantization for VRAM savings (~3-4GB less)",
+    "model": "LTX-2 19B Dev FP8 + Q8 Patch",
+    "type": "txt2vid",
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "FRAMES",
+      "FPS",
+      "STEPS",
+      "CFG",
+      "PREFIX",
+      "STG_BLOCKS"
+    ],
+    "defaults": {
+      "WIDTH": 768,
+      "HEIGHT": 512,
+      "SEED": 42,
+      "FRAMES": 97,
+      "FPS": 24,
+      "STEPS": 30,
+      "CFG": 3.0,
+      "PREFIX": "ltx2_q8",
+      "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+      "STG_BLOCKS": "14, 19"
+    },
+    "performance": {
+      "vram_gb": 14,
+      "quality": "Near-lossless with Q8 quantization"
+    },
+    "vram_min": 10,
+    "tags": [
+      "model:ltx",
+      "capability:quantized",
+      "capability:vram_saver",
+      "priority:recommended"
+    ],
+    "version": "1.0.0",
+    "notes": "Applies LTXQ8Patch after checkpoint loading for ~3-4GB VRAM savings with minimal quality loss. Enables higher resolutions or longer videos on constrained VRAM. Uses quantization_preset='ltxv2' for LTX-2 optimized quantization.",
+    "hub_hash": "47d3fb79726f64d2"
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load LTX-2 Model"
+    },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "51": {
+    "class_type": "LTXQ8Patch",
+    "_meta": {
+      "title": "Apply Q8 Quantization"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "use_fp8_attention": false,
+      "quantization_preset": "ltxv2",
+      "quantize_self_attn": true,
+      "quantize_cross_attn": true,
+      "quantize_ffn": true
+    }
+  },
+  "50": {
+    "class_type": "LTXVApplySTG",
+    "_meta": {
+      "title": "Apply STG Enhancement"
+    },
+    "inputs": {
+      "model": [
+        "51",
+        0
+      ],
+      "block_indices": "{{STG_BLOCKS}}"
+    }
+  },
+  "2": {
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": {
+      "title": "Load Gemma-3 Text Encoder"
+    },
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it.safetensors",
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": {
+      "title": "Load Audio VAE"
+    },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
+    "inputs": {
+      "text": "{{PROMPT}}",
+      "clip": [
+        "2",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
+    "inputs": {
+      "text": "{{NEGATIVE}}",
+      "clip": [
+        "2",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "Apply Frame Rate Conditioning"
+    },
+    "inputs": {
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "frame_rate": "{{FPS}}"
+    }
+  },
+  "7": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "_meta": {
+      "title": "Create Empty Video Latent"
+    },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{FRAMES}}",
+      "batch_size": 1
+    }
+  },
+  "8": {
+    "class_type": "LTXVEmptyLatentAudio",
+    "_meta": {
+      "title": "Create Empty Audio Latent"
+    },
+    "inputs": {
+      "audio_vae": [
+        "3",
+        0
+      ],
+      "frames_number": "{{FRAMES}}",
+      "frame_rate": "{{FPS}}",
+      "batch_size": 1
+    }
+  },
+  "9": {
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "Concat Audio+Video Latents"
+    },
+    "inputs": {
+      "video_latent": [
+        "7",
+        0
+      ],
+      "audio_latent": [
+        "8",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "LTXVScheduler",
+    "_meta": {
+      "title": "LTX Scheduler"
+    },
+    "inputs": {
+      "steps": "{{STEPS}}",
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true,
+      "terminal": 0.1,
+      "latent": [
+        "9",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Random Noise"
+    },
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "12": {
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Select Sampler"
+    },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "13": {
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG Guider (Q8+STG model)"
+    },
+    "inputs": {
+      "model": [
+        "50",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "6",
+        1
+      ],
+      "cfg": "{{CFG}}"
+    }
+  },
+  "14": {
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "Sample Video"
+    },
+    "inputs": {
+      "noise": [
+        "11",
+        0
+      ],
+      "guider": [
+        "13",
+        0
+      ],
+      "sampler": [
+        "12",
+        0
+      ],
+      "sigmas": [
+        "10",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "Separate Audio+Video"
+    },
+    "inputs": {
+      "av_latent": [
+        "14",
+        0
+      ]
+    }
+  },
+  "16": {
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "Decode Video Latent"
+    },
+    "inputs": {
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8
+    }
+  },
+  "17": {
+    "class_type": "LTXVAudioVAEDecode",
+    "_meta": {
+      "title": "Decode Audio Latent"
+    },
+    "inputs": {
+      "samples": [
+        "15",
+        1
+      ],
+      "audio_vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    },
+    "inputs": {
+      "images": [
+        "16",
+        0
+      ],
+      "audio": [
+        "17",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "19": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    },
+    "inputs": {
+      "video": [
+        "18",
+        0
+      ],
+      "filename_prefix": "{{PREFIX}}",
+      "format": "mp4",
+      "codec": "auto"
+    }
+  }
+}

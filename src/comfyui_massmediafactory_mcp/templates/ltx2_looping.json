@@ -1,0 +1,295 @@
+{
+  "_meta": {
+    "description": "LTX-2 19B long video generation using LTXVLoopingSampler temporal tiling",
+    "model": "LTX-2 19B Dev FP8",
+    "type": "txt2vid",
+    "parameters": [
+      "PROMPT",
+      "NEGATIVE",
+      "SEED",
+      "WIDTH",
+      "HEIGHT",
+      "TOTAL_FRAMES",
+      "FPS",
+      "STEPS",
+      "PREFIX",
+      "TEMPORAL_TILE_SIZE",
+      "TEMPORAL_OVERLAP",
+      "ADAIN_FACTOR",
+      "CFG_VALUES",
+      "STG_SCALE_VALUES",
+      "STG_RESCALE_VALUES",
+      "STG_LAYERS"
+    ],
+    "defaults": {
+      "WIDTH": 768,
+      "HEIGHT": 512,
+      "SEED": 42,
+      "TOTAL_FRAMES": 257,
+      "FPS": 24,
+      "STEPS": 30,
+      "PREFIX": "ltx2_long",
+      "TEMPORAL_TILE_SIZE": 80,
+      "TEMPORAL_OVERLAP": 24,
+      "ADAIN_FACTOR": 0.15,
+      "NEGATIVE": "worst quality, inconsistent motion, blurry, jittery, distorted",
+      "CFG_VALUES": "8, 6, 6, 4, 3, 1",
+      "STG_SCALE_VALUES": "4, 4, 3, 2, 1, 0",
+      "STG_RESCALE_VALUES": "1, 1, 1, 1, 1, 1",
+      "STG_LAYERS": "[29], [29], [29], [29], [29], [29]"
+    },
+    "performance": {
+      "vram_gb": 22,
+      "quality": "Long video with temporal consistency"
+    },
+    "vram_min": 14,
+    "tags": [
+      "model:ltx",
+      "capability:long_video",
+      "capability:looping",
+      "priority:recommended"
+    ],
+    "version": "1.0.0",
+    "notes": "Generates videos longer than 4s using LTXVLoopingSampler. Temporal tiling generates in chunks with overlap for consistency. AdaIN factor prevents accumulated oversaturation across tiles. Requires STGGuiderAdvanced (not CFGGuider). Default 257 frames = ~10s at 24fps.",
+    "hub_hash": "27ab0609bd0807fc"
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load LTX-2 Model"
+    },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": {
+      "title": "Load Gemma-3 Text Encoder"
+    },
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it.safetensors",
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": {
+      "title": "Load Audio VAE"
+    },
+    "inputs": {
+      "ckpt_name": "ltx-2-19b-dev-fp8.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Encode Positive Prompt"
+    },
+    "inputs": {
+      "text": "{{PROMPT}}",
+      "clip": [
+        "2",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Encode Negative Prompt"
+    },
+    "inputs": {
+      "text": "{{NEGATIVE}}",
+      "clip": [
+        "2",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "Apply Frame Rate Conditioning"
+    },
+    "inputs": {
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "frame_rate": "{{FPS}}"
+    }
+  },
+  "7": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "_meta": {
+      "title": "Create Empty Video Latent (Long)"
+    },
+    "inputs": {
+      "width": "{{WIDTH}}",
+      "height": "{{HEIGHT}}",
+      "length": "{{TOTAL_FRAMES}}",
+      "batch_size": 1
+    }
+  },
+  "10": {
+    "class_type": "LTXVScheduler",
+    "_meta": {
+      "title": "LTX Scheduler"
+    },
+    "inputs": {
+      "steps": "{{STEPS}}",
+      "max_shift": 2.05,
+      "base_shift": 0.95,
+      "stretch": true,
+      "terminal": 0.1,
+      "latent": [
+        "7",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "Random Noise"
+    },
+    "inputs": {
+      "noise_seed": "{{SEED}}"
+    }
+  },
+  "12": {
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "Select Sampler"
+    },
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "13": {
+    "class_type": "STGGuiderAdvanced",
+    "_meta": {
+      "title": "STG Guider Advanced (Required by LoopingSampler)"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "6",
+        1
+      ],
+      "skip_steps_sigma_threshold": 0.998,
+      "cfg_star_rescale": true,
+      "sigmas": "1.0, 0.9933, 0.9850, 0.9767, 0.9008, 0.6180",
+      "cfg_values": "{{CFG_VALUES}}",
+      "stg_scale_values": "{{STG_SCALE_VALUES}}",
+      "stg_rescale_values": "{{STG_RESCALE_VALUES}}",
+      "stg_layers_indices": "{{STG_LAYERS}}"
+    }
+  },
+  "14": {
+    "class_type": "LTXVLoopingSampler",
+    "_meta": {
+      "title": "Looping Sampler (Temporal Tiling)"
+    },
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "noise": [
+        "11",
+        0
+      ],
+      "sampler": [
+        "12",
+        0
+      ],
+      "sigmas": [
+        "10",
+        0
+      ],
+      "guider": [
+        "13",
+        0
+      ],
+      "latents": [
+        "7",
+        0
+      ],
+      "temporal_tile_size": "{{TEMPORAL_TILE_SIZE}}",
+      "temporal_overlap": "{{TEMPORAL_OVERLAP}}",
+      "guiding_strength": 1.0,
+      "temporal_overlap_cond_strength": 0.5,
+      "cond_image_strength": 1.0,
+      "horizontal_tiles": 1,
+      "vertical_tiles": 1,
+      "spatial_overlap": 1,
+      "adain_factor": "{{ADAIN_FACTOR}}"
+    }
+  },
+  "16": {
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "Decode Video Latent"
+    },
+    "inputs": {
+      "samples": [
+        "14",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "tile_size": 512,
+      "overlap": 64,
+      "temporal_size": 64,
+      "temporal_overlap": 8
+    }
+  },
+  "18": {
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    },
+    "inputs": {
+      "images": [
+        "16",
+        0
+      ],
+      "fps": "{{FPS}}"
+    }
+  },
+  "19": {
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    },
+    "inputs": {
+      "video": [
+        "18",
+        0
+      ],
+      "filename_prefix": "{{PREFIX}}",
+      "format": "mp4",
+      "codec": "auto"
+    }
+  }
+}

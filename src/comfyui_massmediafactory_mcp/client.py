@@ -253,6 +253,132 @@ class ComfyUIClient:
         except json.JSONDecodeError:
             return {"error": "Invalid JSON response from upload"}
 
+    # =================================================================
+    # Endpoints discovered from ComfyUI server.py (Priority 2)
+    # =================================================================
+
+    def get_embeddings(self) -> dict:
+        """List available embedding files for prompt use."""
+        return self.get("/embeddings")
+
+    def list_model_folders(self) -> dict:
+        """List all model folder types (checkpoints, loras, etc.)."""
+        return self.get("/models")
+
+    def list_models_in_folder(self, folder: str) -> dict:
+        """List models in a specific folder type (e.g., 'checkpoints', 'loras')."""
+        return self.get(f"/models/{urllib.parse.quote(folder)}")
+
+    def get_model_metadata(self, folder: str, filename: str) -> dict:
+        """Get safetensors metadata for a model file (training info, parameters)."""
+        return self.get(f"/view_metadata/{urllib.parse.quote(folder)}?filename={urllib.parse.quote(filename)}")
+
+    def get_features(self) -> dict:
+        """Get server feature flags (capabilities of this ComfyUI version)."""
+        return self.get("/features")
+
+    def get_jobs(self, status: Optional[str] = None, limit: int = 50) -> dict:
+        """
+        List jobs with optional filtering (ComfyUI 0.8+ jobs API).
+
+        Args:
+            status: Filter by status (e.g., "running", "completed", "failed").
+            limit: Max results to return.
+        """
+        params = f"limit={limit}"
+        if status:
+            params += f"&status={urllib.parse.quote(status)}"
+        return self.get(f"/api/jobs?{params}")
+
+    def get_job(self, job_id: str) -> dict:
+        """Get a single job by ID (ComfyUI 0.8+ jobs API)."""
+        return self.get(f"/api/jobs/{urllib.parse.quote(job_id)}")
+
+    def clear_history(self, prompt_ids: Optional[list] = None) -> dict:
+        """
+        Clear execution history.
+
+        Args:
+            prompt_ids: Specific prompt IDs to delete, or None to clear all.
+        """
+        if prompt_ids:
+            return self.post("/history", {"delete": prompt_ids})
+        return self.post("/history", {"clear": True})
+
+    def upload_mask(
+        self,
+        image_path: str,
+        original_ref: str,
+        filename: Optional[str] = None,
+        subfolder: str = "",
+        overwrite: bool = True,
+    ) -> dict:
+        """
+        Upload a mask image for inpainting workflows.
+
+        Args:
+            image_path: Local path to the mask image.
+            original_ref: JSON string with original image reference.
+            filename: Target filename.
+            subfolder: Subfolder within input directory.
+            overwrite: Whether to overwrite existing files.
+        """
+        path = Path(image_path)
+        if not path.exists():
+            return {"error": f"File not found: {image_path}"}
+
+        if filename is None:
+            filename = path.name
+
+        content_type, _ = mimetypes.guess_type(str(path))
+        if content_type is None:
+            content_type = "application/octet-stream"
+
+        boundary = f"----MCPBoundary{uuid4().hex}"
+        body_parts = []
+
+        # Image file
+        body_parts.append(f"--{boundary}".encode())
+        body_parts.append(f'Content-Disposition: form-data; name="image"; filename="{filename}"'.encode())
+        body_parts.append(f"Content-Type: {content_type}".encode())
+        body_parts.append(b"")
+        with open(path, "rb") as f:
+            body_parts.append(f.read())
+
+        # Original ref
+        body_parts.append(f"--{boundary}".encode())
+        body_parts.append(b'Content-Disposition: form-data; name="original_ref"')
+        body_parts.append(b"")
+        body_parts.append(original_ref.encode())
+
+        # Overwrite
+        body_parts.append(f"--{boundary}".encode())
+        body_parts.append(b'Content-Disposition: form-data; name="overwrite"')
+        body_parts.append(b"")
+        body_parts.append(b"true" if overwrite else b"false")
+
+        if subfolder:
+            body_parts.append(f"--{boundary}".encode())
+            body_parts.append(b'Content-Disposition: form-data; name="subfolder"')
+            body_parts.append(b"")
+            body_parts.append(subfolder.encode())
+
+        body_parts.append(f"--{boundary}--".encode())
+        body_parts.append(b"")
+
+        body = b"\r\n".join(body_parts)
+        url = f"{self.base_url}/upload/mask"
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.loads(resp.read())
+        except urllib.error.URLError as e:
+            return {"error": str(e)}
+        except json.JSONDecodeError:
+            return {"error": "Invalid JSON response from mask upload"}
+
     def download_file(
         self,
         filename: str,

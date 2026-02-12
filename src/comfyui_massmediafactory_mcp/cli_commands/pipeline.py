@@ -50,7 +50,7 @@ def cmd_telestyle(args):
 def register_commands(sub, add_common=_add_common_args, add_retry=_add_retry_args, **_kwargs):
     """Register pipeline subcommands."""
     p_pipe = sub.add_parser("pipeline", help="Run pre-tested pipelines")
-    p_pipe.add_argument("pipeline_name", help="Pipeline: i2v, upscale, viral-short, t2v-styled, bio-to-video")
+    p_pipe.add_argument("pipeline_name", help="Pipeline: i2v, upscale, viral-short, t2v-styled, bio-to-video, ltx-av, wan-720p, telestyle")
     p_pipe.add_argument("--model", "-m", help="Model override")
     p_pipe.add_argument("--prompt", "-p", help="Generation prompt")
     p_pipe.add_argument("--image", help="Input image")
